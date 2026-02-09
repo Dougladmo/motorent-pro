@@ -33,6 +33,7 @@ router.get('/:id', controller.getMotorcycleById);
 router.post('/', controller.createMotorcycle);
 router.post('/with-image', upload.single('image'), controller.createMotorcycleWithImage);
 router.patch('/:id', controller.updateMotorcycle);
+router.patch('/:id/image', upload.single('image'), controller.updateMotorcycleWithImage);
 router.delete('/:id', controller.deleteMotorcycle);
 
 export default router;

@@ -1,19 +1,22 @@
 {
-  "name": "backend",
+  "name": "@motorent/backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "MotoRent Pro Backend API",
+  "main": "dist/server.js",
+  "type": "commonjs",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "update-types": "supabase gen types typescript --local > src/models/database.types.ts"
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "update-types": "cd ../shared && npm run update-types"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "keywords": ["motorent", "backend", "api"],
+  "author": "MotoRent Pro",
+  "license": "MIT",
   "dependencies": {
+    "@motorent/shared": "workspace:*",
     "@supabase/supabase-js": "^2.95.3",
     "@types/multer": "^2.0.0",
     "cors": "^2.8.6",

@@ -120,6 +120,55 @@ export class MotorcycleController {
     }
   };
 
+  updateMotorcycleWithImage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      // Validar se arquivo foi enviado
+      if (!req.file) {
+        res.status(400).json({ success: false, error: 'Nenhuma imagem foi enviada' });
+        return;
+      }
+
+      // Obter moto atual para pegar URL da imagem antiga
+      const currentMotorcycle = await this.service.getMotorcycleById(id);
+      if (!currentMotorcycle) {
+        res.status(404).json({ success: false, error: 'Moto não encontrada' });
+        return;
+      }
+
+      // Upload da nova imagem
+      const newImageUrl = await this.uploadService.uploadMotorcycleImage(
+        req.file.buffer,
+        req.file.mimetype,
+        req.file.originalname
+      );
+
+      // Atualizar dados da moto
+      const updates: any = {
+        image_url: newImageUrl
+      };
+
+      // Incluir outros campos se fornecidos
+      if (req.body.plate) updates.plate = req.body.plate;
+      if (req.body.model) updates.model = req.body.model;
+      if (req.body.year) updates.year = parseInt(req.body.year);
+      if (req.body.status) updates.status = req.body.status;
+
+      const motorcycle = await this.service.updateMotorcycle(id, updates);
+
+      // Deletar imagem antiga do storage (se existir)
+      if (currentMotorcycle.image_url) {
+        await this.uploadService.deleteMotorcycleImage(currentMotorcycle.image_url);
+      }
+
+      res.json({ success: true, data: motorcycle });
+    } catch (error: any) {
+      console.error('[MotorcycleController] Error updating motorcycle with image:', error);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  };
+
   deleteMotorcycle = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;

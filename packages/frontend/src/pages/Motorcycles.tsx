@@ -15,6 +15,8 @@ export const Motorcycles: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [keepCurrentImage, setKeepCurrentImage] = useState(true);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,6 +48,9 @@ export const Motorcycles: React.FC = () => {
   const handleRemoveImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
+    if (editingMoto) {
+      setKeepCurrentImage(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,12 +79,36 @@ export const Motorcycles: React.FC = () => {
     try {
       if (editingMoto) {
         // Modo edição
-        await updateMotorcycle(editingMoto.id, {
-          plate: formatPlate(motoData.plate),
-          model: motoData.model,
-          year: motoData.year,
-          status: editingMoto.status
-        });
+        if (selectedImage) {
+          // Atualizar com nova imagem
+          const formData = new FormData();
+          formData.append('image', selectedImage);
+          formData.append('plate', formatPlate(motoData.plate));
+          formData.append('model', motoData.model);
+          formData.append('year', motoData.year.toString());
+          formData.append('status', editingMoto.status);
+
+          const response = await fetch(`http://localhost:3001/api/motorcycles/${editingMoto.id}/image`, {
+            method: 'PATCH',
+            body: formData
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Erro ao atualizar moto');
+          }
+
+          const result = await response.json();
+          updateMotorcycle(editingMoto.id, result.data);
+        } else {
+          // Atualizar sem mudar imagem
+          await updateMotorcycle(editingMoto.id, {
+            plate: formatPlate(motoData.plate),
+            model: motoData.model,
+            year: motoData.year,
+            status: editingMoto.status
+          });
+        }
       } else {
         // Modo criação
         if (selectedImage) {
@@ -132,6 +161,8 @@ export const Motorcycles: React.FC = () => {
 
   const handleEditClick = (moto: Motorcycle) => {
     setEditingMoto(moto);
+    setKeepCurrentImage(true);
+    setImagePreview(moto.imageUrl || null);
     setIsModalOpen(true);
   };
 
@@ -141,6 +172,7 @@ export const Motorcycles: React.FC = () => {
     setNewMoto({ plate: '', model: '', year: new Date().getFullYear() });
     setSelectedImage(null);
     setImagePreview(null);
+    setKeepCurrentImage(true);
   };
 
   return (
@@ -167,7 +199,8 @@ export const Motorcycles: React.FC = () => {
                     <img
                         src={moto.imageUrl}
                         alt={moto.model}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+                        onClick={() => setFullscreenImage(moto.imageUrl!)}
                     />
                 ) : (
                     <Bike size={48} className="text-slate-300" />
@@ -211,6 +244,28 @@ export const Motorcycles: React.FC = () => {
         ))}
       </div>
 
+      {/* Modal de Visualização Fullscreen */}
+      {fullscreenImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button
+            onClick={() => setFullscreenImage(null)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+            title="Fechar"
+          >
+            <X size={32} />
+          </button>
+          <img
+            src={fullscreenImage}
+            alt="Visualização"
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingMoto ? 'Editar Moto' : 'Adicionar Nova Moto'}>
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -228,10 +283,11 @@ export const Motorcycles: React.FC = () => {
                 />
             </div>
 
-            {/* Upload de Imagem (apenas no modo criação) */}
-            {!editingMoto && (
+            {/* Upload de Imagem */}
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Foto da Moto</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                    {editingMoto ? 'Alterar Foto da Moto' : 'Foto da Moto'}
+                </label>
 
                 {imagePreview ? (
                     <div className="relative">
@@ -248,11 +304,18 @@ export const Motorcycles: React.FC = () => {
                         >
                             <X size={16} />
                         </button>
+                        {editingMoto && selectedImage && (
+                            <div className="absolute bottom-2 left-2 bg-blue-500 text-white px-2 py-1 rounded text-xs">
+                                Nova imagem selecionada
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
                         <Upload className="text-slate-400 mb-2" size={32} />
-                        <span className="text-sm text-slate-500">Clique para selecionar uma foto</span>
+                        <span className="text-sm text-slate-500">
+                            {editingMoto ? 'Clique para alterar a foto' : 'Clique para selecionar uma foto'}
+                        </span>
                         <span className="text-xs text-slate-400 mt-1">JPEG, PNG ou WEBP (máx. 5MB)</span>
                         <input
                             type="file"
@@ -263,7 +326,6 @@ export const Motorcycles: React.FC = () => {
                     </label>
                 )}
             </div>
-            )}
 
             <div className="grid grid-cols-2 gap-4">
                 <div>
