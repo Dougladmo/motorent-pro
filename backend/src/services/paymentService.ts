@@ -26,6 +26,51 @@ export class PaymentService {
     return this.paymentRepo.findByStatus(status);
   }
 
+  async updatePayment(
+    paymentId: string,
+    updates: { amount?: number; due_date?: string }
+  ): Promise<Payment> {
+    const payment = await this.paymentRepo.findById(paymentId);
+    if (!payment) {
+      throw new Error('Pagamento não encontrado');
+    }
+
+    // Validação: não permitir edição de pagamentos pagos ou cancelados
+    if (payment.status === 'Pago') {
+      throw new Error('Não é possível editar pagamento já marcado como pago');
+    }
+
+    if (payment.status === 'Cancelado') {
+      throw new Error('Não é possível editar pagamento cancelado');
+    }
+
+    // Atualizar apenas os campos fornecidos
+    const dataToUpdate: Partial<Payment> = {};
+
+    if (updates.amount !== undefined) {
+      dataToUpdate.amount = updates.amount;
+      dataToUpdate.is_amount_overridden = updates.amount !== payment.expected_amount;
+    }
+
+    if (updates.due_date !== undefined) {
+      dataToUpdate.due_date = updates.due_date;
+
+      // Recalcular status baseado na nova data
+      const today = new Date().toISOString().split('T')[0];
+      if (updates.due_date < today && payment.status !== 'Atrasado') {
+        dataToUpdate.status = 'Atrasado';
+      } else if (updates.due_date >= today && payment.status === 'Atrasado') {
+        dataToUpdate.status = 'Pendente';
+      }
+    }
+
+    const updated = await this.paymentRepo.update(paymentId, dataToUpdate);
+
+    console.log(`[PaymentService] Pagamento ${paymentId} atualizado:`, dataToUpdate);
+
+    return updated;
+  }
+
   async markAsPaid(paymentId: string, verifiedAmount?: number): Promise<Payment> {
     const payment = await this.paymentRepo.findById(paymentId);
     if (!payment) {

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { MotorcycleStatus } from '../types';
-import { Plus, User, Key, Check, XCircle } from 'lucide-react';
+import { MotorcycleStatus, Subscriber } from '../types';
+import { Plus, User, Key, Check, XCircle, Edit2 } from 'lucide-react';
 import { WEEK_DAYS } from '../constants';
 import { validatePhone, validateCPF, validatePositiveNumber } from '../utils/validators';
 import { formatPhone, formatCPF } from '../utils/formatters';
 
 export const Subscribers: React.FC = () => {
-  const { subscribers, motorcycles, addSubscriber, createRental, rentals, deleteSubscriber, terminateRental } = useApp();
-  const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'NEW_RENTAL'>('LIST');
+  const { subscribers, motorcycles, addSubscriber, updateSubscriber, createRental, rentals, deleteSubscriber, terminateRental } = useApp();
+  const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'EDIT_SUB' | 'NEW_RENTAL'>('LIST');
+  const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
 
   // Log para debug
   console.log('👥 [SUBSCRIBERS PAGE] Renderizando com:', {
@@ -28,7 +29,7 @@ export const Subscribers: React.FC = () => {
     contractDurationMonths: 12 // Duração padrão: 1 ano
   });
 
-  const handleCreateSubscriber = (e: React.FormEvent) => {
+  const handleCreateSubscriber = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate inputs
@@ -48,13 +49,36 @@ export const Subscribers: React.FC = () => {
     }
 
     try {
-      addSubscriber({ ...subForm, active: true });
+      if (editingSubscriber) {
+        // Modo edição
+        await updateSubscriber(editingSubscriber.id, {
+          name: subForm.name,
+          phone: subForm.phone,
+          document: subForm.document,
+          active: true
+        });
+      } else {
+        // Modo criação
+        await addSubscriber({ ...subForm, active: true });
+      }
+
       setView('LIST');
+      setEditingSubscriber(null);
       setSubForm({ name: '', phone: '', document: '' });
     } catch (error) {
-      console.error('Erro ao criar assinante:', error);
-      alert('Erro ao criar assinante. Tente novamente.');
+      console.error('Erro ao salvar assinante:', error);
+      alert('Erro ao salvar assinante. Tente novamente.');
     }
+  };
+
+  const handleEditClick = (subscriber: Subscriber) => {
+    setEditingSubscriber(subscriber);
+    setSubForm({
+      name: subscriber.name,
+      phone: subscriber.phone,
+      document: subscriber.document
+    });
+    setView('EDIT_SUB');
   };
 
   const handleCreateRental = async (e: React.FormEvent) => {
@@ -191,6 +215,16 @@ export const Subscribers: React.FC = () => {
                             </div>
                             <h3 className="text-lg font-bold text-slate-800">{sub.name}</h3>
                             <p className="text-sm text-slate-500 mt-1">{sub.phone}</p>
+
+                            {/* Botão de editar */}
+                            <button
+                                onClick={() => handleEditClick(sub)}
+                                className="mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors text-sm flex items-center gap-1.5"
+                            >
+                                <Edit2 size={14} />
+                                Editar Dados
+                            </button>
+
                             <div className="mt-4 pt-4 border-t border-slate-50">
                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Motos Alugadas</p>
                                 {activeRentals.length > 0 ? (
@@ -248,9 +282,11 @@ export const Subscribers: React.FC = () => {
         </div>
       )}
 
-      {view === 'NEW_SUB' && (
+      {(view === 'NEW_SUB' || view === 'EDIT_SUB') && (
          <div className="bg-white max-w-2xl mx-auto p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
-             <h3 className="text-xl font-bold text-slate-800 mb-6">Cadastrar Assinante</h3>
+             <h3 className="text-xl font-bold text-slate-800 mb-6">
+                {editingSubscriber ? 'Editar Assinante' : 'Cadastrar Assinante'}
+             </h3>
              <form onSubmit={handleCreateSubscriber} className="space-y-5">
                 <div>
                     <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
@@ -291,8 +327,20 @@ export const Subscribers: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex justify-end gap-3 pt-4">
-                    <button type="button" onClick={() => setView('LIST')} className="px-6 py-2 text-slate-600 font-medium">Cancelar</button>
-                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">Salvar</button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setView('LIST');
+                            setEditingSubscriber(null);
+                            setSubForm({ name: '', phone: '', document: '' });
+                        }}
+                        className="px-6 py-2 text-slate-600 font-medium"
+                    >
+                        Cancelar
+                    </button>
+                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">
+                        {editingSubscriber ? 'Atualizar' : 'Salvar'}
+                    </button>
                 </div>
              </form>
          </div>

@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { MotorcycleStatus } from '../types';
-import { Plus, Bike, MoreVertical, Trash2, Upload, X } from 'lucide-react';
+import { MotorcycleStatus, Motorcycle } from '../types';
+import { Plus, Bike, MoreVertical, Trash2, Upload, X, Edit2 } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
 import { validatePlate, validateYear } from '../utils/validators';
 import { formatPlate } from '../utils/formatters';
 
 export const Motorcycles: React.FC = () => {
-  const { motorcycles, addMotorcycle, deleteMotorcycle } = useApp();
+  const { motorcycles, addMotorcycle, updateMotorcycle, deleteMotorcycle } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMoto, setEditingMoto] = useState<Motorcycle | null>(null);
   const [newMoto, setNewMoto] = useState({ plate: '', model: '', year: 2024 });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -50,18 +51,20 @@ export const Motorcycles: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const motoData = editingMoto || newMoto;
+
     // Validate inputs
-    if (!validatePlate(newMoto.plate)) {
+    if (!validatePlate(motoData.plate)) {
       alert('Placa inválida. Use o formato ABC-1234 ou ABC1D23.');
       return;
     }
 
-    if (!validateYear(newMoto.year)) {
+    if (!validateYear(motoData.year)) {
       alert('Ano inválido.');
       return;
     }
 
-    if (!newMoto.model.trim()) {
+    if (!motoData.model.trim()) {
       alert('Modelo é obrigatório.');
       return;
     }
@@ -69,50 +72,75 @@ export const Motorcycles: React.FC = () => {
     setIsUploading(true);
 
     try {
-      if (selectedImage) {
-        // Criar FormData para enviar com imagem
-        const formData = new FormData();
-        formData.append('image', selectedImage);
-        formData.append('plate', formatPlate(newMoto.plate));
-        formData.append('model', newMoto.model);
-        formData.append('year', newMoto.year.toString());
-        formData.append('status', MotorcycleStatus.AVAILABLE);
-
-        // Enviar para API
-        const response = await fetch('http://localhost:3001/api/motorcycles/with-image', {
-          method: 'POST',
-          body: formData
+      if (editingMoto) {
+        // Modo edição
+        await updateMotorcycle(editingMoto.id, {
+          plate: formatPlate(motoData.plate),
+          model: motoData.model,
+          year: motoData.year,
+          status: editingMoto.status
         });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Erro ao criar moto');
-        }
-
-        const result = await response.json();
-
-        // Adicionar moto ao estado global
-        addMotorcycle(result.data);
       } else {
-        // Criar sem imagem (comportamento original)
-        addMotorcycle({
-          ...newMoto,
-          plate: formatPlate(newMoto.plate),
-          status: MotorcycleStatus.AVAILABLE
-        });
+        // Modo criação
+        if (selectedImage) {
+          // Criar FormData para enviar com imagem
+          const formData = new FormData();
+          formData.append('image', selectedImage);
+          formData.append('plate', formatPlate(newMoto.plate));
+          formData.append('model', newMoto.model);
+          formData.append('year', newMoto.year.toString());
+          formData.append('status', MotorcycleStatus.AVAILABLE);
+
+          // Enviar para API
+          const response = await fetch('http://localhost:3001/api/motorcycles/with-image', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Erro ao criar moto');
+          }
+
+          const result = await response.json();
+
+          // Adicionar moto ao estado global
+          addMotorcycle(result.data);
+        } else {
+          // Criar sem imagem (comportamento original)
+          addMotorcycle({
+            ...newMoto,
+            plate: formatPlate(newMoto.plate),
+            status: MotorcycleStatus.AVAILABLE
+          });
+        }
       }
 
       // Reset form
       setIsModalOpen(false);
+      setEditingMoto(null);
       setNewMoto({ plate: '', model: '', year: new Date().getFullYear() });
       setSelectedImage(null);
       setImagePreview(null);
     } catch (error) {
-      console.error('Erro ao adicionar moto:', error);
-      alert(`Erro ao adicionar moto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      console.error('Erro ao salvar moto:', error);
+      alert(`Erro ao salvar moto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleEditClick = (moto: Motorcycle) => {
+    setEditingMoto(moto);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingMoto(null);
+    setNewMoto({ plate: '', model: '', year: new Date().getFullYear() });
+    setSelectedImage(null);
+    setImagePreview(null);
   };
 
   return (
@@ -155,7 +183,15 @@ export const Motorcycles: React.FC = () => {
                     <span>{moto.year}</span>
                 </div>
                 
-                <div className="mt-4 pt-4 border-t border-slate-50 flex justify-end">
+                <div className="mt-4 pt-4 border-t border-slate-50 flex justify-end gap-2">
+                    <button
+                        onClick={() => handleEditClick(moto)}
+                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors text-sm flex items-center gap-1"
+                        title="Editar moto"
+                    >
+                        <Edit2 size={16} />
+                        Editar
+                    </button>
                     <button
                         onClick={() => {
                           if (window.confirm('Tem certeza que deseja excluir esta moto?')) {
@@ -175,7 +211,7 @@ export const Motorcycles: React.FC = () => {
         ))}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Adicionar Nova Moto">
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingMoto ? 'Editar Moto' : 'Adicionar Nova Moto'}>
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
                 <label htmlFor="model" className="block text-sm font-medium text-slate-700 mb-1">Modelo</label>
@@ -184,13 +220,16 @@ export const Motorcycles: React.FC = () => {
                     required
                     type="text"
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    value={newMoto.model}
-                    onChange={e => setNewMoto({...newMoto, model: e.target.value})}
+                    value={editingMoto?.model || newMoto.model}
+                    onChange={e => editingMoto
+                      ? setEditingMoto({...editingMoto, model: e.target.value})
+                      : setNewMoto({...newMoto, model: e.target.value})}
                     placeholder="Ex: Honda CG 160 Fan"
                 />
             </div>
 
-            {/* Upload de Imagem */}
+            {/* Upload de Imagem (apenas no modo criação) */}
+            {!editingMoto && (
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Foto da Moto</label>
 
@@ -224,6 +263,7 @@ export const Motorcycles: React.FC = () => {
                     </label>
                 )}
             </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -233,8 +273,10 @@ export const Motorcycles: React.FC = () => {
                         required
                         type="text"
                         className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none uppercase"
-                        value={newMoto.plate}
-                        onChange={e => setNewMoto({...newMoto, plate: formatPlate(e.target.value)})}
+                        value={editingMoto?.plate || newMoto.plate}
+                        onChange={e => editingMoto
+                          ? setEditingMoto({...editingMoto, plate: formatPlate(e.target.value)})
+                          : setNewMoto({...newMoto, plate: formatPlate(e.target.value)})}
                         placeholder="ABC-1234"
                         maxLength={8}
                     />
@@ -246,8 +288,10 @@ export const Motorcycles: React.FC = () => {
                         required
                         type="number"
                         className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        value={newMoto.year}
-                        onChange={e => setNewMoto({...newMoto, year: parseInt(e.target.value) || new Date().getFullYear()})}
+                        value={editingMoto?.year || newMoto.year}
+                        onChange={e => editingMoto
+                          ? setEditingMoto({...editingMoto, year: parseInt(e.target.value) || new Date().getFullYear()})
+                          : setNewMoto({...newMoto, year: parseInt(e.target.value) || new Date().getFullYear()})}
                         min={1900}
                         max={new Date().getFullYear() + 1}
                     />
@@ -256,7 +300,7 @@ export const Motorcycles: React.FC = () => {
             <div className="flex justify-end gap-3 mt-6">
                 <button
                     type="button"
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={handleCloseModal}
                     className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
                     disabled={isUploading}
                 >
@@ -270,10 +314,10 @@ export const Motorcycles: React.FC = () => {
                     {isUploading ? (
                         <>
                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                            Salvando...
+                            {editingMoto ? 'Atualizando...' : 'Salvando...'}
                         </>
                     ) : (
-                        'Salvar'
+                        editingMoto ? 'Atualizar' : 'Salvar'
                     )}
                 </button>
             </div>

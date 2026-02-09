@@ -1,19 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { PaymentStatus, Payment } from '../types';
-import { MessageCircle, Check, AlertTriangle, Filter, Search, AlertCircle, RotateCcw, Calendar, CalendarRange } from 'lucide-react';
+import { MessageCircle, Check, AlertTriangle, Filter, Search, AlertCircle, RotateCcw, Calendar, CalendarRange, Edit2 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { Modal } from '../components/Modal';
 
 type FilterType = PaymentStatus | 'ALL' | 'CURRENT_WEEK' | 'DATE_RANGE';
 
 export const Payments: React.FC = () => {
-  const { payments, rentals, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid } = useApp();
+  const { payments, rentals, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid, updatePayment } = useApp();
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [editForm, setEditForm] = useState({ amount: 0, dueDate: '' });
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Calcula início e fim da semana atual (segunda a domingo)
   const getCurrentWeekRange = () => {
@@ -55,6 +59,39 @@ export const Payments: React.FC = () => {
       alert('✅ Pagamento revertido com sucesso!');
     } catch (error: any) {
       alert(`❌ Erro: ${error.message}`);
+    }
+  };
+
+  const handleEditClick = (payment: Payment) => {
+    setEditingPayment(payment);
+    setEditForm({
+      amount: payment.amount,
+      dueDate: payment.dueDate
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!editingPayment) return;
+
+    if (editForm.amount <= 0) {
+      alert('Valor deve ser maior que zero.');
+      return;
+    }
+
+    try {
+      await updatePayment(editingPayment.id, {
+        amount: editForm.amount,
+        dueDate: editForm.dueDate
+      });
+
+      setIsModalOpen(false);
+      setEditingPayment(null);
+      alert('✅ Pagamento atualizado com sucesso!');
+    } catch (error: any) {
+      alert(`❌ Erro ao atualizar pagamento: ${error.message}`);
     }
   };
 
@@ -323,8 +360,15 @@ export const Payments: React.FC = () => {
                             <StatusBadge status={payment.status} />
                         </td>
                         <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                            {payment.status !== PaymentStatus.PAID && (
+                            {payment.status !== PaymentStatus.PAID && payment.status !== PaymentStatus.CANCELLED && (
                                 <>
+                                    <button
+                                        onClick={() => handleEditClick(payment)}
+                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="Editar Pagamento"
+                                    >
+                                        <Edit2 size={18} />
+                                    </button>
                                     <button
                                         onClick={() => handleSendReminder(payment.id)}
                                         disabled={sendingId === payment.id}
@@ -381,6 +425,89 @@ export const Payments: React.FC = () => {
             </tbody>
         </table>
       </div>
+
+      {/* Modal de Edição */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingPayment(null);
+        }}
+        title="Editar Pagamento"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="subscriberName" className="block text-sm font-medium text-slate-700 mb-1">
+              Assinante
+            </label>
+            <input
+              id="subscriberName"
+              type="text"
+              value={editingPayment?.subscriberName || ''}
+              disabled
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 text-slate-500 cursor-not-allowed"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="amount" className="block text-sm font-medium text-slate-700 mb-1">
+                Valor (R$)
+              </label>
+              <input
+                id="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={editForm.amount}
+                onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="dueDate" className="block text-sm font-medium text-slate-700 mb-1">
+                Vencimento
+              </label>
+              <input
+                id="dueDate"
+                type="date"
+                required
+                value={editForm.dueDate}
+                onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex gap-2 text-sm text-yellow-800">
+            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+            <p>
+              Editar valores e datas pode afetar relatórios. Use com cautela e apenas quando necessário.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingPayment(null);
+              }}
+              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+            >
+              Atualizar
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

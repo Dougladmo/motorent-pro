@@ -26,6 +26,7 @@ const controller = new PaymentController(paymentService);
 router.get('/', controller.getAllPayments);
 router.get('/validate', controller.validateIntegrity);
 router.get('/:id', controller.getPaymentById);
+router.patch('/:id', controller.updatePayment);
 router.patch('/:id/mark-paid', controller.markAsPaid);
 router.patch('/:id/mark-unpaid', controller.markAsUnpaid);
 router.post('/:id/send-reminder', controller.sendReminder);

@@ -48,6 +48,42 @@ export class PaymentController {
     }
   };
 
+  updatePayment = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params as { id: string };
+      const { amount, due_date } = req.body;
+
+      const updates: { amount?: number; due_date?: string } = {};
+
+      if (amount !== undefined) {
+        if (typeof amount !== 'number' || amount <= 0) {
+          res.status(400).json({ success: false, error: 'Valor inválido' });
+          return;
+        }
+        updates.amount = amount;
+      }
+
+      if (due_date !== undefined) {
+        if (typeof due_date !== 'string' || !due_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          res.status(400).json({ success: false, error: 'Data inválida. Use formato YYYY-MM-DD' });
+          return;
+        }
+        updates.due_date = due_date;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        res.status(400).json({ success: false, error: 'Nenhum campo para atualizar' });
+        return;
+      }
+
+      const payment = await this.service.updatePayment(id, updates);
+      res.json({ success: true, data: payment });
+    } catch (error: any) {
+      console.error('[PaymentController] Error updating payment:', error);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  };
+
   markAsPaid = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };

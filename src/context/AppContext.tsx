@@ -26,9 +26,12 @@ interface AppContextType {
   error: string | null;
   refreshData: () => Promise<void>;
   addMotorcycle: (moto: Omit<Motorcycle, 'id'>) => Promise<void>;
+  updateMotorcycle: (id: string, updates: Partial<Motorcycle>) => Promise<void>;
   updateMotorcycleStatus: (id: string, status: MotorcycleStatus) => Promise<void>;
   addSubscriber: (sub: Omit<Subscriber, 'id'>) => Promise<void>;
+  updateSubscriber: (id: string, updates: Partial<Subscriber>) => Promise<void>;
   createRental: (rental: Omit<Rental, 'id'>) => Promise<void>;
+  updatePayment: (id: string, updates: { amount?: number; dueDate?: string }) => Promise<void>;
   markPaymentAsPaid: (id: string, verifiedAmount?: number) => Promise<void>;
   sendReminder: (paymentId: string) => Promise<boolean>;
   deleteMotorcycle: (id: string) => Promise<void>;
@@ -196,6 +199,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateMotorcycle = async (id: string, updates: Partial<Motorcycle>) => {
+    try {
+      console.log('🔄 [UPDATE MOTO] Enviando:', toSnakeCase(updates));
+      const updated = await motorcycleApi.update(id, toSnakeCase(updates));
+      console.log('✅ [UPDATE MOTO] Recebido:', updated);
+
+      const transformed = transformMotorcycle(updated);
+      setMotorcycles(prev => prev.map(m => m.id === id ? transformed : m));
+
+      // Refresh para garantir sincronização
+      setTimeout(() => refreshData(), 500);
+    } catch (error: any) {
+      console.error('❌ [UPDATE MOTO] Erro:', error);
+      throw new Error(error.response?.data?.error || error.message);
+    }
+  };
+
   const updateMotorcycleStatus = async (id: string, status: MotorcycleStatus) => {
     try {
       const updated = await motorcycleApi.update(id, { status });
@@ -231,6 +251,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTimeout(() => refreshData(), 500);
     } catch (error: any) {
       console.error('❌ [CREATE SUBSCRIBER] Erro:', error);
+      throw new Error(error.response?.data?.error || error.message);
+    }
+  };
+
+  const updateSubscriber = async (id: string, updates: Partial<Subscriber>) => {
+    try {
+      console.log('🔄 [UPDATE SUBSCRIBER] Enviando:', toSnakeCase(updates));
+      const updated = await subscriberApi.update(id, toSnakeCase(updates));
+      console.log('✅ [UPDATE SUBSCRIBER] Recebido:', updated);
+
+      const transformed = transformSubscriber(updated);
+      setSubscribers(prev => prev.map(s => s.id === id ? transformed : s));
+
+      // Refresh para garantir sincronização
+      setTimeout(() => refreshData(), 500);
+    } catch (error: any) {
+      console.error('❌ [UPDATE SUBSCRIBER] Erro:', error);
       throw new Error(error.response?.data?.error || error.message);
     }
   };
@@ -305,6 +342,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error: any) {
       console.error('❌ Erro ao rescindir contrato:', error);
       throw new Error(error.response?.data?.error || error.message);
+    }
+  };
+
+  const updatePayment = async (id: string, updates: { amount?: number; dueDate?: string }) => {
+    try {
+      console.log('🔄 [UPDATE PAYMENT] Enviando:', updates);
+
+      // Usar a API de payments com patch genérico
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payments/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: updates.amount,
+          due_date: updates.dueDate,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao atualizar pagamento');
+      }
+
+      const result = await response.json();
+      console.log('✅ [UPDATE PAYMENT] Recebido:', result);
+
+      const transformed = transformPayment(result.data);
+      setPayments(prev => prev.map(p => p.id === id ? transformed : p));
+
+      // Refresh para garantir sincronização
+      setTimeout(() => refreshData(), 500);
+    } catch (error: any) {
+      console.error('❌ [UPDATE PAYMENT] Erro:', error);
+      throw new Error(error.message || 'Erro ao atualizar pagamento');
     }
   };
 
@@ -404,9 +476,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       error,
       refreshData,
       addMotorcycle,
+      updateMotorcycle,
       updateMotorcycleStatus,
       addSubscriber,
+      updateSubscriber,
       createRental,
+      updatePayment,
       markPaymentAsPaid,
       sendReminder,
       deleteMotorcycle,
