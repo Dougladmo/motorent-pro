@@ -88,7 +88,7 @@ export const Motorcycles: React.FC = () => {
           formData.append('year', motoData.year.toString());
           formData.append('status', editingMoto.status);
 
-          const response = await fetch(`http://localhost:3001/api/motorcycles/${editingMoto.id}/image`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/motorcycles/${editingMoto.id}/image`, {
             method: 'PATCH',
             body: formData
           });
@@ -121,7 +121,7 @@ export const Motorcycles: React.FC = () => {
           formData.append('status', MotorcycleStatus.AVAILABLE);
 
           // Enviar para API
-          const response = await fetch('http://localhost:3001/api/motorcycles/with-image', {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/motorcycles/with-image`, {
             method: 'POST',
             body: formData
           });
