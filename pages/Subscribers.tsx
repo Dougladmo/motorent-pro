@@ -1,0 +1,279 @@
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { MotorcycleStatus } from '../types';
+import { Plus, User, Key, Check } from 'lucide-react';
+import { WEEK_DAYS } from '../constants';
+import { validatePhone, validateCPF, validatePositiveNumber } from '../utils/validators';
+import { formatPhone, formatCPF } from '../utils/formatters';
+
+export const Subscribers: React.FC = () => {
+  const { subscribers, motorcycles, addSubscriber, createRental, rentals, deleteSubscriber } = useApp();
+  const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'NEW_RENTAL'>('LIST');
+  
+  // Forms state
+  const [subForm, setSubForm] = useState({ name: '', phone: '', document: '' });
+  const [rentalForm, setRentalForm] = useState({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1 });
+
+  const handleCreateSubscriber = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate inputs
+    if (!subForm.name.trim()) {
+      alert('Nome é obrigatório.');
+      return;
+    }
+
+    if (!validatePhone(subForm.phone)) {
+      alert('Telefone inválido. Use o formato (00) 00000-0000.');
+      return;
+    }
+
+    if (subForm.document && !validateCPF(subForm.document)) {
+      alert('CPF inválido.');
+      return;
+    }
+
+    try {
+      addSubscriber({ ...subForm, active: true });
+      setView('LIST');
+      setSubForm({ name: '', phone: '', document: '' });
+    } catch (error) {
+      console.error('Erro ao criar assinante:', error);
+      alert('Erro ao criar assinante. Tente novamente.');
+    }
+  };
+
+  const handleCreateRental = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate inputs
+    if (!rentalForm.subscriberId) {
+      alert('Selecione um assinante.');
+      return;
+    }
+
+    if (!rentalForm.motorcycleId) {
+      alert('Selecione uma moto.');
+      return;
+    }
+
+    if (!validatePositiveNumber(rentalForm.weeklyValue)) {
+      alert('Valor semanal deve ser maior que zero.');
+      return;
+    }
+
+    try {
+      createRental({
+          ...rentalForm,
+          startDate: new Date().toISOString().split('T')[0],
+          isActive: true
+      });
+      setView('LIST');
+      setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1 });
+    } catch (error) {
+      console.error('Erro ao criar aluguel:', error);
+      alert('Erro ao criar aluguel. Tente novamente.');
+    }
+  };
+
+  const availableBikes = motorcycles.filter(m => m.status === MotorcycleStatus.AVAILABLE);
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Assinantes</h2>
+          <p className="text-slate-500">Gestão de clientes e contratos.</p>
+        </div>
+        <div className="flex gap-3">
+             <button 
+                onClick={() => setView('NEW_RENTAL')}
+                disabled={availableBikes.length === 0}
+                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium disabled:opacity-50"
+            >
+                <Key size={18} />
+                Novo Aluguel
+            </button>
+            <button 
+                onClick={() => setView('NEW_SUB')}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-blue-900/20"
+            >
+                <Plus size={18} />
+                Novo Assinante
+            </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      {view === 'LIST' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {subscribers.map(sub => {
+                const activeRentals = rentals.filter(r => r.subscriberId === sub.id && r.isActive);
+                return (
+                    <div key={sub.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-start justify-between">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-4">
+                                    <User size={24} />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                      if (window.confirm(`Tem certeza que deseja excluir ${sub.name}?`)) {
+                                        deleteSubscriber(sub.id);
+                                      }
+                                    }}
+                                    className="text-slate-400 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={activeRentals.length > 0}
+                                    title={activeRentals.length > 0 ? 'Não é possível excluir assinante com aluguéis ativos' : 'Excluir assinante'}
+                                    aria-label="Excluir assinante"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-800">{sub.name}</h3>
+                            <p className="text-sm text-slate-500 mt-1">{sub.phone}</p>
+                            <div className="mt-4 pt-4 border-t border-slate-50">
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Motos Alugadas</p>
+                                {activeRentals.length > 0 ? (
+                                    <ul className="space-y-1">
+                                        {activeRentals.map(r => {
+                                            const bike = motorcycles.find(m => m.id === r.motorcycleId);
+                                            return (
+                                                <li key={r.id} className="text-sm bg-blue-50 text-blue-700 px-2 py-1 rounded inline-block w-full">
+                                                    {bike?.model} <span className="text-blue-400">|</span> {bike?.plate}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                ) : (
+                                    <p className="text-sm text-slate-400 italic">Nenhum aluguel ativo.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+      )}
+
+      {view === 'NEW_SUB' && (
+         <div className="bg-white max-w-2xl mx-auto p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
+             <h3 className="text-xl font-bold text-slate-800 mb-6">Cadastrar Assinante</h3>
+             <form onSubmit={handleCreateSubscriber} className="space-y-5">
+                <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
+                    <input
+                        id="name"
+                        required
+                        type="text"
+                        value={subForm.name}
+                        onChange={e => setSubForm({...subForm, name: e.target.value})}
+                        className="w-full border border-slate-300 rounded-lg p-3"
+                        placeholder="Ex: João Silva"
+                    />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
+                        <input
+                            id="phone"
+                            required
+                            type="tel"
+                            placeholder="(00) 00000-0000"
+                            value={formatPhone(subForm.phone)}
+                            onChange={e => setSubForm({...subForm, phone: e.target.value.replace(/\D/g, '')})}
+                            className="w-full border border-slate-300 rounded-lg p-3"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="document" className="block text-sm font-medium text-slate-700 mb-1">CPF</label>
+                        <input
+                            id="document"
+                            type="text"
+                            value={formatCPF(subForm.document)}
+                            onChange={e => setSubForm({...subForm, document: e.target.value.replace(/\D/g, '')})}
+                            className="w-full border border-slate-300 rounded-lg p-3"
+                            placeholder="000.000.000-00"
+                            maxLength={14}
+                        />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={() => setView('LIST')} className="px-6 py-2 text-slate-600 font-medium">Cancelar</button>
+                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">Salvar</button>
+                </div>
+             </form>
+         </div>
+      )}
+
+      {view === 'NEW_RENTAL' && (
+         <div className="bg-white max-w-2xl mx-auto p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
+             <h3 className="text-xl font-bold text-slate-800 mb-6">Novo Contrato de Aluguel</h3>
+             <form onSubmit={handleCreateRental} className="space-y-5">
+                <div>
+                    <label htmlFor="subscriber" className="block text-sm font-medium text-slate-700 mb-1">Assinante</label>
+                    <select
+                        id="subscriber"
+                        required
+                        value={rentalForm.subscriberId}
+                        onChange={e => setRentalForm({...rentalForm, subscriberId: e.target.value})}
+                        className="w-full border border-slate-300 rounded-lg p-3 bg-white"
+                    >
+                        <option value="">Selecione...</option>
+                        {subscribers.map(s => <option key={s.id} value={s.id}>{s.name} ({formatCPF(s.document)})</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="motorcycle" className="block text-sm font-medium text-slate-700 mb-1">Moto Disponível</label>
+                    <select
+                        id="motorcycle"
+                        required
+                        value={rentalForm.motorcycleId}
+                        onChange={e => setRentalForm({...rentalForm, motorcycleId: e.target.value})}
+                        className="w-full border border-slate-300 rounded-lg p-3 bg-white"
+                    >
+                        <option value="">Selecione...</option>
+                        {availableBikes.map(m => <option key={m.id} value={m.id}>{m.model} - {m.plate}</option>)}
+                    </select>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label htmlFor="weeklyValue" className="block text-sm font-medium text-slate-700 mb-1">Valor Semanal (R$)</label>
+                        <input
+                            id="weeklyValue"
+                            required
+                            type="number"
+                            value={rentalForm.weeklyValue}
+                            onChange={e => setRentalForm({...rentalForm, weeklyValue: Number(e.target.value)})}
+                            className="w-full border border-slate-300 rounded-lg p-3"
+                            min={0}
+                            step={0.01}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="dueDay" className="block text-sm font-medium text-slate-700 mb-1">Dia de Vencimento</label>
+                        <select
+                            id="dueDay"
+                            required
+                            value={rentalForm.dueDayOfWeek}
+                            onChange={e => setRentalForm({...rentalForm, dueDayOfWeek: Number(e.target.value)})}
+                            className="w-full border border-slate-300 rounded-lg p-3 bg-white"
+                        >
+                            {WEEK_DAYS.map((day, idx) => <option key={idx} value={idx}>{day}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-sm text-blue-800">
+                    <Check className="shrink-0" size={20} />
+                    <p>Ao salvar, uma cobrança inicial será gerada automaticamente e o status da moto mudará para "Alugada".</p>
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={() => setView('LIST')} className="px-6 py-2 text-slate-600 font-medium">Cancelar</button>
+                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">Criar Aluguel</button>
+                </div>
+             </form>
+         </div>
+      )}
+    </div>
+  );
+};

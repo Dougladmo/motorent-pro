@@ -1,0 +1,5 @@
+{
+  "name": "MotoRent Pro",
+  "description": "Sistema profissional de gestão para aluguel de motos com automação de cobranças semanais e integração visual de status de WhatsApp.",
+  "requestFramePermissions": []
+}
