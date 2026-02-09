@@ -27,7 +27,7 @@ export class RentalController {
   getRentalById = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const rental = await this.service.getRentalById(id);
+      const rental = await this.service.getRentalById(id as string);
 
       if (!rental) {
         res.status(404).json({ success: false, error: 'Aluguel não encontrado' });
@@ -44,7 +44,7 @@ export class RentalController {
   getRentalsByMotorcycleId = async (req: Request, res: Response): Promise<void> => {
     try {
       const { motorcycleId } = req.params;
-      const rentals = await this.service.getRentalsByMotorcycleId(motorcycleId);
+      const rentals = await this.service.getRentalsByMotorcycleId(motorcycleId as string);
       res.json({ success: true, data: rentals });
     } catch (error: any) {
       console.error('[RentalController] Error fetching rentals by motorcycle:', error);
@@ -55,7 +55,7 @@ export class RentalController {
   getRentalsBySubscriberId = async (req: Request, res: Response): Promise<void> => {
     try {
       const { subscriberId } = req.params;
-      const rentals = await this.service.getRentalsBySubscriberId(subscriberId);
+      const rentals = await this.service.getRentalsBySubscriberId(subscriberId as string);
       res.json({ success: true, data: rentals });
     } catch (error: any) {
       console.error('[RentalController] Error fetching rentals by subscriber:', error);
@@ -78,7 +78,7 @@ export class RentalController {
     try {
       const { id } = req.params;
       const updates = req.body;
-      const rental = await this.service.updateRental(id, updates);
+      const rental = await this.service.updateRental(id as string, updates);
       res.json({ success: true, data: rental });
     } catch (error: any) {
       console.error('[RentalController] Error updating rental:', error);
@@ -89,7 +89,7 @@ export class RentalController {
   deleteRental = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      await this.service.deleteRental(id);
+      await this.service.deleteRental(id as string);
       res.json({ success: true, message: 'Aluguel deletado com sucesso' });
     } catch (error: any) {
       console.error('[RentalController] Error deleting rental:', error);
@@ -107,7 +107,7 @@ export class RentalController {
         return;
       }
 
-      const rental = await this.service.terminateRental(id, reason);
+      const rental = await this.service.terminateRental(id as string, reason);
       res.json({
         success: true,
         message: 'Contrato rescindido com sucesso',

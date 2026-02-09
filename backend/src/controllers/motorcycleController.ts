@@ -22,7 +22,7 @@ export class MotorcycleController {
   getMotorcycleById = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const motorcycle = await this.service.getMotorcycleById(id);
+      const motorcycle = await this.service.getMotorcycleById(id as string);
 
       if (!motorcycle) {
         res.status(404).json({ success: false, error: 'Moto não encontrada' });
@@ -112,7 +112,7 @@ export class MotorcycleController {
     try {
       const { id } = req.params;
       const updates = req.body;
-      const motorcycle = await this.service.updateMotorcycle(id, updates);
+      const motorcycle = await this.service.updateMotorcycle(id as string, updates);
       res.json({ success: true, data: motorcycle });
     } catch (error: any) {
       console.error('[MotorcycleController] Error updating motorcycle:', error);
@@ -131,7 +131,7 @@ export class MotorcycleController {
       }
 
       // Obter moto atual para pegar URL da imagem antiga
-      const currentMotorcycle = await this.service.getMotorcycleById(id);
+      const currentMotorcycle = await this.service.getMotorcycleById(id as string);
       if (!currentMotorcycle) {
         res.status(404).json({ success: false, error: 'Moto não encontrada' });
         return;
@@ -155,7 +155,7 @@ export class MotorcycleController {
       if (req.body.year) updates.year = parseInt(req.body.year);
       if (req.body.status) updates.status = req.body.status;
 
-      const motorcycle = await this.service.updateMotorcycle(id, updates);
+      const motorcycle = await this.service.updateMotorcycle(id as string, updates);
 
       // Deletar imagem antiga do storage (se existir)
       if (currentMotorcycle.image_url) {
@@ -172,7 +172,7 @@ export class MotorcycleController {
   deleteMotorcycle = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      await this.service.deleteMotorcycle(id);
+      await this.service.deleteMotorcycle(id as string);
       res.json({ success: true, message: 'Moto deletada com sucesso' });
     } catch (error: any) {
       console.error('[MotorcycleController] Error deleting motorcycle:', error);

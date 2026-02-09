@@ -27,7 +27,7 @@ export class SubscriberController {
   getSubscriberById = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const subscriber = await this.service.getSubscriberById(id);
+      const subscriber = await this.service.getSubscriberById(id as string);
 
       if (!subscriber) {
         res.status(404).json({ success: false, error: 'Assinante não encontrado' });
@@ -56,7 +56,7 @@ export class SubscriberController {
     try {
       const { id } = req.params;
       const updates = req.body;
-      const subscriber = await this.service.updateSubscriber(id, updates);
+      const subscriber = await this.service.updateSubscriber(id as string, updates);
       res.json({ success: true, data: subscriber });
     } catch (error: any) {
       console.error('[SubscriberController] Error updating subscriber:', error);
@@ -67,7 +67,7 @@ export class SubscriberController {
   deleteSubscriber = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      await this.service.deleteSubscriber(id);
+      await this.service.deleteSubscriber(id as string);
       res.json({ success: true, message: 'Assinante deletado com sucesso' });
     } catch (error: any) {
       console.error('[SubscriberController] Error deleting subscriber:', error);
