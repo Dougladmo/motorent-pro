@@ -26,7 +26,7 @@ export class RentalController {
 
   getRentalById = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const rental = await this.service.getRentalById(id);
 
       if (!rental) {
@@ -43,7 +43,7 @@ export class RentalController {
 
   getRentalsByMotorcycleId = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { motorcycleId } = req.params;
+      const motorcycleId = req.params.motorcycleId as string;
       const rentals = await this.service.getRentalsByMotorcycleId(motorcycleId);
       res.json({ success: true, data: rentals });
     } catch (error: any) {
@@ -54,7 +54,7 @@ export class RentalController {
 
   getRentalsBySubscriberId = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { subscriberId } = req.params;
+      const subscriberId = req.params.subscriberId as string;
       const rentals = await this.service.getRentalsBySubscriberId(subscriberId);
       res.json({ success: true, data: rentals });
     } catch (error: any) {
@@ -76,7 +76,7 @@ export class RentalController {
 
   updateRental = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const updates = req.body;
       const rental = await this.service.updateRental(id, updates);
       res.json({ success: true, data: rental });
@@ -88,7 +88,7 @@ export class RentalController {
 
   deleteRental = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       await this.service.deleteRental(id);
       res.json({ success: true, message: 'Aluguel deletado com sucesso' });
     } catch (error: any) {
@@ -99,7 +99,7 @@ export class RentalController {
 
   terminateRental = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { reason } = req.body;
 
       if (!reason || reason.trim() === '') {

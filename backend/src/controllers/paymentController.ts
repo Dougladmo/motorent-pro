@@ -98,7 +98,7 @@ export class PaymentController {
 
   updatePayment = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { amount, due_date } = req.body;
 
       const updates: any = {};

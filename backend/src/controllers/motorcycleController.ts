@@ -31,7 +31,7 @@ export class MotorcycleController {
 
   getMotorcycleById = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const motorcycle = await this.service.getMotorcycleById(id);
 
       if (!motorcycle) {
@@ -48,7 +48,7 @@ export class MotorcycleController {
 
   getMotorcyclesByStatus = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { status } = req.query;
+      const status = req.query.status as string;
 
       if (!status || typeof status !== 'string') {
         res.status(400).json({ success: false, error: 'Status é obrigatório' });
@@ -120,7 +120,7 @@ export class MotorcycleController {
 
   updateMotorcycle = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const updates = req.body;
       const motorcycle = await this.service.updateMotorcycle(id, updates);
       res.json({ success: true, data: motorcycle });
@@ -132,7 +132,7 @@ export class MotorcycleController {
 
   deleteMotorcycle = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       await this.service.deleteMotorcycle(id);
       res.json({ success: true, message: 'Moto deletada com sucesso' });
     } catch (error: any) {

@@ -26,7 +26,7 @@ export class SubscriberController {
 
   getSubscriberById = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const subscriber = await this.service.getSubscriberById(id);
 
       if (!subscriber) {
@@ -54,7 +54,7 @@ export class SubscriberController {
 
   updateSubscriber = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const updates = req.body;
       const subscriber = await this.service.updateSubscriber(id, updates);
       res.json({ success: true, data: subscriber });
@@ -66,7 +66,7 @@ export class SubscriberController {
 
   deleteSubscriber = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       await this.service.deleteSubscriber(id);
       res.json({ success: true, message: 'Assinante deletado com sucesso' });
     } catch (error: any) {
