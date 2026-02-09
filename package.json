@@ -10,7 +10,10 @@
     "dev": "npm run dev --workspace=packages/backend & npm run dev --workspace=packages/frontend",
     "dev:frontend": "npm run dev --workspace=packages/frontend",
     "dev:backend": "npm run dev --workspace=packages/backend",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/frontend && npm run build --workspace=packages/backend",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:frontend": "npm run build --workspace=packages/frontend",
+    "build:backend": "npm run build --workspace=packages/backend",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present"
   },

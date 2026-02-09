@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "bash build-vercel.sh",
+  "outputDirectory": "packages/frontend/dist",
+  "installCommand": "npm install",
+  "framework": null,
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./packages/frontend ./packages/shared"
+}
