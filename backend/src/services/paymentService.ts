@@ -150,6 +150,15 @@ export class PaymentService {
     console.log(`[PaymentService] Lembrete enviado para pagamento ${paymentId}`);
   }
 
+  async updatePayment(id: string, updates: Partial<Payment>): Promise<Payment> {
+    const payment = await this.paymentRepo.findById(id);
+    if (!payment) {
+      throw new Error('Pagamento não encontrado');
+    }
+
+    return this.paymentRepo.update(id, updates);
+  }
+
   async validateIntegrity(): Promise<{
     totalPayments: number;
     inconsistencies: Array<{ type: string; message: string; paymentId: string }>;

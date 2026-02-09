@@ -105,17 +105,195 @@ npm start
 GET /api/health
 ```
 
-### Payments
+Resposta:
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-02-09T...",
+  "service": "MotoRent Pro Backend"
+}
+```
+
+---
+
+### 🏍️ Motorcycles
 
 ```bash
-GET    /api/payments              # Listar todos os pagamentos
-GET    /api/payments/:id          # Obter pagamento específico
-GET    /api/payments?status=Pago  # Filtrar por status
-PATCH  /api/payments/:id/mark-paid    # Marcar como pago
-PATCH  /api/payments/:id/mark-unpaid  # Reverter pagamento
-POST   /api/payments/:id/send-reminder # Enviar lembrete
-GET    /api/payments/validate     # Validar integridade dos dados
+GET    /api/motorcycles                # Listar todas as motos
+GET    /api/motorcycles?status=Disponível  # Filtrar por status
+GET    /api/motorcycles/:id            # Obter moto específica
+POST   /api/motorcycles                # Criar nova moto
+POST   /api/motorcycles/with-image     # Criar moto com imagem
+PATCH  /api/motorcycles/:id            # Atualizar moto
+DELETE /api/motorcycles/:id            # Deletar moto
 ```
+
+**Exemplo - Criar moto:**
+```bash
+curl -X POST http://localhost:3001/api/motorcycles \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plate": "ABC-1234",
+    "model": "Honda CG 160",
+    "year": 2023,
+    "status": "Disponível"
+  }'
+```
+
+**Exemplo - Criar moto com imagem:**
+```bash
+curl -X POST http://localhost:3001/api/motorcycles/with-image \
+  -F "image=@/path/to/image.jpg" \
+  -F "plate=ABC-1234" \
+  -F "model=Honda CG 160" \
+  -F "year=2023" \
+  -F "status=Disponível"
+```
+
+---
+
+### 👥 Subscribers (Assinantes)
+
+```bash
+GET    /api/subscribers                # Listar todos os assinantes
+GET    /api/subscribers/active         # Listar apenas ativos
+GET    /api/subscribers/:id            # Obter assinante específico
+POST   /api/subscribers                # Criar novo assinante
+PATCH  /api/subscribers/:id            # Atualizar assinante
+DELETE /api/subscribers/:id            # Deletar assinante
+```
+
+**Exemplo - Criar assinante:**
+```bash
+curl -X POST http://localhost:3001/api/subscribers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "João Silva",
+    "phone": "11987654321",
+    "document": "12345678900",
+    "active": true,
+    "notes": "Cliente preferencial"
+  }'
+```
+
+---
+
+### 📋 Rentals (Aluguéis)
+
+```bash
+GET    /api/rentals                    # Listar todos os aluguéis
+GET    /api/rentals/active             # Listar apenas ativos
+GET    /api/rentals/:id                # Obter aluguel específico
+GET    /api/rentals/motorcycle/:motorcycleId  # Aluguéis por moto
+GET    /api/rentals/subscriber/:subscriberId  # Aluguéis por assinante
+POST   /api/rentals                    # Criar novo aluguel
+POST   /api/rentals/:id/terminate      # Rescindir contrato
+PATCH  /api/rentals/:id                # Atualizar aluguel
+DELETE /api/rentals/:id                # Deletar aluguel
+```
+
+**Exemplo - Criar aluguel:**
+```bash
+curl -X POST http://localhost:3001/api/rentals \
+  -H "Content-Type: application/json" \
+  -d '{
+    "motorcycle_id": "uuid-da-moto",
+    "subscriber_id": "uuid-do-assinante",
+    "start_date": "2026-02-09",
+    "weekly_value": 150.00,
+    "due_day_of_week": 0
+  }'
+```
+
+**Exemplo - Rescindir contrato:**
+```bash
+curl -X POST http://localhost:3001/api/rentals/uuid-do-aluguel/terminate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Cliente solicitou cancelamento"
+  }'
+```
+
+**Comportamento ao rescindir:**
+- Marca aluguel como inativo (`is_active = false`)
+- Libera a moto (status → `Disponível`)
+- Cancela todos os pagamentos futuros pendentes
+
+---
+
+### 💰 Payments (Pagamentos)
+
+```bash
+GET    /api/payments                   # Listar todos os pagamentos
+GET    /api/payments?status=Pago       # Filtrar por status
+GET    /api/payments/:id               # Obter pagamento específico
+GET    /api/payments/validate          # Validar integridade
+PATCH  /api/payments/:id/mark-paid     # Marcar como pago
+PATCH  /api/payments/:id/mark-unpaid   # Reverter pagamento
+POST   /api/payments/:id/send-reminder # Enviar lembrete
+```
+
+**Exemplo - Marcar como pago:**
+```bash
+curl -X PATCH http://localhost:3001/api/payments/uuid-do-pagamento/mark-paid \
+  -H "Content-Type: application/json" \
+  -d '{
+    "verifiedAmount": 150.00
+  }'
+```
+
+**Comportamento ao marcar como pago:**
+- Atualiza status para `Pago`
+- Registra data de pagamento
+- Incrementa receita total da moto
+- Adiciona registro no histórico de receita
+
+**Exemplo - Enviar lembrete:**
+```bash
+curl -X POST http://localhost:3001/api/payments/uuid-do-pagamento/send-reminder
+```
+
+**Comportamento do lembrete:**
+- Calcula dívida total do assinante (todos os aluguéis ativos)
+- Simula envio de WhatsApp (logs no console)
+- Incrementa contador de lembretes enviados
+
+**Exemplo - Validar integridade:**
+```bash
+curl http://localhost:3001/api/payments/validate
+```
+
+Resposta:
+```json
+{
+  "success": true,
+  "data": {
+    "totalPayments": 45,
+    "inconsistencies": [
+      {
+        "type": "should_be_overdue",
+        "message": "Pagamento abc-123 vencido mas com status Pendente",
+        "paymentId": "abc-123"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 📊 Status Disponíveis
+
+**Motorcycle Status:**
+- `Disponível` - Pronta para alugar
+- `Alugada` - Em contrato ativo
+- `Manutenção` - Indisponível temporariamente
+
+**Payment Status:**
+- `Pendente` - Aguardando pagamento (dentro do prazo)
+- `Atrasado` - Vencido e não pago
+- `Pago` - Pagamento confirmado
+- `Cancelado` - Pagamento cancelado (ex: contrato rescindido)
 
 ## 🔄 Como funciona o CRON
 

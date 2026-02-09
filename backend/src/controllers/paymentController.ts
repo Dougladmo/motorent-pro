@@ -6,6 +6,16 @@ export class PaymentController {
 
   getAllPayments = async (req: Request, res: Response): Promise<void> => {
     try {
+      const { status } = req.query;
+
+      // Se status query param foi fornecido, filtrar por status
+      if (status && typeof status === 'string') {
+        const payments = await this.service.getPaymentsByStatus(status);
+        res.json({ success: true, data: payments });
+        return;
+      }
+
+      // Senão, retornar todos
       const payments = await this.service.getAllPayments();
       res.json({ success: true, data: payments });
     } catch (error: any) {
@@ -82,6 +92,23 @@ export class PaymentController {
       res.json({ success: true, message: 'Lembrete enviado com sucesso' });
     } catch (error: any) {
       console.error('[PaymentController] Error sending reminder:', error);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  };
+
+  updatePayment = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { amount, due_date } = req.body;
+
+      const updates: any = {};
+      if (amount !== undefined) updates.amount = amount;
+      if (due_date !== undefined) updates.due_date = due_date;
+
+      const payment = await this.service.updatePayment(id, updates);
+      res.json({ success: true, data: payment });
+    } catch (error: any) {
+      console.error('[PaymentController] Error updating payment:', error);
       res.status(400).json({ success: false, error: error.message });
     }
   };

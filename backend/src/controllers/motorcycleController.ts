@@ -11,6 +11,16 @@ export class MotorcycleController {
 
   getAllMotorcycles = async (req: Request, res: Response): Promise<void> => {
     try {
+      const { status } = req.query;
+
+      // Se status query param foi fornecido, filtrar por status
+      if (status && typeof status === 'string') {
+        const motorcycles = await this.service.getMotorcyclesByStatus(status);
+        res.json({ success: true, data: motorcycles });
+        return;
+      }
+
+      // Senão, retornar todas
       const motorcycles = await this.service.getAllMotorcycles();
       res.json({ success: true, data: motorcycles });
     } catch (error: any) {
