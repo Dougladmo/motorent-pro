@@ -1,6 +1,7 @@
 import { RentalRepository } from '../repositories/rentalRepository';
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
+import { PaymentRepository } from '../repositories/paymentRepository';
 import { Database } from '../models/database.types';
 
 type Rental = Database['public']['Tables']['rentals']['Row'];
@@ -11,7 +12,8 @@ export class RentalService {
   constructor(
     private rentalRepo: RentalRepository,
     private motorcycleRepo: MotorcycleRepository,
-    private subscriberRepo: SubscriberRepository
+    private subscriberRepo: SubscriberRepository,
+    private paymentRepo: PaymentRepository
   ) {}
 
   async getAllRentals(): Promise<Rental[]> {
@@ -101,5 +103,46 @@ export class RentalService {
     }
 
     return this.rentalRepo.delete(id);
+  }
+
+  async terminateRental(id: string, reason: string): Promise<Rental> {
+    const rental = await this.rentalRepo.findById(id);
+    if (!rental) {
+      throw new Error('Aluguel não encontrado');
+    }
+
+    if (!rental.is_active) {
+      throw new Error('Aluguel já está inativo');
+    }
+
+    const now = new Date().toISOString();
+
+    // 1. Marcar aluguel como inativo
+    const updatedRental = await this.rentalRepo.update(id, {
+      is_active: false,
+      terminated_at: now,
+      termination_reason: reason,
+      end_date: now.split('T')[0] // Data de hoje como data de término
+    });
+
+    // 2. Liberar moto
+    await this.motorcycleRepo.update(rental.motorcycle_id, {
+      status: 'Disponível'
+    });
+
+    // 3. Cancelar todos os pagamentos futuros (Pendente ou Atrasado)
+    const futurePayments = await this.paymentRepo.findFutureByRentalId(id);
+    const paymentIds = futurePayments
+      .filter(p => p.status === 'Pendente' || p.status === 'Atrasado')
+      .map(p => p.id);
+
+    if (paymentIds.length > 0) {
+      await this.paymentRepo.updateMany(paymentIds, { status: 'Cancelado' });
+      console.log(`[RentalService] ${paymentIds.length} pagamentos futuros cancelados`);
+    }
+
+    console.log(`[RentalService] Aluguel ${id} rescindido. Motivo: ${reason}`);
+
+    return updatedRental;
   }
 }

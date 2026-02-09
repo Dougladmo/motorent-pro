@@ -51,6 +51,20 @@ export class PaymentRepository {
     return data || [];
   }
 
+  async findFutureByRentalId(rentalId: string): Promise<Payment[]> {
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('rental_id', rentalId)
+      .gte('due_date', today)
+      .order('due_date', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
   async findOverduePayments(): Promise<Payment[]> {
     const today = new Date().toISOString().split('T')[0];
 

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MotorcycleStatus } from '../types';
-import { Plus, User, Key, Check } from 'lucide-react';
+import { Plus, User, Key, Check, XCircle } from 'lucide-react';
 import { WEEK_DAYS } from '../constants';
 import { validatePhone, validateCPF, validatePositiveNumber } from '../utils/validators';
 import { formatPhone, formatCPF } from '../utils/formatters';
 
 export const Subscribers: React.FC = () => {
-  const { subscribers, motorcycles, addSubscriber, createRental, rentals, deleteSubscriber } = useApp();
+  const { subscribers, motorcycles, addSubscriber, createRental, rentals, deleteSubscriber, terminateRental } = useApp();
   const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'NEW_RENTAL'>('LIST');
 
   // Log para debug
@@ -110,6 +110,24 @@ export const Subscribers: React.FC = () => {
 
   const availableBikes = motorcycles.filter(m => m.status === MotorcycleStatus.AVAILABLE);
 
+  const handleTerminateRental = async (rentalId: string, subscriberName: string, bikePlate: string) => {
+    const reason = window.prompt(
+      `Rescindir contrato de ${subscriberName} (${bikePlate}).\n\n` +
+      `Informe o motivo da rescisão:`
+    );
+
+    if (!reason || reason.trim() === '') {
+      return; // Usuário cancelou
+    }
+
+    try {
+      await terminateRental(rentalId, reason.trim());
+      alert('✅ Contrato rescindido com sucesso!\n\nA moto foi liberada e os pagamentos futuros foram cancelados.');
+    } catch (error: any) {
+      alert(`❌ Erro ao rescindir contrato: ${error.message}`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -199,10 +217,21 @@ export const Subscribers: React.FC = () => {
                                             }
 
                                             return (
-                                                <li key={r.id} className="text-sm bg-blue-50 text-blue-700 px-3 py-2 rounded">
-                                                    <div className="font-semibold">{bike?.model} | {bike?.plate}</div>
-                                                    <div className="text-xs text-blue-600 mt-1">
-                                                        R$ {r.weeklyValue.toFixed(2)}/semana{timeRemaining}
+                                                <li key={r.id} className="text-sm bg-blue-50 border border-blue-100 px-3 py-3 rounded-lg">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="font-semibold text-blue-900">{bike?.model} | {bike?.plate}</div>
+                                                            <div className="text-xs text-blue-600 mt-1">
+                                                                R$ {r.weeklyValue.toFixed(2)}/semana{timeRemaining}
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleTerminateRental(r.id, sub.name, bike?.plate || '')}
+                                                            className="ml-2 p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                                                            title="Rescindir Contrato"
+                                                        >
+                                                            <XCircle size={18} />
+                                                        </button>
                                                     </div>
                                                 </li>
                                             );

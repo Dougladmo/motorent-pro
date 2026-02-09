@@ -7,11 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **MotoRent Pro** is a motorcycle rental management system built with React, TypeScript, and Vite. The application manages motorcycles, subscribers (renters), rentals, and weekly payment tracking with automated recurring payment generation.
 
 **Tech Stack:**
-- React 19 with TypeScript
-- Vite for build tooling
-- Recharts for data visualization
-- Lucide React for icons
-- No backend - fully client-side with mock data
+- **Frontend**: React 19 with TypeScript, Vite, Recharts, Lucide React
+- **Backend**: Node.js with Express, TypeScript
+- **Database**: Supabase (PostgreSQL)
+- **Storage**: Supabase Storage (for motorcycle images)
+- **File Upload**: Multer middleware
 
 ## Development Commands
 
@@ -125,12 +125,53 @@ The app expects `GEMINI_API_KEY` in `.env.local`, though it's not currently used
 
 **Configuration:** `vite.config.ts:14-15` exposes as `process.env.GEMINI_API_KEY`
 
+## Image Upload Feature
+
+### Backend Implementation
+
+**Upload Service** (`backend/src/services/uploadService.ts`):
+- Manages image uploads to Supabase Storage bucket `motorcycle-images`
+- Validates file type (JPEG, PNG, WEBP only) and size (max 5MB)
+- Generates unique filenames using UUID
+- Returns public URL for stored images
+
+**API Endpoint**:
+- `POST /api/motorcycles/with-image` - Create motorcycle with image
+- Uses Multer middleware for multipart/form-data processing
+- Accepts `image` file + motorcycle data (plate, model, year, status)
+
+**Configuration**: See `backend/SUPABASE_STORAGE_SETUP.md` for:
+- Bucket creation steps
+- RLS policy configuration
+- Testing instructions
+
+### Frontend Implementation
+
+**Motorcycles Page** (`src/pages/Motorcycles.tsx`):
+- Image upload input with drag-and-drop zone
+- Real-time preview before submission
+- Loading state during upload
+- Displays motorcycle images in cards (fallback to icon if no image)
+
+**Form Flow**:
+1. User selects image (validates type and size client-side)
+2. Shows preview
+3. On submit, creates FormData with image + motorcycle details
+4. Sends to `/api/motorcycles/with-image` endpoint
+5. Backend uploads to Supabase, returns URL
+6. Frontend updates state with new motorcycle including image URL
+
+### Database Schema
+The `motorcycles` table includes:
+- `image_url` (string, nullable) - Public URL from Supabase Storage
+
 ## Code Style
 
 - **Language:** Brazilian Portuguese for UI strings and comments
 - **TypeScript:** Strict typing with enums for status values (`MotorcycleStatus`, `PaymentStatus`)
 - **React:** Functional components with hooks, no class components
 - **Styling:** Inline Tailwind classes (no separate CSS files)
+- **API Integration:** Frontend uses fetch with FormData for file uploads
 
 ## Testing Notes
 

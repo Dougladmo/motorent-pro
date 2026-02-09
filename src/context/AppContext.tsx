@@ -269,6 +269,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const rental = rentals.find(r => r.id === rentalId);
       if (!rental) throw new Error('Aluguel não encontrado');
 
+      if (!rental.isActive) {
+        throw new Error('Aluguel já está inativo');
+      }
+
       // Calcular saldo devedor
       const rentalPayments = payments.filter(p => p.rentalId === rentalId);
       const totalPaid = rentalPayments
@@ -281,27 +285,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (outstandingBalance > 0) {
         const confirmed = window.confirm(
-          `ATENÇÃO: Saldo devedor de R$ ${outstandingBalance.toFixed(2)}.\n` +
-          `Deseja continuar com o encerramento?`
+          `⚠️ ATENÇÃO: Saldo devedor de R$ ${outstandingBalance.toFixed(2)}.\n\n` +
+          `Deseja continuar com a rescisão do contrato?`
         );
         if (!confirmed) return;
       }
 
-      const today = new Date().toISOString().split('T')[0];
-      const updated = await rentalApi.update(rentalId, {
-        is_active: false,
-        end_date: today,
-        terminated_at: new Date().toISOString(),
-        termination_reason: reason,
-        outstanding_balance: outstandingBalance
-      });
+      const terminationReason = reason || 'Rescisão de contrato';
+
+      // Usar o endpoint específico de terminate que já cancela pagamentos futuros
+      const updated = await rentalApi.terminate(rentalId, terminationReason);
 
       setRentals(prev => prev.map(r => r.id === rentalId ? transformRental(updated) : r));
 
-      // Refresh para atualizar moto e pagamentos
+      // Refresh para atualizar moto e pagamentos cancelados
       await refreshData();
+
+      console.log(`✅ Contrato rescindido: ${rentalId}. Motivo: ${terminationReason}`);
     } catch (error: any) {
-      console.error('Erro ao encerrar aluguel:', error);
+      console.error('❌ Erro ao rescindir contrato:', error);
       throw new Error(error.response?.data?.error || error.message);
     }
   };

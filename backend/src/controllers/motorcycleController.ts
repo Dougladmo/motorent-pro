@@ -1,8 +1,13 @@
 import { Request, Response } from 'express';
 import { MotorcycleService } from '../services/motorcycleService';
+import { UploadService } from '../services/uploadService';
 
 export class MotorcycleController {
-  constructor(private service: MotorcycleService) {}
+  private uploadService: UploadService;
+
+  constructor(private service: MotorcycleService) {
+    this.uploadService = new UploadService();
+  }
 
   getAllMotorcycles = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -55,6 +60,50 @@ export class MotorcycleController {
       res.status(201).json({ success: true, data: motorcycle });
     } catch (error: any) {
       console.error('[MotorcycleController] Error creating motorcycle:', error);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  };
+
+  createMotorcycleWithImage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      // Validar se arquivo foi enviado
+      if (!req.file) {
+        res.status(400).json({ success: false, error: 'Nenhuma imagem foi enviada' });
+        return;
+      }
+
+      // Validar dados da moto
+      const { plate, model, year, status } = req.body;
+
+      if (!plate || !model || !year) {
+        res.status(400).json({
+          success: false,
+          error: 'Dados obrigatórios faltando: plate, model, year'
+        });
+        return;
+      }
+
+      // Upload da imagem para Supabase
+      const imageUrl = await this.uploadService.uploadMotorcycleImage(
+        req.file.buffer,
+        req.file.mimetype,
+        req.file.originalname
+      );
+
+      // Criar moto com URL da imagem
+      const motorcycleData = {
+        plate,
+        model,
+        year: parseInt(year),
+        status: status || 'Disponível',
+        image_url: imageUrl
+      };
+
+      const motorcycle = await this.service.createMotorcycle(motorcycleData);
+
+      res.status(201).json({ success: true, data: motorcycle });
+    } catch (error: any) {
+      console.error('[MotorcycleController] Error creating motorcycle with image:', error);
       res.status(400).json({ success: false, error: error.message });
     }
   };

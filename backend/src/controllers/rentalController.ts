@@ -96,4 +96,26 @@ export class RentalController {
       res.status(400).json({ success: false, error: error.message });
     }
   };
+
+  terminateRental = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!reason || reason.trim() === '') {
+        res.status(400).json({ success: false, error: 'Motivo da rescisão é obrigatório' });
+        return;
+      }
+
+      const rental = await this.service.terminateRental(id, reason);
+      res.json({
+        success: true,
+        message: 'Contrato rescindido com sucesso',
+        data: rental
+      });
+    } catch (error: any) {
+      console.error('[RentalController] Error terminating rental:', error);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  };
 }

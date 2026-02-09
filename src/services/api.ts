@@ -170,6 +170,11 @@ export const rentalApi = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/rentals/${id}`);
   },
+
+  terminate: async (id: string, reason: string): Promise<Rental> => {
+    const { data } = await api.post(`/rentals/${id}/terminate`, { reason });
+    return data.data;
+  },
 };
 
 // ============================================
