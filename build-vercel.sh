@@ -1,19 +1,13 @@
 #!/bin/bash
 set -e
 
-echo "📦 Building mono-repo for Vercel/Render..."
-
-# Build shared package first
-echo "🔧 Building @motorent/shared..."
-cd packages/shared
-npm run build
-cd ../..
+echo "📦 Building frontend for Vercel..."
 
 # Build frontend
 echo "🎨 Building frontend..."
-cd packages/frontend
+cd frontend
 npm run build
-cd ../..
+cd ..
 
 # Note: Backend build skipped for frontend deployment
 # Backend will be built separately when deploying to Render

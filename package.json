@@ -3,19 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "description": "MotoRent Pro - Motorcycle rental management system",
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
-    "dev": "npm run dev --workspace=packages/backend & npm run dev --workspace=packages/frontend",
-    "dev:frontend": "npm run dev --workspace=packages/frontend",
-    "dev:backend": "npm run dev --workspace=packages/backend",
-    "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/frontend && npm run build --workspace=packages/backend",
-    "build:shared": "npm run build --workspace=packages/shared",
-    "build:frontend": "npm run build --workspace=packages/frontend",
-    "build:backend": "npm run build --workspace=packages/backend",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present"
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "typecheck": "cd backend && npm run typecheck && cd ../frontend && npm run typecheck",
+    "clean": "cd backend && npm run clean && cd ../frontend && npm run clean"
   },
   "keywords": [
     "motorent",
