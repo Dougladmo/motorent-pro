@@ -2,8 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { TrendingUp, AlertCircle, CheckCircle, Bike, Calendar } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { PaymentStatus } from '../types';
-import { formatCurrency } from '../utils/formatters';
+import { PaymentStatus } from '@motorent/shared';
+import { formatCurrency } from '@motorent/shared';
 
 type TimeRange = 'WEEK' | 'FORTNIGHT' | 'MONTH';
 

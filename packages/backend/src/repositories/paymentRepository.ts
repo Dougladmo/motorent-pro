@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '../config/supabase';
-import { Database } from '../models/database.types';
+import { Database } from '@motorent/shared';
 
 type Payment = Database['public']['Tables']['payments']['Row'];
 type PaymentInsert = Database['public']['Tables']['payments']['Insert'];

@@ -1,11 +1,12 @@
-import { Motorcycle, MotorcycleStatus, Payment, PaymentStatus, Rental, Subscriber } from "./types";
-
-// Helper to generate dates
-const addDays = (date: Date, days: number) => {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-};
+import {
+  Motorcycle,
+  MotorcycleStatus,
+  Payment,
+  PaymentStatus,
+  Rental,
+  Subscriber,
+  addDays
+} from "@motorent/shared";
 
 const today = new Date();
 
@@ -53,7 +54,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     subscriberName: 'João Silva',
     amount: 250,
     expectedAmount: 250,
-    dueDate: addDays(today, -2).toISOString().split('T')[0], // 2 days ago
+    dueDate: addDays(today, -2).toISOString().split('T')[0]!, // 2 days ago
     status: PaymentStatus.OVERDUE,
     reminderSentCount: 1,
     statusHistory: []
@@ -64,7 +65,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     subscriberName: 'Maria Oliveira',
     amount: 280,
     expectedAmount: 280,
-    dueDate: addDays(today, 1).toISOString().split('T')[0], // Tomorrow
+    dueDate: addDays(today, 1).toISOString().split('T')[0]!, // Tomorrow
     status: PaymentStatus.PENDING,
     reminderSentCount: 0,
     statusHistory: []
@@ -75,12 +76,13 @@ export const MOCK_PAYMENTS: Payment[] = [
     subscriberName: 'João Silva',
     amount: 250,
     expectedAmount: 250,
-    dueDate: addDays(today, -9).toISOString().split('T')[0],
+    dueDate: addDays(today, -9).toISOString().split('T')[0]!,
     status: PaymentStatus.PAID,
-    paidAt: addDays(today, -9).toISOString().split('T')[0],
+    paidAt: addDays(today, -9).toISOString().split('T')[0]!,
     reminderSentCount: 0,
     statusHistory: []
   }
 ];
 
-export const WEEK_DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+// Re-export WEEK_DAYS from shared (already defined there)
+export { WEEK_DAYS } from "@motorent/shared";

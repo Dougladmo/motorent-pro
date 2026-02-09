@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { MotorcycleStatus, Motorcycle } from '../types';
+import { MotorcycleStatus, Motorcycle } from '@motorent/shared';
 import { Plus, Bike, MoreVertical, Trash2, Upload, X, Edit2 } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
-import { validatePlate, validateYear } from '../utils/validators';
-import { formatPlate } from '../utils/formatters';
+import { validatePlate, validateYear } from '@motorent/shared';
+import { formatPlate } from '@motorent/shared';
 
 export const Motorcycles: React.FC = () => {
   const { motorcycles, addMotorcycle, updateMotorcycle, deleteMotorcycle } = useApp();
@@ -140,7 +140,9 @@ export const Motorcycles: React.FC = () => {
           addMotorcycle({
             ...newMoto,
             plate: formatPlate(newMoto.plate),
-            status: MotorcycleStatus.AVAILABLE
+            status: MotorcycleStatus.AVAILABLE,
+            totalRevenue: 0,
+            revenueHistory: []
           });
         }
       }

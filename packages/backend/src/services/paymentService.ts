@@ -2,7 +2,7 @@ import { PaymentRepository } from '../repositories/paymentRepository';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
-import { Database } from '../models/database.types';
+import { Database } from '@motorent/shared';
 
 type Payment = Database['public']['Tables']['payments']['Row'];
 

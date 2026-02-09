@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { PaymentStatus, Payment } from '../types';
+import { PaymentStatus, Payment } from '@motorent/shared';
 import { MessageCircle, Check, AlertTriangle, Filter, Search, AlertCircle, RotateCcw, Calendar, CalendarRange, Edit2 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate } from '@motorent/shared';
 import { Modal } from '../components/Modal';
 
 type FilterType = PaymentStatus | 'ALL' | 'CURRENT_WEEK' | 'DATE_RANGE';

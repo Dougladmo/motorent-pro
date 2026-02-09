@@ -1,5 +1,5 @@
 import React from 'react';
-import { PaymentStatus, MotorcycleStatus } from '../types';
+import { PaymentStatus, MotorcycleStatus } from '@motorent/shared';
 
 interface StatusBadgeProps {
   status: PaymentStatus | MotorcycleStatus;

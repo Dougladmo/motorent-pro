@@ -8,7 +8,7 @@ import {
   PaymentStatus,
   MotorcycleStatus,
   PaymentValidationReport
-} from '../types';
+} from '@motorent/shared';
 import {
   motorcycleApi,
   subscriberApi,

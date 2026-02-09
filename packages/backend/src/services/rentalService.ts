@@ -2,7 +2,7 @@ import { RentalRepository } from '../repositories/rentalRepository';
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { PaymentRepository } from '../repositories/paymentRepository';
-import { Database } from '../models/database.types';
+import { Database } from '@motorent/shared';
 
 type Rental = Database['public']['Tables']['rentals']['Row'];
 type RentalInsert = Database['public']['Tables']['rentals']['Insert'];

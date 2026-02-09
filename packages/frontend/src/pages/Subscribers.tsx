@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { MotorcycleStatus, Subscriber } from '../types';
+import { MotorcycleStatus, Subscriber } from '@motorent/shared';
 import { Plus, User, Key, Check, XCircle, Edit2 } from 'lucide-react';
-import { WEEK_DAYS } from '../constants';
-import { validatePhone, validateCPF, validatePositiveNumber } from '../utils/validators';
-import { formatPhone, formatCPF } from '../utils/formatters';
+import { WEEK_DAYS } from '@motorent/shared';
+import { validatePhone, validateCPF, validatePositiveNumber } from '@motorent/shared';
+import { formatPhone, formatCPF } from '@motorent/shared';
 
 export const Subscribers: React.FC = () => {
   const { subscribers, motorcycles, addSubscriber, updateSubscriber, createRental, rentals, deleteSubscriber, terminateRental } = useApp();
@@ -120,7 +120,8 @@ export const Subscribers: React.FC = () => {
           ...rentalForm,
           startDate: startDateStr,
           endDate: endDateStr,
-          isActive: true
+          isActive: true,
+          outstandingBalance: 0
       });
 
       console.log('✅ [RENTAL CREATED] Aluguel criado com sucesso');

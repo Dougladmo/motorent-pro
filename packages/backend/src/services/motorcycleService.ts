@@ -1,5 +1,5 @@
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
-import { Database } from '../models/database.types';
+import { Database } from '@motorent/shared';
 
 type Motorcycle = Database['public']['Tables']['motorcycles']['Row'];
 type MotorcycleInsert = Database['public']['Tables']['motorcycles']['Insert'];

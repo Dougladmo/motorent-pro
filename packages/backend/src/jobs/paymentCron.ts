@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { PaymentRepository } from '../repositories/paymentRepository';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
-import { Database } from '../models/database.types';
+import { Database } from '@motorent/shared';
 
 type PaymentInsert = Database['public']['Tables']['payments']['Insert'];
 

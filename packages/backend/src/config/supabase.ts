@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '../models/database.types';
+import { Database } from '@motorent/shared';
 
 let supabaseInstance: SupabaseClient<Database> | null = null;
 

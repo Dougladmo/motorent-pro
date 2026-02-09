@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Motorcycle, Subscriber, Rental, Payment } from '../types';
+import { Motorcycle, Subscriber, Rental, Payment } from '@motorent/shared';
 
 const API_URL = import.meta.env.VITE_API_URL;
 

@@ -16,7 +16,7 @@
   "author": "MotoRent Pro",
   "license": "MIT",
   "dependencies": {
-    "@motorent/shared": "workspace:*",
+    "@motorent/shared": "file:../shared",
     "@supabase/supabase-js": "^2.95.3",
     "@types/multer": "^2.0.0",
     "cors": "^2.8.6",

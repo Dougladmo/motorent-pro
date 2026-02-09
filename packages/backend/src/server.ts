@@ -1,5 +1,8 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import { resolve } from 'path';
+
+// Load .env from mono-repo root
+dotenv.config({ path: resolve(__dirname, '../../.env') });
 
 import app from './app';
 import { env } from './config/env';
