@@ -118,6 +118,48 @@ export class MotorcycleController {
     }
   };
 
+  updateMotorcycleImage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const file = req.file;
+
+      if (!file) {
+        res.status(400).json({ success: false, error: 'Nenhuma imagem fornecida' });
+        return;
+      }
+
+      // 1. Buscar moto existente para pegar URL da imagem antiga
+      const existingMoto = await this.service.getMotorcycleById(id);
+
+      if (!existingMoto) {
+        res.status(404).json({ success: false, error: 'Moto não encontrada' });
+        return;
+      }
+
+      // 2. Upload da nova imagem
+      const imageUrl = await this.uploadService.uploadMotorcycleImage(
+        file.buffer,
+        file.mimetype,
+        file.originalname
+      );
+
+      // 3. Atualizar registro com nova imagem
+      const updatedMotorcycle = await this.service.updateMotorcycle(id, {
+        image_url: imageUrl
+      });
+
+      // 4. Deletar imagem antiga do storage (se existir)
+      if (existingMoto.image_url) {
+        await this.uploadService.deleteMotorcycleImage(existingMoto.image_url);
+      }
+
+      res.json({ success: true, data: updatedMotorcycle });
+    } catch (error: any) {
+      console.error('[MotorcycleController] Error updating motorcycle image:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  };
+
   updateMotorcycle = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;

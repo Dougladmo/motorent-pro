@@ -32,6 +32,7 @@ router.get('/', controller.getAllMotorcycles);
 router.get('/:id', controller.getMotorcycleById);
 router.post('/', controller.createMotorcycle);
 router.post('/with-image', upload.single('image'), controller.createMotorcycleWithImage);
+router.put('/:id/image', upload.single('image'), controller.updateMotorcycleImage);
 router.patch('/:id', controller.updateMotorcycle);
 router.delete('/:id', controller.deleteMotorcycle);
 

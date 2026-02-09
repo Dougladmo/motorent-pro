@@ -89,7 +89,7 @@ export const Motorcycles: React.FC = () => {
           formData.append('status', editingMoto.status);
 
           const response = await fetch(`${import.meta.env.VITE_API_URL}/api/motorcycles/${editingMoto.id}/image`, {
-            method: 'PATCH',
+            method: 'PUT',
             body: formData
           });
 
@@ -289,6 +289,11 @@ export const Motorcycles: React.FC = () => {
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                     {editingMoto ? 'Alterar Foto da Moto' : 'Foto da Moto'}
+                    <span className="text-xs text-slate-500 ml-2 font-normal">
+                        {/Mobile|Android|iPhone/i.test(navigator.userAgent)
+                            ? "(tire uma foto ou escolha da galeria)"
+                            : "(selecione um arquivo)"}
+                    </span>
                 </label>
 
                 {imagePreview ? (
@@ -322,6 +327,7 @@ export const Motorcycles: React.FC = () => {
                         <input
                             type="file"
                             accept="image/jpeg,image/jpg,image/png,image/webp"
+                            capture="environment"
                             onChange={handleImageSelect}
                             className="hidden"
                         />
