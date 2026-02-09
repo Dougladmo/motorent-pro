@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { PaymentStatus, Payment } from '../types';
-import { MessageCircle, Check, AlertTriangle, Filter, Search, AlertCircle } from 'lucide-react';
+import { MessageCircle, Check, AlertTriangle, Filter, Search, AlertCircle, RotateCcw } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 export const Payments: React.FC = () => {
-  const { payments, rentals, markPaymentAsPaid, sendReminder } = useApp();
+  const { payments, rentals, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid } = useApp();
   const [filter, setFilter] = useState<PaymentStatus | 'ALL'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -20,6 +20,16 @@ export const Payments: React.FC = () => {
       alert('Erro ao enviar lembrete. Tente novamente.');
     } finally {
       setSendingId(null);
+    }
+  };
+
+  const handleUndo = async (paymentId: string) => {
+    const reason = window.prompt('Motivo da reversão (opcional):');
+    try {
+      markPaymentAsUnpaid(paymentId, reason || undefined);
+      alert('✅ Pagamento revertido com sucesso!');
+    } catch (error: any) {
+      alert(`❌ Erro: ${error.message}`);
     }
   };
 
@@ -84,13 +94,13 @@ export const Payments: React.FC = () => {
 
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-2">
-        {(['ALL', PaymentStatus.PENDING, PaymentStatus.OVERDUE, PaymentStatus.PAID] as const).map((status) => (
+        {(['ALL', PaymentStatus.PENDING, PaymentStatus.OVERDUE, PaymentStatus.PAID, PaymentStatus.CANCELLED] as const).map((status) => (
             <button
                 key={status}
                 onClick={() => setFilter(status)}
                 className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                    filter === status 
-                    ? 'bg-blue-600 text-white' 
+                    filter === status
+                    ? 'bg-blue-600 text-white'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                 }`}
             >
@@ -163,8 +173,19 @@ export const Payments: React.FC = () => {
                                     </button>
                                 </>
                             )}
-                            {payment.status === PaymentStatus.PAID && payment.paidAt && (
-                                <span className="text-xs text-slate-400">Pago em {formatDate(payment.paidAt)}</span>
+                            {payment.status === PaymentStatus.PAID && (
+                                <>
+                                    <button
+                                        onClick={() => handleUndo(payment.id)}
+                                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                        title="Reverter Pagamento"
+                                    >
+                                        <RotateCcw size={20} />
+                                    </button>
+                                    {payment.paidAt && (
+                                        <span className="text-xs text-slate-400">Pago em {formatDate(payment.paidAt)}</span>
+                                    )}
+                                </>
                             )}
                         </td>
                     </tr>
