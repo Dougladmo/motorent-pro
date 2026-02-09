@@ -4,7 +4,9 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
+import { requestLogger } from './middleware/requestLogger';
 import routes from './routes';
+import logger from './utils/logger';
 
 const app: Application = express();
 
@@ -13,9 +15,16 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: env.FRONTEND_URL,
-  credentials: true
+  origin: [env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Log CORS configuration
+logger.info('🔓 CORS configurado', {
+  allowedOrigins: [env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173']
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -29,11 +38,8 @@ app.use('/api/', limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-});
+// Request logging middleware
+app.use(requestLogger);
 
 // API routes
 app.use('/api', routes);
@@ -45,7 +51,10 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
-      payments: '/api/payments'
+      payments: '/api/payments',
+      motorcycles: '/api/motorcycles',
+      subscribers: '/api/subscribers',
+      rentals: '/api/rentals'
     }
   });
 });

@@ -85,9 +85,19 @@ export class PaymentCronService {
       const lookaheadDate = new Date(today);
       lookaheadDate.setDate(lookaheadDate.getDate() + 7);
 
+      // IMPORTANTE: Respeitar data de término do contrato
+      let maxDate = lookaheadDate;
+      if (rental.end_date) {
+        const endDate = new Date(rental.end_date);
+        if (endDate < lookaheadDate) {
+          maxDate = endDate;
+          console.log(`[CRON] Contrato ${rental.id} termina em ${rental.end_date}, limitando geração`);
+        }
+      }
+
       const newPayments: PaymentInsert[] = [];
 
-      while (nextDueDate <= lookaheadDate) {
+      while (nextDueDate <= maxDate) {
         const dateStr = nextDueDate.toISOString().split('T')[0];
 
         // Verificar se já existe

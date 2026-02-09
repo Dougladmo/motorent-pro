@@ -9,10 +9,24 @@ import { formatPhone, formatCPF } from '../utils/formatters';
 export const Subscribers: React.FC = () => {
   const { subscribers, motorcycles, addSubscriber, createRental, rentals, deleteSubscriber } = useApp();
   const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'NEW_RENTAL'>('LIST');
+
+  // Log para debug
+  console.log('👥 [SUBSCRIBERS PAGE] Renderizando com:', {
+    subscribers: subscribers.length,
+    motorcycles: motorcycles.length,
+    rentals: rentals.length,
+    activeRentals: rentals.filter(r => r.isActive).length
+  });
   
   // Forms state
   const [subForm, setSubForm] = useState({ name: '', phone: '', document: '' });
-  const [rentalForm, setRentalForm] = useState({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1 });
+  const [rentalForm, setRentalForm] = useState({
+    subscriberId: '',
+    motorcycleId: '',
+    weeklyValue: 250,
+    dueDayOfWeek: 1,
+    contractDurationMonths: 12 // Duração padrão: 1 ano
+  });
 
   const handleCreateSubscriber = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +57,7 @@ export const Subscribers: React.FC = () => {
     }
   };
 
-  const handleCreateRental = (e: React.FormEvent) => {
+  const handleCreateRental = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate inputs
@@ -63,13 +77,31 @@ export const Subscribers: React.FC = () => {
     }
 
     try {
-      createRental({
+      // Calcular data de término (data início + duração em meses)
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + rentalForm.contractDurationMonths);
+
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+
+      console.log('📅 [CONTRACT] Duração do contrato:', {
+        startDate: startDateStr,
+        endDate: endDateStr,
+        durationMonths: rentalForm.contractDurationMonths,
+        durationDays: Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+      });
+
+      await createRental({
           ...rentalForm,
-          startDate: new Date().toISOString().split('T')[0],
+          startDate: startDateStr,
+          endDate: endDateStr,
           isActive: true
       });
+
+      console.log('✅ [RENTAL CREATED] Aluguel criado com sucesso');
       setView('LIST');
-      setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1 });
+      setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1, contractDurationMonths: 12 });
     } catch (error) {
       console.error('Erro ao criar aluguel:', error);
       alert('Erro ao criar aluguel. Tente novamente.');
@@ -109,6 +141,15 @@ export const Subscribers: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {subscribers.map(sub => {
                 const activeRentals = rentals.filter(r => r.subscriberId === sub.id && r.isActive);
+
+                // Log para debug de cada assinante
+                console.log(`👤 [SUBSCRIBER ${sub.name}]`, {
+                  subscriberId: sub.id,
+                  totalRentals: rentals.filter(r => r.subscriberId === sub.id).length,
+                  activeRentals: activeRentals.length,
+                  rentals: rentals.filter(r => r.subscriberId === sub.id)
+                });
+
                 return (
                     <div key={sub.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
                         <div>
@@ -135,12 +176,34 @@ export const Subscribers: React.FC = () => {
                             <div className="mt-4 pt-4 border-t border-slate-50">
                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Motos Alugadas</p>
                                 {activeRentals.length > 0 ? (
-                                    <ul className="space-y-1">
+                                    <ul className="space-y-2">
                                         {activeRentals.map(r => {
                                             const bike = motorcycles.find(m => m.id === r.motorcycleId);
+
+                                            // Calcular tempo restante do contrato
+                                            let timeRemaining = '';
+                                            if (r.endDate) {
+                                                const today = new Date();
+                                                const endDate = new Date(r.endDate);
+                                                const diffTime = endDate.getTime() - today.getTime();
+                                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                                const diffMonths = Math.floor(diffDays / 30);
+
+                                                if (diffDays < 0) {
+                                                    timeRemaining = ' • Contrato vencido';
+                                                } else if (diffMonths > 0) {
+                                                    timeRemaining = ` • ${diffMonths} ${diffMonths === 1 ? 'mês' : 'meses'} restantes`;
+                                                } else {
+                                                    timeRemaining = ` • ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'} restantes`;
+                                                }
+                                            }
+
                                             return (
-                                                <li key={r.id} className="text-sm bg-blue-50 text-blue-700 px-2 py-1 rounded inline-block w-full">
-                                                    {bike?.model} <span className="text-blue-400">|</span> {bike?.plate}
+                                                <li key={r.id} className="text-sm bg-blue-50 text-blue-700 px-3 py-2 rounded">
+                                                    <div className="font-semibold">{bike?.model} | {bike?.plate}</div>
+                                                    <div className="text-xs text-blue-600 mt-1">
+                                                        R$ {r.weeklyValue.toFixed(2)}/semana{timeRemaining}
+                                                    </div>
                                                 </li>
                                             );
                                         })}
@@ -263,9 +326,50 @@ export const Subscribers: React.FC = () => {
                         </select>
                     </div>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-sm text-blue-800">
-                    <Check className="shrink-0" size={20} />
-                    <p>Ao salvar, uma cobrança inicial será gerada automaticamente e o status da moto mudará para "Alugada".</p>
+                <div>
+                    <label htmlFor="duration" className="block text-sm font-medium text-slate-700 mb-1">Duração do Contrato</label>
+                    <select
+                        id="duration"
+                        required
+                        value={rentalForm.contractDurationMonths}
+                        onChange={e => setRentalForm({...rentalForm, contractDurationMonths: Number(e.target.value)})}
+                        className="w-full border border-slate-300 rounded-lg p-3 bg-white"
+                    >
+                        <option value={6}>6 meses</option>
+                        <option value={12}>1 ano (12 meses)</option>
+                        <option value={18}>18 meses</option>
+                        <option value={24}>2 anos (24 meses)</option>
+                        <option value={36}>3 anos (36 meses)</option>
+                    </select>
+                </div>
+                <div className="space-y-3">
+                    <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-sm text-blue-800">
+                        <Check className="shrink-0" size={20} />
+                        <p>Ao salvar, uma cobrança inicial será gerada automaticamente e o status da moto mudará para "Alugada".</p>
+                    </div>
+                    {rentalForm.weeklyValue > 0 && rentalForm.contractDurationMonths > 0 && (
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <p className="text-sm font-semibold text-slate-700 mb-2">📊 Resumo do Contrato</p>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                    <span className="text-slate-500">Valor semanal:</span>
+                                    <p className="font-bold text-slate-800">R$ {rentalForm.weeklyValue.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500">Valor mensal (aprox.):</span>
+                                    <p className="font-bold text-slate-800">R$ {(rentalForm.weeklyValue * 4.33).toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500">Duração:</span>
+                                    <p className="font-bold text-slate-800">{rentalForm.contractDurationMonths} meses</p>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500">Total estimado:</span>
+                                    <p className="font-bold text-green-600">R$ {(rentalForm.weeklyValue * 4.33 * rentalForm.contractDurationMonths).toFixed(2)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div className="flex justify-end gap-3 pt-4">
                     <button type="button" onClick={() => setView('LIST')} className="px-6 py-2 text-slate-600 font-medium">Cancelar</button>
