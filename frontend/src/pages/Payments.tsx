@@ -1,10 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { PaymentStatus, Payment } from '../shared';
-import { MessageCircle, Check, AlertTriangle, Filter, Search, AlertCircle, RotateCcw, Calendar, CalendarRange, Edit2 } from 'lucide-react';
-import { StatusBadge } from '../components/StatusBadge';
-import { formatCurrency, formatDate } from '../shared';
 import { Modal } from '../components/Modal';
+import { Search } from 'lucide-react';
+import { formatDate } from '../shared/utils/formatters';
+import { PaymentWeekStats } from '../widgets/payment-filters/PaymentWeekStats';
+import { PaymentFiltersBar } from '../widgets/payment-filters/PaymentFiltersBar';
+import { PaymentTable } from '../entities/payment/ui/PaymentTable';
+import { PaymentEditForm } from '../features/payment-management/ui/PaymentEditForm';
 
 type FilterType = PaymentStatus | 'ALL' | 'CURRENT_WEEK' | 'DATE_RANGE';
 
@@ -212,302 +215,60 @@ export const Payments: React.FC = () => {
       </header>
 
       {/* Estatísticas da Semana Atual */}
-      {weekStats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
-            <p className="text-xs font-medium text-blue-600 mb-1">Total Semana</p>
-            <p className="text-2xl font-bold text-blue-900">{weekStats.total}</p>
-            <p className="text-sm text-blue-700 mt-1">{formatCurrency(weekStats.totalAmount)}</p>
-          </div>
-          <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
-            <p className="text-xs font-medium text-green-600 mb-1">Pagos</p>
-            <p className="text-2xl font-bold text-green-900">{weekStats.paid}</p>
-            <p className="text-sm text-green-700 mt-1">{formatCurrency(weekStats.paidAmount)}</p>
-          </div>
-          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-xl border border-yellow-200">
-            <p className="text-xs font-medium text-yellow-600 mb-1">Pendentes</p>
-            <p className="text-2xl font-bold text-yellow-900">{weekStats.pending}</p>
-          </div>
-          <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-xl border border-red-200">
-            <p className="text-xs font-medium text-red-600 mb-1">Atrasados</p>
-            <p className="text-2xl font-bold text-red-900">{weekStats.overdue}</p>
-          </div>
-        </div>
-      )}
+      {weekStats && <PaymentWeekStats stats={weekStats} />}
 
       {/* Filters */}
-      <div className="space-y-3">
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {/* Filtro especial: Semana Atual */}
-          <button
-            onClick={() => {
-              setFilter('CURRENT_WEEK');
-              setShowDatePicker(false);
-            }}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-2 ${
-              filter === 'CURRENT_WEEK'
-                ? 'bg-green-600 text-white shadow-md'
-                : 'bg-white text-slate-600 border border-green-200 hover:bg-green-50'
-            }`}
-          >
-            <Calendar size={16} />
-            Semana Atual
-          </button>
-
-          {/* Filtro de período personalizado */}
-          <button
-            onClick={() => {
-              setFilter('DATE_RANGE');
-              setShowDatePicker(!showDatePicker);
-            }}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-2 ${
-              filter === 'DATE_RANGE'
-                ? 'bg-purple-600 text-white shadow-md'
-                : 'bg-white text-slate-600 border border-purple-200 hover:bg-purple-50'
-            }`}
-          >
-            <CalendarRange size={16} />
-            Período
-          </button>
-
-          {/* Filtros de status */}
-          {([PaymentStatus.PENDING, PaymentStatus.OVERDUE, PaymentStatus.PAID, PaymentStatus.CANCELLED] as const).map((status) => (
-              <button
-                  key={status}
-                  onClick={() => {
-                    setFilter(status);
-                    setShowDatePicker(false);
-                  }}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                      filter === status
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                  }`}
-              >
-                  {status}
-              </button>
-          ))}
-        </div>
-
-        {/* Date Range Picker */}
-        {showDatePicker && filter === 'DATE_RANGE' && (
-          <div className="bg-white border border-purple-200 rounded-lg p-4 flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-700">De:</label>
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-700">Até:</label>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-            <button
-              onClick={() => {
-                setDateRange({ start: '', end: '' });
-                setFilter('ALL');
-                setShowDatePicker(false);
-              }}
-              className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              Limpar
-            </button>
-          </div>
-        )}
-      </div>
+      <PaymentFiltersBar
+        filter={filter}
+        onFilterChange={setFilter}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        showDatePicker={showDatePicker}
+        onToggleDatePicker={() => setShowDatePicker(!showDatePicker)}
+        onClearDateRange={() => {
+          setDateRange({ start: '', end: '' });
+          setFilter('ALL');
+          setShowDatePicker(false);
+        }}
+      />
 
       {/* List */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
-                <tr>
-                    <th className="px-6 py-4">Assinante</th>
-                    <th className="px-6 py-4">Vencimento</th>
-                    <th className="px-6 py-4">Valor</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Ações</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {sortedPayments.map((payment) => {
-                    const { totalDebt, hasOverdue } = getSubscriberInfo(payment);
-                    const showTotalDebt = hasOverdue && payment.status !== PaymentStatus.PAID;
-
-                    return (
-                    <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-800">{payment.subscriberName}</td>
-                        <td className="px-6 py-4 text-slate-600">
-                            {formatDate(payment.dueDate)}
-                        </td>
-                        <td className="px-6 py-4 text-slate-800 font-medium">
-                            <div>{formatCurrency(payment.amount)}</div>
-                            {showTotalDebt && (
-                                <div className="flex items-center gap-1 text-xs text-red-600 font-bold mt-1 bg-red-50 px-2 py-1 rounded w-fit" title="Total Acumulado (Atrasado + Pendente)">
-                                    <AlertCircle size={12} />
-                                    <span>Total: {formatCurrency(totalDebt)}</span>
-                                </div>
-                            )}
-                        </td>
-                        <td className="px-6 py-4">
-                            <StatusBadge status={payment.status} />
-                        </td>
-                        <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                            {payment.status !== PaymentStatus.PAID && payment.status !== PaymentStatus.CANCELLED && (
-                                <>
-                                    <button
-                                        onClick={() => handleEditClick(payment)}
-                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                        title="Editar Pagamento"
-                                    >
-                                        <Edit2 size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleSendReminder(payment.id)}
-                                        disabled={sendingId === payment.id}
-                                        className="px-3 py-1.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors relative disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Enviar Lembrete WhatsApp"
-                                    >
-                                        {sendingId === payment.id ? (
-                                            <span className="flex items-center gap-1.5">
-                                                <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                                Enviando...
-                                            </span>
-                                        ) : (
-                                            'Enviar lembrete manualmente'
-                                        )}
-                                        {payment.reminderSentCount > 0 && (
-                                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-green-500 text-white text-[9px] flex items-center justify-center rounded-full">
-                                                {payment.reminderSentCount}
-                                            </span>
-                                        )}
-                                    </button>
-                                    <button 
-                                        onClick={() => markPaymentAsPaid(payment.id)}
-                                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                        title="Marcar como Pago"
-                                    >
-                                        <Check size={20} />
-                                    </button>
-                                </>
-                            )}
-                            {payment.status === PaymentStatus.PAID && (
-                                <>
-                                    <button
-                                        onClick={() => handleUndo(payment.id)}
-                                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                        title="Reverter Pagamento"
-                                    >
-                                        <RotateCcw size={20} />
-                                    </button>
-                                    {payment.paidAt && (
-                                        <span className="text-xs text-slate-400">Pago em {formatDate(payment.paidAt)}</span>
-                                    )}
-                                </>
-                            )}
-                        </td>
-                    </tr>
-                )})}
-                {sortedPayments.length === 0 && (
-                    <tr>
-                        <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
-                            Nenhum pagamento encontrado.
-                        </td>
-                    </tr>
-                )}
-            </tbody>
-        </table>
-      </div>
+      <PaymentTable
+        payments={sortedPayments}
+        rentals={rentals}
+        onEdit={handleEditClick}
+        onSendReminder={handleSendReminder}
+        onMarkPaid={markPaymentAsPaid}
+        onMarkUnpaid={handleUndo}
+        sendingId={sendingId}
+      />
 
       {/* Modal de Edição */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingPayment(null);
-        }}
-        title="Editar Pagamento"
-      >
-        <form onSubmit={handleEditSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="subscriberName" className="block text-sm font-medium text-slate-700 mb-1">
-              Assinante
-            </label>
-            <input
-              id="subscriberName"
-              type="text"
-              value={editingPayment?.subscriberName || ''}
-              disabled
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 text-slate-500 cursor-not-allowed"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-slate-700 mb-1">
-                Valor (R$)
-              </label>
-              <input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                value={editForm.amount}
-                onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="dueDate" className="block text-sm font-medium text-slate-700 mb-1">
-                Vencimento
-              </label>
-              <input
-                id="dueDate"
-                type="date"
-                required
-                value={editForm.dueDate}
-                onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex gap-2 text-sm text-yellow-800">
-            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-            <p>
-              Editar valores e datas pode afetar relatórios. Use com cautela e apenas quando necessário.
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                setIsModalOpen(false);
-                setEditingPayment(null);
-              }}
-              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
-            >
-              Atualizar
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {editingPayment && (
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingPayment(null);
+          }}
+          title="Editar Pagamento"
+        >
+          <PaymentEditForm
+            payment={editingPayment}
+            onSubmit={async (updates) => {
+              await updatePayment(editingPayment.id, updates);
+              setIsModalOpen(false);
+              setEditingPayment(null);
+            }}
+            onCancel={() => {
+              setIsModalOpen(false);
+              setEditingPayment(null);
+            }}
+          />
+        </Modal>
+      )}
     </div>
   );
 };
