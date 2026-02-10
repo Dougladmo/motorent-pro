@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { TrendingUp, AlertCircle, CheckCircle, Bike, Calendar } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { Calendar } from 'lucide-react';
 import { PaymentStatus } from '../shared';
-import { formatCurrency } from '../shared';
+import { DashboardKPIs } from '../widgets/dashboard/DashboardKPIs';
+import { DashboardChart } from '../widgets/dashboard/DashboardChart';
+import { DashboardActivity } from '../widgets/dashboard/DashboardActivity';
 
 type TimeRange = 'WEEK' | 'FORTNIGHT' | 'MONTH';
 
@@ -104,103 +105,18 @@ export const Dashboard: React.FC = () => {
       </header>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Receita ({getRangeLabel()})</p>
-            <h3 className="text-2xl font-bold text-slate-800 mt-2">
-              {formatCurrency(filteredStats.totalRevenue)}
-            </h3>
-          </div>
-          <div className="p-3 bg-green-100 text-green-600 rounded-lg">
-            <TrendingUp size={24} />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Em Atraso (Total)</p>
-            <h3 className="text-2xl font-bold text-red-600 mt-2">
-              {formatCurrency(globalOverdue)}
-            </h3>
-          </div>
-          <div className="p-3 bg-red-100 text-red-600 rounded-lg">
-            <AlertCircle size={24} />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Aluguéis Ativos</p>
-            <h3 className="text-2xl font-bold text-slate-800 mt-2">
-              {rentals.filter(r => r.isActive).length}
-            </h3>
-          </div>
-          <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
-            <CheckCircle size={24} />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Motos Disponíveis</p>
-            <h3 className="text-2xl font-bold text-slate-800 mt-2">
-              {motorcycles.filter(m => m.status === 'Disponível').length}
-            </h3>
-          </div>
-          <div className="p-3 bg-slate-100 text-slate-600 rounded-lg">
-            <Bike size={24} />
-          </div>
-        </div>
-      </div>
+      <DashboardKPIs
+        totalRevenue={filteredStats.totalRevenue}
+        globalOverdue={globalOverdue}
+        activeRentals={rentals.filter(r => r.isActive).length}
+        availableBikes={motorcycles.filter(m => m.status === 'Disponível').length}
+        rangeLabel={getRangeLabel()}
+      />
 
       {/* Charts & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 lg:col-span-2">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Balanço ({getRangeLabel()})</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
-                <Tooltip 
-                    cursor={{fill: 'transparent'}}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Atividade Recente</h3>
-          <div className="space-y-4">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-slate-50 last:border-0 last:pb-0">
-                <div className={`mt-1 w-2 h-2 rounded-full ${
-                    activity.status === PaymentStatus.PAID ? 'bg-green-500' :
-                    activity.status === PaymentStatus.OVERDUE ? 'bg-red-500' : 'bg-yellow-500'
-                }`} />
-                <div>
-                  <p className="text-sm font-medium text-slate-800">{activity.label}</p>
-                  <p className="text-xs text-slate-500">{activity.subscriberName} - R$ {activity.amount}</p>
-                  <p className="text-xs text-slate-400 mt-1">{new Date(activity.dueDate).toLocaleDateString('pt-BR')}</p>
-                </div>
-              </div>
-            ))}
-            {recentActivity.length === 0 && (
-                <p className="text-sm text-slate-400">Nenhuma atividade recente.</p>
-            )}
-          </div>
-        </div>
+        <DashboardChart chartData={chartData} rangeLabel={getRangeLabel()} />
+        <DashboardActivity recentActivity={recentActivity} />
       </div>
     </div>
   );

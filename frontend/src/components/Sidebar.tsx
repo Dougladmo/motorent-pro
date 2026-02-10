@@ -1,20 +1,19 @@
 import React from 'react';
-import { LayoutDashboard, Bike, Users, Banknote, BookOpen, Settings } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Bike, Users, Banknote, BookOpen } from 'lucide-react';
 
 interface SidebarProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpen, setIsOpen }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-    { id: 'payments', label: 'Cobranças', icon: <Banknote size={20} /> },
-    { id: 'motorcycles', label: 'Motos', icon: <Bike size={20} /> },
-    { id: 'subscribers', label: 'Assinantes', icon: <Users size={20} /> },
-    { id: 'architecture', label: 'Arquitetura', icon: <BookOpen size={20} /> },
+    { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+    { path: '/payments', label: 'Cobranças', icon: <Banknote size={20} /> },
+    { path: '/motorcycles', label: 'Motos', icon: <Bike size={20} /> },
+    { path: '/subscribers', label: 'Assinantes', icon: <Users size={20} /> },
+    { path: '/architecture', label: 'Arquitetura', icon: <BookOpen size={20} /> },
   ];
 
   return (
@@ -43,22 +42,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpe
         <nav className="mt-6 px-4">
           <ul className="space-y-2">
             {menuItems.map((item) => (
-              <li key={item.id}>
-                <button
-                  onClick={() => {
-                    onNavigate(item.id);
-                    setIsOpen(false);
-                  }}
-                  className={`
+              <li key={item.path}>
+                <NavLink
+                  to={item.path}
+                  onClick={() => setIsOpen(false)}
+                  className={({ isActive }) => `
                     w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-                    ${currentPage === item.id 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
+                    ${isActive
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
                       : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
                   `}
                 >
                   {item.icon}
                   <span className="font-medium">{item.label}</span>
-                </button>
+                </NavLink>
               </li>
             ))}
           </ul>
