@@ -107,6 +107,7 @@ export const Dashboard: React.FC = () => {
       {/* KPI Cards */}
       <DashboardKPIs
         totalRevenue={filteredStats.totalRevenue}
+        totalPending={filteredStats.totalPending}
         globalOverdue={globalOverdue}
         activeRentals={rentals.filter(r => r.isActive).length}
         availableBikes={motorcycles.filter(m => m.status === 'Disponível').length}

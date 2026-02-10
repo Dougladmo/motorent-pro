@@ -10,18 +10,10 @@ import { FormInput } from '../shared/ui/atoms/FormInput';
 import { FormSelect } from '../shared/ui/atoms/FormSelect';
 
 export const Subscribers: React.FC = () => {
-  const { subscribers, motorcycles, addSubscriber, updateSubscriber, createRental, rentals, deleteSubscriber, terminateRental } = useApp();
+  const { subscribers, motorcycles, addSubscriber, updateSubscriber, createRental, rentals, payments, deleteSubscriber, terminateRental } = useApp();
   const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'EDIT_SUB' | 'NEW_RENTAL'>('LIST');
   const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
 
-  // Log para debug
-  console.log('👥 [SUBSCRIBERS PAGE] Renderizando com:', {
-    subscribers: subscribers.length,
-    motorcycles: motorcycles.length,
-    rentals: rentals.length,
-    activeRentals: rentals.filter(r => r.isActive).length
-  });
-  
   // Forms state
   const [subForm, setSubForm] = useState({ name: '', phone: '', document: '' });
   const [rentalForm, setRentalForm] = useState({
@@ -112,22 +104,17 @@ export const Subscribers: React.FC = () => {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
 
-      console.log('📅 [CONTRACT] Duração do contrato:', {
-        startDate: startDateStr,
-        endDate: endDateStr,
-        durationMonths: rentalForm.contractDurationMonths,
-        durationDays: Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-      });
+      // Remover contractDurationMonths do rentalForm antes de enviar
+      const { contractDurationMonths, ...rentalData } = rentalForm;
 
       await createRental({
-          ...rentalForm,
+          ...rentalData,
           startDate: startDateStr,
           endDate: endDateStr,
           isActive: true,
           outstandingBalance: 0
       });
 
-      console.log('✅ [RENTAL CREATED] Aluguel criado com sucesso');
       setView('LIST');
       setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1, contractDurationMonths: 12 });
     } catch (error) {
@@ -188,6 +175,7 @@ export const Subscribers: React.FC = () => {
           subscribers={subscribers}
           rentals={rentals}
           motorcycles={motorcycles}
+          payments={payments}
           onEdit={handleEditClick}
           onDelete={deleteSubscriber}
           onTerminateRental={handleTerminateRental}
@@ -342,11 +330,11 @@ export const Subscribers: React.FC = () => {
                             <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div>
                                     <span className="text-slate-500">Valor semanal:</span>
-                                    <p className="font-bold text-slate-800">R$ {rentalForm.weeklyValue.toFixed(2)}</p>
+                                    <p className="font-bold text-slate-800">R$ {rentalForm.weeklyValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                                 <div>
                                     <span className="text-slate-500">Valor mensal (aprox.):</span>
-                                    <p className="font-bold text-slate-800">R$ {(rentalForm.weeklyValue * 4.33).toFixed(2)}</p>
+                                    <p className="font-bold text-slate-800">R$ {(rentalForm.weeklyValue * 4.33).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                                 <div>
                                     <span className="text-slate-500">Duração:</span>
@@ -354,7 +342,7 @@ export const Subscribers: React.FC = () => {
                                 </div>
                                 <div>
                                     <span className="text-slate-500">Total estimado:</span>
-                                    <p className="font-bold text-green-600">R$ {(rentalForm.weeklyValue * 4.33 * rentalForm.contractDurationMonths).toFixed(2)}</p>
+                                    <p className="font-bold text-green-600">R$ {(rentalForm.weeklyValue * 4.33 * rentalForm.contractDurationMonths).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                             </div>
                         </div>

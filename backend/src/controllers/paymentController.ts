@@ -113,6 +113,17 @@ export class PaymentController {
     }
   };
 
+  deletePayment = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params as { id: string };
+      await this.service.deletePayment(id);
+      res.json({ success: true, message: 'Cobrança cancelada deletada com sucesso' });
+    } catch (error: any) {
+      console.error('[PaymentController] Error deleting payment:', error);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  };
+
   validateIntegrity = async (req: Request, res: Response): Promise<void> => {
     try {
       const result = await this.service.validateIntegrity();

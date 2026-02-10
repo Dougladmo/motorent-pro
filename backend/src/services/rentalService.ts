@@ -3,18 +3,26 @@ import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { PaymentRepository } from '../repositories/paymentRepository';
 import { Database } from '../models/database.types';
+import { PaymentCronService } from '../jobs/paymentCron';
 
 type Rental = Database['public']['Tables']['rentals']['Row'];
 type RentalInsert = Database['public']['Tables']['rentals']['Insert'];
 type RentalUpdate = Database['public']['Tables']['rentals']['Update'];
 
 export class RentalService {
+  private paymentCronService: PaymentCronService | null = null;
+
   constructor(
     private rentalRepo: RentalRepository,
     private motorcycleRepo: MotorcycleRepository,
     private subscriberRepo: SubscriberRepository,
     private paymentRepo: PaymentRepository
   ) {}
+
+  // Setter para injetar o PaymentCronService depois da inicialização
+  setPaymentCronService(cronService: PaymentCronService) {
+    this.paymentCronService = cronService;
+  }
 
   async getAllRentals(): Promise<Rental[]> {
     return this.rentalRepo.findAll();
@@ -68,6 +76,19 @@ export class RentalService {
     });
 
     console.log(`[RentalService] Aluguel ${rental.id} criado. Moto ${motorcycle.plate} agora está alugada.`);
+
+    // Gerar pagamentos iniciais imediatamente
+    if (this.paymentCronService) {
+      try {
+        const paymentsCreated = await this.paymentCronService.generatePaymentsForRental(rental.id);
+        console.log(`[RentalService] ${paymentsCreated} pagamentos gerados para o novo contrato`);
+      } catch (error) {
+        console.error('[RentalService] Erro ao gerar pagamentos iniciais:', error);
+        // Não falhar a criação do rental se a geração de pagamentos falhar
+      }
+    } else {
+      console.warn('[RentalService] PaymentCronService não configurado, pagamentos serão gerados pelo CRON');
+    }
 
     return rental;
   }

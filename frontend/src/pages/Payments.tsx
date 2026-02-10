@@ -12,7 +12,7 @@ import { PaymentEditForm } from '../features/payment-management/ui/PaymentEditFo
 type FilterType = PaymentStatus | 'ALL' | 'CURRENT_WEEK' | 'DATE_RANGE';
 
 export const Payments: React.FC = () => {
-  const { payments, rentals, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid, updatePayment } = useApp();
+  const { payments, rentals, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid, updatePayment, deletePayment } = useApp();
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -60,6 +60,15 @@ export const Payments: React.FC = () => {
     try {
       markPaymentAsUnpaid(paymentId, reason || undefined);
       alert('✅ Pagamento revertido com sucesso!');
+    } catch (error: any) {
+      alert(`❌ Erro: ${error.message}`);
+    }
+  };
+
+  const handleDelete = async (paymentId: string) => {
+    try {
+      await deletePayment(paymentId);
+      alert('✅ Cobrança cancelada deletada com sucesso!');
     } catch (error: any) {
       alert(`❌ Erro: ${error.message}`);
     }
@@ -242,6 +251,7 @@ export const Payments: React.FC = () => {
         onSendReminder={handleSendReminder}
         onMarkPaid={markPaymentAsPaid}
         onMarkUnpaid={handleUndo}
+        onDelete={handleDelete}
         sendingId={sendingId}
       />
 

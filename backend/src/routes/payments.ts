@@ -30,5 +30,6 @@ router.patch('/:id/mark-paid', controller.markAsPaid);
 router.patch('/:id/mark-unpaid', controller.markAsUnpaid);
 router.patch('/:id', controller.updatePayment);
 router.post('/:id/send-reminder', controller.sendReminder);
+router.delete('/:id', controller.deletePayment);
 
 export default router;
