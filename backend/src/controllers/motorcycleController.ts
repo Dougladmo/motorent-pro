@@ -143,12 +143,22 @@ export class MotorcycleController {
         file.originalname
       );
 
-      // 3. Atualizar registro com nova imagem
-      const updatedMotorcycle = await this.service.updateMotorcycle(id, {
+      // 3. Preparar dados para atualização (incluir dados da moto se fornecidos)
+      const { plate, model, year, status } = req.body;
+      const updateData: any = {
         image_url: imageUrl
-      });
+      };
 
-      // 4. Deletar imagem antiga do storage (se existir)
+      // Adicionar outros campos se foram fornecidos
+      if (plate) updateData.plate = plate;
+      if (model) updateData.model = model;
+      if (year) updateData.year = parseInt(year);
+      if (status) updateData.status = status;
+
+      // 4. Atualizar registro com nova imagem e outros dados
+      const updatedMotorcycle = await this.service.updateMotorcycle(id, updateData);
+
+      // 5. Deletar imagem antiga do storage (se existir)
       if (existingMoto.image_url) {
         await this.uploadService.deleteMotorcycleImage(existingMoto.image_url);
       }
