@@ -45,38 +45,29 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
 
   // Calcular progresso de faturamento por contrato
   const getContractProgress = (rentalId: string) => {
-    const rentalPayments = payments.filter(p => p.rentalId === rentalId);
-
-    // Debug: verificar payments
-    if (rentalPayments.length > 0) {
-      console.log('📊 [CONTRACT PROGRESS]', {
-        rentalId,
-        totalPayments: rentalPayments.length,
-        payments: rentalPayments.map(p => ({ status: p.status, amount: p.amount }))
-      });
+    const rental = activeRentals.find(r => r.id === rentalId);
+    if (!rental) {
+      return { totalPaid: 0, totalExpected: 0, totalPending: 0, progress: 0 };
     }
 
+    const rentalPayments = payments.filter(p => p.rentalId === rentalId);
+
+    // Calcular total PAGO
     const totalPaid = rentalPayments
       .filter(p => p.status === PaymentStatus.PAID)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    const totalExpected = rentalPayments
-      .filter(p => p.status !== PaymentStatus.CANCELLED)
-      .reduce((sum, p) => sum + p.amount, 0);
+    // Calcular total ESPERADO baseado na duração do contrato
+    const startDate = new Date(rental.startDate);
+    const endDate = new Date(rental.endDate);
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const totalWeeks = Math.ceil(totalDays / 7);
+    const totalExpected = totalWeeks * rental.weeklyValue;
 
-    const totalPending = rentalPayments
-      .filter(p => p.status === PaymentStatus.PENDING || p.status === PaymentStatus.OVERDUE)
-      .reduce((sum, p) => sum + p.amount, 0);
+    // Calcular pendente: total do contrato - o que já foi pago
+    const totalPending = totalExpected - totalPaid;
 
     const progress = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0;
-
-    console.log('📊 [PROGRESS RESULT]', {
-      rentalId,
-      totalPaid,
-      totalExpected,
-      totalPending,
-      progress: progress.toFixed(1)
-    });
 
     return {
       totalPaid,
