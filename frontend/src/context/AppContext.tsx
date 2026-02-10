@@ -114,7 +114,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Carregar dados na montagem do componente
   const refreshData = async () => {
     try {
-      console.log('🔄 [REFRESH] Iniciando refresh de dados...');
       setLoading(true);
       setError(null);
 
@@ -125,33 +124,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         paymentApi.getAll()
       ]);
 
-      console.log('📊 [REFRESH] Dados recebidos:', {
-        motorcycles: motorcyclesData.length,
-        subscribers: subscribersData.length,
-        rentals: rentalsData.length,
-        payments: paymentsData.length
-      });
-
       const transformedMotorcycles = motorcyclesData.map(transformMotorcycle);
       const transformedSubscribers = subscribersData.map(transformSubscriber);
       const transformedRentals = rentalsData.map(transformRental);
       const transformedPayments = paymentsData.map(transformPayment);
 
-      console.log('🔄 [REFRESH] Dados transformados:', {
-        motorcycles: transformedMotorcycles.length,
-        subscribers: transformedSubscribers.length,
-        rentals: transformedRentals.length,
-        payments: transformedPayments.length
-      });
-
       setMotorcycles(transformedMotorcycles);
       setSubscribers(transformedSubscribers);
       setRentals(transformedRentals);
       setPayments(transformedPayments);
-
-      console.log('✅ [REFRESH] Dados carregados e atualizados com sucesso');
     } catch (err: any) {
-      console.error('❌ [REFRESH] Erro ao carregar dados:', err);
       setError(err.message || 'Erro ao carregar dados');
     } finally {
       setLoading(false);
@@ -181,12 +163,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addMotorcycle = async (moto: Omit<Motorcycle, 'id'>) => {
     try {
-      console.log('🏍️ [CREATE MOTO] Enviando:', toSnakeCase(moto));
       const created = await motorcycleApi.create(toSnakeCase(moto));
-      console.log('✅ [CREATE MOTO] Recebido do backend:', created);
-
       const transformed = transformMotorcycle(created);
-      console.log('🔄 [CREATE MOTO] Transformado para frontend:', transformed);
 
       // Adicionar ao estado local E fazer refresh para garantir sincronização
       setMotorcycles(prev => [...prev, transformed]);
@@ -194,24 +172,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Refresh completo para garantir que está sincronizado
       setTimeout(() => refreshData(), 500);
     } catch (error: any) {
-      console.error('❌ [CREATE MOTO] Erro:', error);
       throw new Error(error.response?.data?.error || error.message);
     }
   };
 
   const updateMotorcycle = async (id: string, updates: Partial<Motorcycle>) => {
     try {
-      console.log('🔄 [UPDATE MOTO] Enviando:', toSnakeCase(updates));
       const updated = await motorcycleApi.update(id, toSnakeCase(updates));
-      console.log('✅ [UPDATE MOTO] Recebido:', updated);
-
       const transformed = transformMotorcycle(updated);
       setMotorcycles(prev => prev.map(m => m.id === id ? transformed : m));
 
       // Refresh para garantir sincronização
       setTimeout(() => refreshData(), 500);
     } catch (error: any) {
-      console.error('❌ [UPDATE MOTO] Erro:', error);
       throw new Error(error.response?.data?.error || error.message);
     }
   };
@@ -238,36 +211,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addSubscriber = async (sub: Omit<Subscriber, 'id'>) => {
     try {
-      console.log('👤 [CREATE SUBSCRIBER] Enviando:', toSnakeCase(sub));
       const created = await subscriberApi.create(toSnakeCase(sub));
-      console.log('✅ [CREATE SUBSCRIBER] Recebido:', created);
-
       const transformed = transformSubscriber(created);
-      console.log('🔄 [CREATE SUBSCRIBER] Transformado:', transformed);
 
       setSubscribers(prev => [...prev, transformed]);
 
       // Refresh completo
       setTimeout(() => refreshData(), 500);
     } catch (error: any) {
-      console.error('❌ [CREATE SUBSCRIBER] Erro:', error);
       throw new Error(error.response?.data?.error || error.message);
     }
   };
 
   const updateSubscriber = async (id: string, updates: Partial<Subscriber>) => {
     try {
-      console.log('🔄 [UPDATE SUBSCRIBER] Enviando:', toSnakeCase(updates));
       const updated = await subscriberApi.update(id, toSnakeCase(updates));
-      console.log('✅ [UPDATE SUBSCRIBER] Recebido:', updated);
-
       const transformed = transformSubscriber(updated);
       setSubscribers(prev => prev.map(s => s.id === id ? transformed : s));
 
       // Refresh para garantir sincronização
       setTimeout(() => refreshData(), 500);
     } catch (error: any) {
-      console.error('❌ [UPDATE SUBSCRIBER] Erro:', error);
       throw new Error(error.response?.data?.error || error.message);
     }
   };
@@ -284,19 +248,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const createRental = async (rental: Omit<Rental, 'id'>) => {
     try {
-      console.log('📝 [CREATE RENTAL] Enviando:', toSnakeCase(rental));
       const created = await rentalApi.create(toSnakeCase(rental));
-      console.log('✅ [CREATE RENTAL] Recebido:', created);
-
       const transformed = transformRental(created);
-      console.log('🔄 [CREATE RENTAL] Transformado:', transformed);
 
       setRentals(prev => [...prev, transformed]);
 
       // Refresh completo (atualiza moto, pagamentos, etc)
       await refreshData();
     } catch (error: any) {
-      console.error('❌ [CREATE RENTAL] Erro:', error);
       throw new Error(error.response?.data?.error || error.message);
     }
   };
@@ -337,18 +296,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Refresh para atualizar moto e pagamentos cancelados
       await refreshData();
-
-      console.log(`✅ Contrato rescindido: ${rentalId}. Motivo: ${terminationReason}`);
     } catch (error: any) {
-      console.error('❌ Erro ao rescindir contrato:', error);
       throw new Error(error.response?.data?.error || error.message);
     }
   };
 
   const updatePayment = async (id: string, updates: { amount?: number; dueDate?: string }) => {
     try {
-      console.log('🔄 [UPDATE PAYMENT] Enviando:', updates);
-
       // Usar a API de payments com patch genérico
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payments/${id}`, {
         method: 'PATCH',
@@ -367,15 +321,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const result = await response.json();
-      console.log('✅ [UPDATE PAYMENT] Recebido:', result);
-
       const transformed = transformPayment(result.data);
       setPayments(prev => prev.map(p => p.id === id ? transformed : p));
 
       // Refresh para garantir sincronização
       setTimeout(() => refreshData(), 500);
     } catch (error: any) {
-      console.error('❌ [UPDATE PAYMENT] Erro:', error);
       throw new Error(error.message || 'Erro ao atualizar pagamento');
     }
   };

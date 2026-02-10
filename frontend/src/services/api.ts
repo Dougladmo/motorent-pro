@@ -3,12 +3,6 @@ import { Motorcycle, Subscriber, Rental, Payment } from '../shared';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-console.log('🔧 [API CONFIG]', {
-  VITE_API_URL: import.meta.env.VITE_API_URL,
-  API_URL,
-  baseURL: `${API_URL}/api`
-});
-
 const api = axios.create({
   baseURL: `${API_URL}/api`,
   headers: {
@@ -20,14 +14,9 @@ const api = axios.create({
 // Interceptor de requisição (antes de enviar)
 api.interceptors.request.use(
   (config) => {
-    console.log(`🚀 [API REQUEST] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, {
-      params: config.params,
-      data: config.data
-    });
     return config;
   },
   (error) => {
-    console.error('❌ [API REQUEST ERROR]', error);
     return Promise.reject(error);
   }
 );
@@ -35,24 +24,10 @@ api.interceptors.request.use(
 // Interceptor de resposta (após receber)
 api.interceptors.response.use(
   (response) => {
-    console.log(`✅ [API RESPONSE] ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`, {
-      data: response.data
-    });
     return response;
   },
   (error) => {
-    if (error.code === 'ECONNABORTED') {
-      console.error('⏱️ [API TIMEOUT]', error.message);
-    } else if (error.code === 'ERR_NETWORK') {
-      console.error('🌐 [NETWORK ERROR] Backend não está acessível. Verifique se está rodando em', API_URL);
-    } else if (error.response) {
-      console.error(`❌ [API ERROR] ${error.response.status}`, {
-        url: error.config?.url,
-        error: error.response.data?.error || error.message
-      });
-    } else {
-      console.error('❌ [API ERROR]', error.message);
-    }
+    // Erros silenciosos em produção
     return Promise.reject(error);
   }
 );
