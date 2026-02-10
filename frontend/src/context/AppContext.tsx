@@ -36,6 +36,7 @@ interface AppContextType {
   sendReminder: (paymentId: string) => Promise<boolean>;
   deleteMotorcycle: (id: string) => Promise<void>;
   deleteSubscriber: (id: string) => Promise<void>;
+  deletePayment: (id: string) => Promise<void>;
   markPaymentAsUnpaid: (id: string, reason?: string) => Promise<void>;
   terminateRental: (rentalId: string, reason?: string) => Promise<void>;
   validatePaymentIntegrity: () => Promise<PaymentValidationReport>;
@@ -248,7 +249,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const createRental = async (rental: Omit<Rental, 'id'>) => {
     try {
-      const created = await rentalApi.create(toSnakeCase(rental));
+      // Remover campos que não existem no schema do banco de dados
+      const { contractDurationMonths, ...rentalData } = rental as any;
+
+      const created = await rentalApi.create(toSnakeCase(rentalData));
       const transformed = transformRental(created);
 
       setRentals(prev => [...prev, transformed]);
@@ -395,6 +399,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const deletePayment = async (id: string) => {
+    try {
+      const payment = payments.find(p => p.id === id);
+      if (!payment) throw new Error('Pagamento não encontrado');
+
+      if (payment.status !== PaymentStatus.CANCELLED) {
+        throw new Error('Apenas cobranças canceladas podem ser deletadas');
+      }
+
+      await paymentApi.delete(id);
+      setPayments(prev => prev.filter(p => p.id !== id));
+    } catch (error: any) {
+      console.error('Erro ao deletar pagamento:', error);
+      throw new Error(error.response?.data?.error || error.message);
+    }
+  };
+
   const validatePaymentIntegrity = async (): Promise<PaymentValidationReport> => {
     try {
       const result = await paymentApi.validateIntegrity();
@@ -437,6 +458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       sendReminder,
       deleteMotorcycle,
       deleteSubscriber,
+      deletePayment,
       markPaymentAsUnpaid,
       terminateRental,
       validatePaymentIntegrity

@@ -1,11 +1,12 @@
 import React from 'react';
-import { User, Edit2, XCircle } from 'lucide-react';
-import { Subscriber, Rental, Motorcycle } from '../../../shared';
+import { Edit2, XCircle, TrendingUp } from 'lucide-react';
+import { Subscriber, Rental, Motorcycle, Payment, formatPhone, formatPlate, formatCurrency, PaymentStatus } from '../../../shared';
 
 interface SubscriberCardProps {
   subscriber: Subscriber;
   activeRentals: Rental[];
   motorcycles: Motorcycle[];
+  payments: Payment[];
   onEdit: (sub: Subscriber) => void;
   onDelete: (id: string) => void;
   onTerminateRental: (rentalId: string, subName: string, bikePlate: string) => void;
@@ -15,6 +16,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
   subscriber,
   activeRentals,
   motorcycles,
+  payments,
   onEdit,
   onDelete,
   onTerminateRental
@@ -41,13 +43,54 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
     }
   };
 
+  // Calcular progresso de faturamento por contrato
+  const getContractProgress = (rentalId: string) => {
+    const rentalPayments = payments.filter(p => p.rentalId === rentalId);
+
+    // Debug: verificar payments
+    if (rentalPayments.length > 0) {
+      console.log('📊 [CONTRACT PROGRESS]', {
+        rentalId,
+        totalPayments: rentalPayments.length,
+        payments: rentalPayments.map(p => ({ status: p.status, amount: p.amount }))
+      });
+    }
+
+    const totalPaid = rentalPayments
+      .filter(p => p.status === PaymentStatus.PAID)
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const totalExpected = rentalPayments
+      .filter(p => p.status !== PaymentStatus.CANCELLED)
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const totalPending = rentalPayments
+      .filter(p => p.status === PaymentStatus.PENDING || p.status === PaymentStatus.OVERDUE)
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const progress = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0;
+
+    console.log('📊 [PROGRESS RESULT]', {
+      rentalId,
+      totalPaid,
+      totalExpected,
+      totalPending,
+      progress: progress.toFixed(1)
+    });
+
+    return {
+      totalPaid,
+      totalExpected,
+      totalPending,
+      progress: Math.min(progress, 100)
+    };
+  };
+
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
       <div>
-        <div className="flex items-start justify-between">
-          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-4">
-            <User size={24} />
-          </div>
+        <div className="flex items-start justify-between mb-2">
+          <h3 className="text-lg font-bold text-slate-800">{subscriber.name}</h3>
           <button
             onClick={handleDelete}
             className="text-slate-400 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -62,8 +105,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
             &times;
           </button>
         </div>
-        <h3 className="text-lg font-bold text-slate-800">{subscriber.name}</h3>
-        <p className="text-sm text-slate-500 mt-1">{subscriber.phone}</p>
+        <p className="text-sm text-slate-500 mt-1">{formatPhone(subscriber.phone)}</p>
 
         {/* Botão de editar */}
         <button
@@ -83,16 +125,17 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
               {activeRentals.map((rental) => {
                 const bike = motorcycles.find((m) => m.id === rental.motorcycleId);
                 const timeRemaining = rental.endDate ? getTimeRemaining(rental.endDate) : '';
+                const progress = getContractProgress(rental.id);
 
                 return (
                   <li key={rental.id} className="text-sm bg-blue-50 border border-blue-100 px-3 py-3 rounded-lg">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <div className="font-semibold text-blue-900">
-                          {bike?.model} | {bike?.plate}
+                          {bike?.model} | {formatPlate(bike?.plate || '')}
                         </div>
                         <div className="text-xs text-blue-600 mt-1">
-                          R$ {rental.weeklyValue.toFixed(2)}/semana{timeRemaining}
+                          {formatCurrency(rental.weeklyValue)}/semana{timeRemaining}
                         </div>
                       </div>
                       <button
@@ -104,6 +147,37 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
                       >
                         <XCircle size={18} />
                       </button>
+                    </div>
+
+                    {/* Progresso de Faturamento */}
+                    <div className="mt-2 pt-2 border-t border-blue-200">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-blue-600 flex items-center gap-1">
+                          <TrendingUp size={12} />
+                          Progresso
+                        </span>
+                        <span className="font-semibold text-blue-700">{progress.progress.toFixed(0)}%</span>
+                      </div>
+
+                      {/* Barra de Progresso */}
+                      <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                        <div
+                          className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${progress.progress}%` }}
+                        ></div>
+                      </div>
+
+                      {/* Valores */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-blue-500">Faturado:</span>
+                          <p className="font-bold text-green-700">{formatCurrency(progress.totalPaid)}</p>
+                        </div>
+                        <div>
+                          <span className="text-blue-500">Pendente:</span>
+                          <p className="font-bold text-orange-600">{formatCurrency(progress.totalPending)}</p>
+                        </div>
+                      </div>
                     </div>
                   </li>
                 );

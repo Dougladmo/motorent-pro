@@ -159,6 +159,21 @@ export class PaymentService {
     return this.paymentRepo.update(id, updates);
   }
 
+  async deletePayment(paymentId: string): Promise<void> {
+    const payment = await this.paymentRepo.findById(paymentId);
+    if (!payment) {
+      throw new Error('Pagamento não encontrado');
+    }
+
+    // VALIDAÇÃO: Só permite deletar cobranças canceladas
+    if (payment.status !== 'Cancelado') {
+      throw new Error('Apenas cobranças canceladas podem ser deletadas');
+    }
+
+    await this.paymentRepo.delete(paymentId);
+    console.log(`[PaymentService] Cobrança cancelada ${paymentId} deletada permanentemente`);
+  }
+
   async validateIntegrity(): Promise<{
     totalPayments: number;
     inconsistencies: Array<{ type: string; message: string; paymentId: string }>;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Bike, Edit2, Trash2 } from 'lucide-react';
-import { Motorcycle, MotorcycleStatus } from '../../../shared';
+import { Bike, Edit2, Trash2, DollarSign } from 'lucide-react';
+import { Motorcycle, MotorcycleStatus, formatPlate, formatCurrency } from '../../../shared';
 import { StatusBadge } from '../../../components/StatusBadge';
 
 interface MotorcycleCardProps {
@@ -68,9 +68,22 @@ export const MotorcycleCard: React.FC<MotorcycleCardProps> = ({
       <div className="p-5">
         <h3 className="text-lg font-bold text-slate-800">{motorcycle.model}</h3>
         <div className="flex items-center justify-between mt-2 text-sm text-slate-500">
-          <span>{motorcycle.plate}</span>
+          <span className="font-mono font-semibold">{formatPlate(motorcycle.plate)}</span>
           <span>{motorcycle.year}</span>
         </div>
+
+        {/* Receita Total da Moto */}
+        {motorcycle.totalRevenue > 0 && (
+          <div className="mt-3 bg-green-50 border border-green-100 rounded-lg p-2.5">
+            <div className="flex items-center gap-2 text-green-700">
+              <DollarSign size={14} className="flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-green-600">Receita Total</p>
+                <p className="text-sm font-bold">{formatCurrency(motorcycle.totalRevenue)}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 pt-4 border-t border-slate-50 flex justify-end gap-2">
           <button

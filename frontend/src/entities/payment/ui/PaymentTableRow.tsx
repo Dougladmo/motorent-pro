@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Edit2, RotateCcw, AlertCircle } from 'lucide-react';
+import { Check, Edit2, RotateCcw, AlertCircle, Trash2 } from 'lucide-react';
 import { Payment, PaymentStatus } from '../../../shared';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { formatCurrency, formatDate } from '../../../shared';
@@ -11,6 +11,7 @@ interface PaymentTableRowProps {
   onMarkPaid: (id: string) => Promise<void>;
   onEdit: (payment: Payment) => void;
   onUndo: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   isSending: boolean;
 }
 
@@ -21,6 +22,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
   onMarkPaid,
   onEdit,
   onUndo,
+  onDelete,
   isSending
 }) => {
   const { totalDebt, hasOverdue } = subscriberInfo;
@@ -97,6 +99,19 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
               <span className="text-xs text-slate-400">Pago em {formatDate(payment.paidAt)}</span>
             )}
           </>
+        )}
+        {payment.status === PaymentStatus.CANCELLED && (
+          <button
+            onClick={async () => {
+              if (window.confirm('Tem certeza que deseja deletar esta cobrança cancelada permanentemente?')) {
+                await onDelete(payment.id);
+              }
+            }}
+            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Deletar Cobrança Cancelada"
+          >
+            <Trash2 size={18} />
+          </button>
         )}
       </td>
     </tr>

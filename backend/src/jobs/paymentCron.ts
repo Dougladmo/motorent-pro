@@ -134,6 +134,79 @@ export class PaymentCronService {
     }
   }
 
+  // Gerar pagamentos para um rental específico (usado ao criar novo contrato)
+  async generatePaymentsForRental(rentalId: string): Promise<number> {
+    console.log(`[PAYMENT GEN] Gerando pagamentos para rental ${rentalId}...`);
+
+    const rental = await this.rentalRepo.findById(rentalId);
+    if (!rental) {
+      throw new Error('Rental não encontrado');
+    }
+
+    if (!rental.is_active) {
+      console.log(`[PAYMENT GEN] Rental ${rentalId} está inativo, pulando geração`);
+      return 0;
+    }
+
+    const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
+    if (!subscriber) {
+      throw new Error('Assinante não encontrado');
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Parse start date
+    const [y, m, d] = rental.start_date.split('-').map(Number);
+    let nextDueDate = new Date(y, m - 1, d);
+
+    // Lookahead: gerar até 7 dias no futuro
+    const lookaheadDate = new Date(today);
+    lookaheadDate.setDate(lookaheadDate.getDate() + 7);
+
+    // Respeitar data de término do contrato
+    let maxDate = lookaheadDate;
+    if (rental.end_date) {
+      const endDate = new Date(rental.end_date);
+      if (endDate < lookaheadDate) {
+        maxDate = endDate;
+      }
+    }
+
+    const newPayments: PaymentInsert[] = [];
+
+    while (nextDueDate <= maxDate) {
+      const dateStr = nextDueDate.toISOString().split('T')[0];
+
+      // Verificar se já existe
+      const exists = await this.paymentRepo.existsByRentalAndDate(rental.id, dateStr);
+
+      if (!exists) {
+        const isPast = dateStr < todayStr;
+        newPayments.push({
+          rental_id: rental.id,
+          subscriber_name: subscriber.name,
+          amount: rental.weekly_value,
+          expected_amount: rental.weekly_value,
+          due_date: dateStr,
+          status: isPast ? 'Atrasado' : 'Pendente',
+          reminder_sent_count: 0
+        });
+      }
+
+      // Próximo pagamento: +7 dias
+      nextDueDate.setDate(nextDueDate.getDate() + 7);
+    }
+
+    if (newPayments.length > 0) {
+      await this.paymentRepo.bulkCreate(newPayments);
+      console.log(`[PAYMENT GEN] ${newPayments.length} pagamentos criados para rental ${rentalId}`);
+    }
+
+    return newPayments.length;
+  }
+
   startCronJobs(): void {
     const cronExpression = process.env.CRON_PAYMENT_GENERATION || '0 */6 * * *';
 

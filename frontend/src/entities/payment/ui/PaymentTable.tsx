@@ -9,6 +9,7 @@ interface PaymentTableProps {
   onSendReminder: (id: string) => Promise<void>;
   onMarkPaid: (id: string) => Promise<void>;
   onMarkUnpaid: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   sendingId: string | null;
 }
 
@@ -19,6 +20,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
   onSendReminder,
   onMarkPaid,
   onMarkUnpaid,
+  onDelete,
   sendingId
 }) => {
   const getSubscriberInfo = (payment: Payment) => {
@@ -60,6 +62,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
               onMarkPaid={onMarkPaid}
               onEdit={onEdit}
               onUndo={onMarkUnpaid}
+              onDelete={onDelete}
               isSending={sendingId === payment.id}
             />
           ))}

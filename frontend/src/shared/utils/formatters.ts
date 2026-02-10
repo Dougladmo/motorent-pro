@@ -49,13 +49,25 @@ export const formatCPF = (cpf: string): string => {
 };
 
 /**
- * Format plate to uppercase with hyphen
+ * Format plate to uppercase with hyphen (supports both old and Mercosul formats)
+ * Old format: ABC-1234
+ * Mercosul format: ABC1D23 (no hyphen)
  */
 export const formatPlate = (plate: string): string => {
   const cleaned = plate.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
   if (cleaned.length >= 7) {
-    return cleaned.replace(/([A-Z]{3})(\d{4})/, '$1-$2');
+    // Check if it's Mercosul format (3 letters + 1 number + 1 letter + 2 numbers)
+    const mercosulMatch = cleaned.match(/^([A-Z]{3})(\d{1})([A-Z]{1})(\d{2})$/);
+    if (mercosulMatch) {
+      return `${mercosulMatch[1]}${mercosulMatch[2]}${mercosulMatch[3]}${mercosulMatch[4]}`;
+    }
+
+    // Old format (3 letters + 4 numbers)
+    const oldMatch = cleaned.match(/^([A-Z]{3})(\d{4})$/);
+    if (oldMatch) {
+      return `${oldMatch[1]}-${oldMatch[2]}`;
+    }
   }
 
   return cleaned;

@@ -186,6 +186,10 @@ export const paymentApi = {
     await api.post(`/payments/${id}/send-reminder`);
   },
 
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/payments/${id}`);
+  },
+
   validateIntegrity: async (): Promise<{
     totalPayments: number;
     inconsistencies: Array<{ type: string; message: string; paymentId: string }>;
