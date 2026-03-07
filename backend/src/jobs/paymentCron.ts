@@ -27,7 +27,7 @@ export class PaymentCronService {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     try {
       // STEP 1: Atualizar PENDING → OVERDUE
@@ -105,7 +105,7 @@ export class PaymentCronService {
       const newPayments: PaymentInsert[] = [];
 
       while (nextDueDate <= maxDate) {
-        const dateStr = nextDueDate.toISOString().split('T')[0];
+        const dateStr = `${nextDueDate.getFullYear()}-${String(nextDueDate.getMonth() + 1).padStart(2, '0')}-${String(nextDueDate.getDate()).padStart(2, '0')}`;
 
         // Verificar se já existe
         const exists = await this.paymentRepo.existsByRentalAndDate(rental.id, dateStr);
@@ -205,7 +205,7 @@ export class PaymentCronService {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     // Parse start date
     const [y, m, d] = rental.start_date.split('-').map(Number);

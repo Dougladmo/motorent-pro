@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MotorcycleStatus, Motorcycle } from '../shared';
+import { supabase } from '../lib/supabase';
 import { Plus } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { AlertDialog } from '../components/AlertDialog';
@@ -125,8 +126,10 @@ export const Motorcycles: React.FC = () => {
           formData.append('year', motoData.year.toString());
           formData.append('status', editingMoto.status);
 
+          const { data: { session } } = await supabase.auth.getSession();
           const response = await fetch(`${import.meta.env.VITE_API_URL}/api/motorcycles/${editingMoto.id}/image`, {
             method: 'PUT',
+            headers: { Authorization: `Bearer ${session?.access_token}` },
             body: formData
           });
 
@@ -158,8 +161,10 @@ export const Motorcycles: React.FC = () => {
           formData.append('status', MotorcycleStatus.AVAILABLE);
 
           // Enviar para API
+          const { data: { session } } = await supabase.auth.getSession();
           const response = await fetch(`${import.meta.env.VITE_API_URL}/api/motorcycles/with-image`, {
             method: 'POST',
+            headers: { Authorization: `Bearer ${session?.access_token}` },
             body: formData
           });
 

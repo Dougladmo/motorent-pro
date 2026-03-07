@@ -15,6 +15,7 @@ import {
   rentalApi,
   paymentApi
 } from '../services/api';
+import { useAuth } from './AuthContext';
 
 interface AppContextType {
   motorcycles: Motorcycle[];
@@ -109,6 +110,7 @@ const toSnakeCase = (data: any): any => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
@@ -146,8 +148,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   useEffect(() => {
-    refreshData();
-  }, []);
+    if (isAuthenticated) {
+      refreshData();
+    }
+  }, [isAuthenticated]);
 
   // Estatísticas derivadas
   const stats: DashboardStats = {
