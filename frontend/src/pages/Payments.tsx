@@ -55,6 +55,7 @@ export const Payments: React.FC = () => {
     try {
       setSendingId(id);
       await sendReminder(id);
+      setAlertDialog({ message: 'Lembrete enviado com sucesso!', variant: 'success', title: 'Lembrete Enviado' });
     } catch (error) {
       console.error('Erro ao enviar lembrete:', error);
       setAlertDialog({ message: 'Erro ao enviar lembrete. Tente novamente.', variant: 'error' });

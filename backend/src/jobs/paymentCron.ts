@@ -159,7 +159,8 @@ export class PaymentCronService {
               abacate_pix_id: pixResult.abacatePixId,
               pix_br_code: pixResult.pixBrCode,
               pix_qr_code_base64: pixResult.pixQrCodeBase64,
-              pix_expires_at: pixResult.pixExpiresAt
+              pix_expires_at: pixResult.pixExpiresAt,
+              pix_payment_url: pixResult.pixPaymentUrl || null
             });
           }
 
@@ -171,7 +172,8 @@ export class PaymentCronService {
             paymentDueDate: created.due_date,
             totalDebt: created.amount,
             pixBrCode: pixResult?.pixBrCode,
-            pixQrCodeBase64: pixResult?.pixQrCodeBase64
+            pixQrCodeBase64: pixResult?.pixQrCodeBase64,
+            pixPaymentUrl: pixResult?.pixPaymentUrl
           });
         }
       }

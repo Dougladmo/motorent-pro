@@ -96,7 +96,8 @@ const transformPayment = (data: any): Payment => ({
   abacatePixId: data.abacate_pix_id ?? undefined,
   pixBrCode: data.pix_br_code ?? undefined,
   pixQrCodeBase64: data.pix_qr_code_base64 ?? undefined,
-  pixExpiresAt: data.pix_expires_at ?? undefined
+  pixExpiresAt: data.pix_expires_at ?? undefined,
+  pixPaymentUrl: data.pix_payment_url ?? undefined
 });
 
 // Função para transformar dados do frontend para backend

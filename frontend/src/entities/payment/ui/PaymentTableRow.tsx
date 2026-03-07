@@ -68,7 +68,17 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           {payment.pixQrCodeBase64 && (
             <img src={payment.pixQrCodeBase64} alt="QR Code PIX" className="w-48 h-48 mx-auto mb-4 rounded-lg border border-slate-200" />
           )}
-          <div className="bg-slate-50 rounded-lg p-3 mb-4">
+          {payment.pixPaymentUrl && (
+            <a
+              href={payment.pixPaymentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium mb-3"
+            >
+              Pagar agora
+            </a>
+          )}
+          <div className="bg-slate-50 rounded-lg p-3 mb-3">
             <p className="text-xs text-slate-500 mb-1">Código PIX copia-e-cola:</p>
             <p className="text-xs text-slate-700 font-mono break-all">{payment.pixBrCode}</p>
           </div>

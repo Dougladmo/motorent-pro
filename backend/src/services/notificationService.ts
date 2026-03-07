@@ -9,6 +9,7 @@ interface NotificationParams {
   totalDebt: number;
   pixBrCode?: string;
   pixQrCodeBase64?: string;
+  pixPaymentUrl?: string;
 }
 
 export class NotificationService {
@@ -47,9 +48,17 @@ export class NotificationService {
       return;
     }
 
-    const pixPaymentText = params.pixBrCode
-      ? `Para pagar, use o PIX copia-e-cola abaixo:\n\n${params.pixBrCode}\n\nApós o pagamento, envie o comprovante.`
-      : `Para pagar, use a chave PIX:\n${pixKey}\n\nApós o pagamento, envie o comprovante.`;
+    let pixPaymentText: string;
+    if (params.pixBrCode) {
+      const parts = [`Para pagar, use o PIX copia-e-cola abaixo:\n\n${params.pixBrCode}`];
+      if (params.pixPaymentUrl) {
+        parts.push(`\nOu acesse o link de pagamento:\n${params.pixPaymentUrl}`);
+      }
+      parts.push('\nApós o pagamento, envie o comprovante.');
+      pixPaymentText = parts.join('');
+    } else {
+      pixPaymentText = `Para pagar, use a chave PIX:\n${pixKey}\n\nApós o pagamento, envie o comprovante.`;
+    }
 
     const messages: Array<{ text?: string; imageBase64?: string; caption?: string; delay: number }> = [
       {
@@ -133,6 +142,7 @@ export class NotificationService {
         <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0;">
           <p style="margin: 0 0 12px 0; font-weight: bold; color: #1d4ed8;">Pague via PIX:</p>
           ${params.pixQrCodeBase64 ? `<img src="${params.pixQrCodeBase64}" alt="QR Code PIX" style="display: block; width: 200px; height: 200px; margin: 0 auto 16px auto;" />` : ''}
+          ${params.pixPaymentUrl ? `<div style="text-align: center; margin-bottom: 16px;"><a href="${params.pixPaymentUrl}" style="display: inline-block; background: #1d4ed8; color: #fff; font-weight: bold; font-size: 15px; padding: 10px 24px; border-radius: 6px; text-decoration: none;">Pagar agora</a></div>` : ''}
           <p style="margin: 0 0 4px 0; font-size: 13px; color: #64748b;">Código PIX copia-e-cola:</p>
           <p style="margin: 0; font-size: 13px; color: #1e293b; font-family: monospace; word-break: break-all; background: #f1f5f9; padding: 8px; border-radius: 4px;">${params.pixBrCode}</p>
         </div>`

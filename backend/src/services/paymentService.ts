@@ -146,6 +146,7 @@ export class PaymentService {
     // Garantir QR Code PIX: reutilizar existente ou criar novo
     let pixBrCode = payment.pix_br_code ?? undefined;
     let pixQrCodeBase64 = payment.pix_qr_code_base64 ?? undefined;
+    let pixPaymentUrl = payment.pix_payment_url ?? undefined;
 
     if (!pixBrCode) {
       console.log(`[PaymentService] Pagamento ${paymentId} sem QR Code PIX, criando...`);
@@ -171,10 +172,12 @@ export class PaymentService {
           abacate_pix_id: pixResult.abacatePixId,
           pix_br_code: pixResult.pixBrCode,
           pix_qr_code_base64: pixResult.pixQrCodeBase64,
-          pix_expires_at: pixResult.pixExpiresAt
+          pix_expires_at: pixResult.pixExpiresAt,
+          pix_payment_url: pixResult.pixPaymentUrl || null
         });
         pixBrCode = pixResult.pixBrCode;
         pixQrCodeBase64 = pixResult.pixQrCodeBase64;
+        pixPaymentUrl = pixResult.pixPaymentUrl || undefined;
         console.log(`[PaymentService] QR Code PIX criado para pagamento ${paymentId}: ${pixResult.abacatePixId}`);
       }
     } else {
@@ -189,7 +192,8 @@ export class PaymentService {
       paymentDueDate: payment.due_date,
       totalDebt,
       pixBrCode,
-      pixQrCodeBase64
+      pixQrCodeBase64,
+      pixPaymentUrl
     });
 
     // Incrementar contador de lembretes

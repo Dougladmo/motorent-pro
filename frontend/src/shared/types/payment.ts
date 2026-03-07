@@ -41,6 +41,7 @@ export interface Payment {
   pixBrCode?: string;
   pixQrCodeBase64?: string;
   pixExpiresAt?: string;
+  pixPaymentUrl?: string;
 }
 
 export interface DashboardStats {

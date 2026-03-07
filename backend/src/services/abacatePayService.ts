@@ -20,6 +20,7 @@ export interface PixQrCodeResult {
   pixBrCode: string;
   pixQrCodeBase64: string;
   pixExpiresAt: string;
+  pixPaymentUrl: string;
 }
 
 export class AbacatePayService {
@@ -90,7 +91,8 @@ export class AbacatePayService {
         abacatePixId: data.id,
         pixBrCode: data.brCode,
         pixQrCodeBase64: data.brCodeBase64 || '',
-        pixExpiresAt: data.expiresAt
+        pixExpiresAt: data.expiresAt,
+        pixPaymentUrl: data.url || ''
       };
     } catch (err: unknown) {
       clearTimeout(timeout);
