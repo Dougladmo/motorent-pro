@@ -12,7 +12,7 @@ import { AlertDialog } from '../components/AlertDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export const Subscribers: React.FC = () => {
-  const { subscribers, motorcycles, addSubscriber, updateSubscriber, createRental, rentals, payments, deleteSubscriber, terminateRental } = useApp();
+  const { subscribers, motorcycles, loading, addSubscriber, updateSubscriber, createRental, rentals, payments, deleteSubscriber, terminateRental } = useApp();
   const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'EDIT_SUB' | 'NEW_RENTAL'>('LIST');
   const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
 
@@ -236,6 +236,7 @@ export const Subscribers: React.FC = () => {
           rentals={rentals}
           motorcycles={motorcycles}
           payments={payments}
+          loading={loading}
           onEdit={handleEditClick}
           onDelete={handleDeleteSubscriber}
           onTerminateRental={handleTerminateRental}

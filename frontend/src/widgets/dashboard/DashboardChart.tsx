@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, TooltipProps } from 'recharts';
+import { Skeleton } from '../../shared/ui/atoms/Skeleton';
 
 interface ChartDataItem {
   name: string;
@@ -10,6 +11,7 @@ interface ChartDataItem {
 interface DashboardChartProps {
   chartData: ChartDataItem[];
   rangeLabel: string;
+  loading?: boolean;
 }
 
 // Componente customizado para o Tooltip
@@ -28,7 +30,26 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
   return null;
 };
 
-export const DashboardChart: React.FC<DashboardChartProps> = ({ chartData, rangeLabel }) => {
+export const DashboardChart: React.FC<DashboardChartProps> = ({ chartData, rangeLabel, loading = false }) => {
+  if (loading) {
+    return (
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+        <div className="flex items-center gap-3 mb-6">
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+        </div>
+        <div className="h-64 flex flex-col justify-around">
+          {['w-3/4', 'w-1/2', 'w-2/3'].map((w, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className={`h-8 ${w} rounded`} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
       <div className="flex items-center gap-3 mb-6">

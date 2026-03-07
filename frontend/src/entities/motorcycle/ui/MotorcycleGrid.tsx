@@ -2,6 +2,7 @@ import React from 'react';
 import { Motorcycle } from '../../../shared';
 import { MotorcycleCard } from './MotorcycleCard';
 import { Skeleton } from '../../../shared/ui/atoms/Skeleton';
+import { Bike } from 'lucide-react';
 
 interface MotorcycleGridProps {
   motorcycles: Motorcycle[];
@@ -46,6 +47,15 @@ export const MotorcycleGrid: React.FC<MotorcycleGridProps> = ({
         {Array.from({ length: 6 }).map((_, i) => (
           <MotorcycleCardSkeleton key={i} />
         ))}
+      </div>
+    );
+  }
+
+  if (!loading && motorcycles.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+        <Bike size={48} className="mb-3 opacity-40" />
+        <p className="text-sm">Nenhuma moto cadastrada.</p>
       </div>
     );
   }

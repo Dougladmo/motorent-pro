@@ -13,7 +13,7 @@ import { FormSelect } from '../shared/ui/atoms/FormSelect';
 import { WEEK_DAYS } from '../shared/constants/weekDays';
 
 export const Motorcycles: React.FC = () => {
-  const { motorcycles, subscribers, addMotorcycle, updateMotorcycle, deleteMotorcycle, createRental } = useApp();
+  const { motorcycles, subscribers, loading, addMotorcycle, updateMotorcycle, deleteMotorcycle, createRental } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMoto, setEditingMoto] = useState<Motorcycle | null>(null);
   const [newMoto, setNewMoto] = useState({ plate: '', model: '', year: 2024 });
@@ -238,6 +238,7 @@ export const Motorcycles: React.FC = () => {
 
       <MotorcycleGrid
         motorcycles={motorcycles}
+        loading={loading}
         onEdit={handleEditClick}
         onDelete={deleteMotorcycle}
         onImageClick={setFullscreenImage}

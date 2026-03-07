@@ -2,6 +2,7 @@ import React from 'react';
 import { Subscriber, Rental, Motorcycle, Payment } from '../../../shared';
 import { SubscriberCard } from './SubscriberCard';
 import { Skeleton } from '../../../shared/ui/atoms/Skeleton';
+import { Users } from 'lucide-react';
 
 interface SubscriberGridProps {
   subscribers: Subscriber[];
@@ -45,6 +46,15 @@ export const SubscriberGrid: React.FC<SubscriberGridProps> = ({
         {Array.from({ length: 6 }).map((_, i) => (
           <SubscriberCardSkeleton key={i} />
         ))}
+      </div>
+    );
+  }
+
+  if (!loading && subscribers.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+        <Users size={48} className="mb-3 opacity-40" />
+        <p className="text-sm">Nenhum assinante cadastrado.</p>
       </div>
     );
   }

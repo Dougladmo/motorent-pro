@@ -9,7 +9,7 @@ import { DashboardActivity } from '../widgets/dashboard/DashboardActivity';
 type TimeRange = 'WEEK' | 'FORTNIGHT' | 'MONTH';
 
 export const Dashboard: React.FC = () => {
-  const { payments, rentals, motorcycles } = useApp();
+  const { payments, rentals, motorcycles, loading } = useApp();
   const [timeRange, setTimeRange] = useState<TimeRange>('MONTH');
 
   // Filter logic
@@ -112,12 +112,13 @@ export const Dashboard: React.FC = () => {
         activeRentals={rentals.filter(r => r.isActive).length}
         availableBikes={motorcycles.filter(m => m.status === 'Disponível').length}
         rangeLabel={getRangeLabel()}
+        loading={loading}
       />
 
       {/* Charts & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <DashboardChart chartData={chartData} rangeLabel={getRangeLabel()} />
-        <DashboardActivity recentActivity={recentActivity} />
+        <DashboardChart chartData={chartData} rangeLabel={getRangeLabel()} loading={loading} />
+        <DashboardActivity recentActivity={recentActivity} loading={loading} />
       </div>
     </div>
   );
