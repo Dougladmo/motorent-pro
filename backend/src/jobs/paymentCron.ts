@@ -78,6 +78,7 @@ export class PaymentCronService {
     let totalNewPayments = 0;
 
     for (const rental of activeRentals) {
+      try {
       const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
       if (!subscriber) {
         console.warn(`[CRON] Assinante ${rental.subscriber_id} não encontrado, pulando`);
@@ -164,18 +165,25 @@ export class PaymentCronService {
             });
           }
 
-          await this.notificationService.sendPaymentNotification({
-            subscriberName: subscriber.name,
-            subscriberPhone: subscriber.phone,
-            subscriberEmail: subscriber.email,
-            paymentAmount: created.amount,
-            paymentDueDate: created.due_date,
-            totalDebt: created.amount,
-            pixBrCode: pixResult?.pixBrCode,
-            pixQrCodeBase64: pixResult?.pixQrCodeBase64,
-            pixPaymentUrl: pixResult?.pixPaymentUrl
-          });
+          try {
+            await this.notificationService.sendPaymentNotification({
+              subscriberName: subscriber.name,
+              subscriberPhone: subscriber.phone,
+              subscriberEmail: subscriber.email,
+              paymentAmount: created.amount,
+              paymentDueDate: created.due_date,
+              totalDebt: created.amount,
+              pixBrCode: pixResult?.pixBrCode,
+              pixQrCodeBase64: pixResult?.pixQrCodeBase64,
+              pixPaymentUrl: pixResult?.pixPaymentUrl
+            });
+          } catch (err) {
+            console.error(`[CRON] Erro ao notificar pagamento ${created.id}:`, err);
+          }
         }
+      }
+      } catch (err) {
+        console.error(`[CRON] Erro ao processar rental ${rental.id}:`, err);
       }
     }
 
@@ -259,6 +267,58 @@ export class PaymentCronService {
     return newPayments.length;
   }
 
+  async backfillMissingQrCodes(): Promise<void> {
+    console.log('[CRON] STEP 3: Backfill de QR Codes ausentes...');
+
+    const pending = await this.paymentRepo.findPendingWithoutPix();
+    if (pending.length === 0) {
+      console.log('[CRON] Nenhum pagamento pendente sem QR Code encontrado');
+      return;
+    }
+
+    console.log(`[CRON] ${pending.length} pagamentos pendentes sem QR Code`);
+
+    for (const payment of pending) {
+      try {
+        const rental = await this.rentalRepo.findById(payment.rental_id);
+        if (!rental) continue;
+
+        const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
+        if (!subscriber) continue;
+
+        const pixResult = await this.abacatePayService.createPixQrCode({
+          amount: payment.amount,
+          description: `Aluguel - ${subscriber.name} - ${payment.due_date}`,
+          expiresIn: 604800,
+          customer: {
+            name: subscriber.name,
+            cellphone: subscriber.phone,
+            email: subscriber.email,
+            taxId: subscriber.document
+          },
+          metadata: {
+            paymentId: payment.id,
+            rentalId: rental.id,
+            subscriberId: rental.subscriber_id
+          }
+        });
+
+        if (pixResult) {
+          await this.paymentRepo.update(payment.id, {
+            abacate_pix_id: pixResult.abacatePixId,
+            pix_br_code: pixResult.pixBrCode,
+            pix_qr_code_base64: pixResult.pixQrCodeBase64,
+            pix_expires_at: pixResult.pixExpiresAt,
+            pix_payment_url: pixResult.pixPaymentUrl || null
+          });
+          console.log(`[CRON] QR Code gerado para pagamento ${payment.id}`);
+        }
+      } catch (err) {
+        console.error(`[CRON] Erro ao backfill pagamento ${payment.id}:`, err);
+      }
+    }
+  }
+
   startCronJobs(): void {
     const cronExpression = process.env.CRON_PAYMENT_GENERATION || '0 */6 * * *';
 
@@ -275,8 +335,10 @@ export class PaymentCronService {
 
     // Executar imediatamente na inicialização
     console.log('[CRON] Executando primeira rodada ao iniciar...');
-    this.runPaymentGeneration().catch(err => {
-      console.error('[CRON INIT ERROR]', err);
-    });
+    this.runPaymentGeneration()
+      .then(() => this.backfillMissingQrCodes())
+      .catch(err => {
+        console.error('[CRON INIT ERROR]', err);
+      });
   }
 }

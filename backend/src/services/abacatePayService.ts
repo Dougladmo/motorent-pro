@@ -42,6 +42,8 @@ export class AbacatePayService {
       return null;
     }
 
+    const sanitizedTaxId = params.customer.taxId.replace(/\D/g, '');
+
     const body = {
       amount: Math.round(params.amount * 100), // reais → centavos
       expiresIn: params.expiresIn ?? 604800,
@@ -49,8 +51,8 @@ export class AbacatePayService {
       customer: {
         name: params.customer.name,
         cellphone: params.customer.cellphone,
-        ...(params.customer.email ? { email: params.customer.email } : {}),
-        taxId: params.customer.taxId
+        email: params.customer.email || 'sem-email@motorentpro.com',
+        taxId: sanitizedTaxId
       },
       metadata: params.metadata
     };
@@ -92,7 +94,7 @@ export class AbacatePayService {
         pixBrCode: data.brCode,
         pixQrCodeBase64: data.brCodeBase64 || '',
         pixExpiresAt: data.expiresAt,
-        pixPaymentUrl: data.url || ''
+        pixPaymentUrl: '' // Abacate Pay não retorna URL de pagamento neste endpoint
       };
     } catch (err: unknown) {
       clearTimeout(timeout);

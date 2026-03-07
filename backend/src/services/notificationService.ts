@@ -91,12 +91,19 @@ export class NotificationService {
           ? `${evolutionUrl}/message/sendMedia/${evolutionInstance}`
           : `${evolutionUrl}/message/sendText/${evolutionInstance}`;
 
+        const base64Data = msg.imageBase64 ?? '';
+        const mediaWithPrefix = base64Data.startsWith('data:')
+          ? base64Data
+          : `data:image/png;base64,${base64Data}`;
+
         const body = isImage
           ? {
               number: params.subscriberPhone,
-              mediatype: 'image',
-              media: msg.imageBase64,
+              mediatype: 'Image',
+              mimetype: 'image/png',
+              media: mediaWithPrefix,
               caption: msg.caption,
+              fileName: 'qrcode.png',
               delay: msg.delay
             }
           : {

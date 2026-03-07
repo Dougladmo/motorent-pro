@@ -130,6 +130,17 @@ export class PaymentRepository {
     return data || [];
   }
 
+  async findPendingWithoutPix(): Promise<Payment[]> {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('status', 'Pendente')
+      .is('pix_br_code', null);
+
+    if (error) throw error;
+    return data || [];
+  }
+
   async existsByRentalAndDate(rentalId: string, dueDate: string): Promise<boolean> {
     const { data } = await this.supabase
       .from('payments')
