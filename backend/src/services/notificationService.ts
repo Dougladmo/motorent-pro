@@ -48,6 +48,12 @@ export class NotificationService {
       return;
     }
 
+    // Garantir prefixo 55 (Brasil) sem duplicar
+    const phone = params.subscriberPhone.replace(/\D/g, '');
+    const phoneE164 = phone.startsWith('55') ? phone : `55${phone}`;
+
+    console.log(`[WPP] Enviando para ${params.subscriberName} | fone original: ${params.subscriberPhone} → enviando: ${phoneE164} | instância: ${evolutionInstance}`);
+
     let pixPaymentText: string;
     if (params.pixBrCode) {
       const parts = [`Para pagar, use o PIX copia-e-cola abaixo:\n\n${params.pixBrCode}`];
@@ -84,9 +90,15 @@ export class NotificationService {
       });
     }
 
-    for (const msg of messages) {
+    let wppOk = 0;
+    let wppFail = 0;
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const isImage = !!msg.imageBase64;
+      const label = isImage ? `msg[${i + 1}] imagem (QR Code)` : `msg[${i + 1}] texto`;
+
       try {
-        const isImage = !!msg.imageBase64;
         const endpoint = isImage
           ? `${evolutionUrl}/message/sendMedia/${evolutionInstance}`
           : `${evolutionUrl}/message/sendText/${evolutionInstance}`;
@@ -98,8 +110,8 @@ export class NotificationService {
 
         const body = isImage
           ? {
-              number: params.subscriberPhone,
-              mediatype: 'Image',
+              number: phoneE164,
+              mediatype: 'image',
               mimetype: 'image/png',
               media: mediaWithPrefix,
               caption: msg.caption,
@@ -107,10 +119,12 @@ export class NotificationService {
               delay: msg.delay
             }
           : {
-              number: params.subscriberPhone,
+              number: phoneE164,
               text: msg.text,
               delay: msg.delay
             };
+
+        console.log(`[WPP] → ${label} | endpoint: ${endpoint}`);
 
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -121,16 +135,22 @@ export class NotificationService {
           body: JSON.stringify(body)
         });
 
-        if (!response.ok) {
+        if (response.ok) {
+          const respJson = await response.json().catch(() => ({}));
+          console.log(`[WPP] ✓ ${label} enviado | status: ${response.status} | key: ${(respJson as { key?: { id?: string } }).key?.id ?? 'n/a'}`);
+          wppOk++;
+        } else {
           const respBody = await response.text();
-          console.error(`[NotificationService] Erro WPP msg (delay ${msg.delay}): ${response.status} ${respBody}`);
+          console.error(`[WPP] ✗ ${label} falhou | status: ${response.status} | body: ${respBody}`);
+          wppFail++;
         }
       } catch (err) {
-        console.error(`[NotificationService] Falha ao enviar WPP para ${params.subscriberPhone}:`, err);
+        console.error(`[WPP] ✗ ${label} exceção:`, err);
+        wppFail++;
       }
     }
 
-    console.log(`[NotificationService] WPP enviado para ${params.subscriberName} (${params.subscriberPhone})`);
+    console.log(`[WPP] Concluído para ${params.subscriberName} | ✓ ${wppOk} ok | ✗ ${wppFail} falhas`);
   }
 
   private async sendEmail(params: NotificationParams, tipo: string): Promise<void> {
@@ -148,8 +168,7 @@ export class NotificationService {
       ? `
         <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0;">
           <p style="margin: 0 0 12px 0; font-weight: bold; color: #1d4ed8;">Pague via PIX:</p>
-          ${params.pixQrCodeBase64 ? `<img src="${params.pixQrCodeBase64}" alt="QR Code PIX" style="display: block; width: 200px; height: 200px; margin: 0 auto 16px auto;" />` : ''}
-          ${params.pixPaymentUrl ? `<div style="text-align: center; margin-bottom: 16px;"><a href="${params.pixPaymentUrl}" style="display: inline-block; background: #1d4ed8; color: #fff; font-weight: bold; font-size: 15px; padding: 10px 24px; border-radius: 6px; text-decoration: none;">Pagar agora</a></div>` : ''}
+          ${params.pixQrCodeBase64 ? `<img src="cid:qrcode_pix" alt="QR Code PIX" style="display: block; width: 200px; height: 200px; margin: 0 auto 16px auto;" />` : ''}
           <p style="margin: 0 0 4px 0; font-size: 13px; color: #64748b;">Código PIX copia-e-cola:</p>
           <p style="margin: 0; font-size: 13px; color: #1e293b; font-family: monospace; word-break: break-all; background: #f1f5f9; padding: 8px; border-radius: 4px;">${params.pixBrCode}</p>
         </div>`
@@ -185,16 +204,26 @@ export class NotificationService {
       </div>
     `;
 
+    // Inline attachment para o QR Code (data: URI é bloqueado por clientes de email)
+    const attachments: Array<{ filename: string; content: string; content_id: string }> = [];
+    if (params.pixQrCodeBase64) {
+      const base64Content = params.pixQrCodeBase64.replace(/^data:image\/png;base64,/, '');
+      attachments.push({ filename: 'qrcode.png', content: base64Content, content_id: 'qrcode_pix' });
+    }
+
+    console.log(`[EMAIL] Enviando para ${params.subscriberEmail} | assunto: "${subject}" | de: ${fromEmail} | qrcode: ${attachments.length > 0 ? 'sim' : 'não'}`);
+
     try {
-      await this.resend.emails.send({
+      const result = await this.resend.emails.send({
         from: fromEmail,
         to: [params.subscriberEmail!],
         subject,
-        html
+        html,
+        ...(attachments.length > 0 ? { attachments } : {})
       });
-      console.log(`[NotificationService] Email enviado para ${params.subscriberEmail}`);
+      console.log(`[EMAIL] ✓ Enviado para ${params.subscriberEmail} | id: ${result.data?.id ?? 'n/a'}`);
     } catch (err) {
-      console.error(`[NotificationService] Falha ao enviar email para ${params.subscriberEmail}:`, err);
+      console.error(`[EMAIL] ✗ Falha ao enviar para ${params.subscriberEmail}:`, err);
     }
   }
 }
