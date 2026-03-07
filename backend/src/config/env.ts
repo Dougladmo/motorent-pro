@@ -15,7 +15,7 @@ const validateEnv = (): EnvConfig => {
   const required = [
     'SUPABASE_URL',
     'SUPABASE_SERVICE_ROLE_KEY',
-    'FRONTEND_URL'
+    'FRONTEND_URL',
   ];
 
   const missing = required.filter(key => !process.env[key]);
@@ -31,7 +31,7 @@ const validateEnv = (): EnvConfig => {
     PORT: parseInt(process.env.PORT || '3001'),
     NODE_ENV: process.env.NODE_ENV || 'development',
     CRON_PAYMENT_GENERATION: process.env.CRON_PAYMENT_GENERATION || '0 */6 * * *',
-    FRONTEND_URL: process.env.FRONTEND_URL!
+    FRONTEND_URL: process.env.FRONTEND_URL!,
   };
 };
 

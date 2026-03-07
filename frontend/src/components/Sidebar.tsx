@@ -1,6 +1,7 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bike, Users, Banknote, BookOpen } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Bike, Users, Banknote, BookOpen, UserCog, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -8,19 +9,24 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
+  const { user, logout } = useAuth();
+
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { path: '/payments', label: 'Cobranças', icon: <Banknote size={20} /> },
     { path: '/motorcycles', label: 'Motos', icon: <Bike size={20} /> },
     { path: '/subscribers', label: 'Assinantes', icon: <Users size={20} /> },
+    { path: '/users', label: 'Usuários', icon: <UserCog size={20} /> },
     { path: '/architecture', label: 'Arquitetura', icon: <BookOpen size={20} /> },
   ];
+
+  const emailInitial = user?.email?.charAt(0).toUpperCase() ?? 'A';
 
   return (
     <>
       {/* Mobile Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
           onClick={() => setIsOpen(false)}
         />
@@ -45,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
               <li key={item.path}>
                 <NavLink
                   to={item.path}
+                  end={item.path === '/'}
                   onClick={() => setIsOpen(false)}
                   className={({ isActive }) => `
                     w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
@@ -62,15 +69,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         </nav>
 
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-800">
-            <div className="flex items-center gap-3 text-slate-400">
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
-                    A
-                </div>
-                <div>
-                    <p className="text-sm font-medium text-white">Admin User</p>
-                    <p className="text-xs">Dono da Loja</p>
-                </div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {emailInitial}
             </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{user?.email ?? 'Admin'}</p>
+            </div>
+            <button
+              onClick={logout}
+              title="Sair"
+              className="text-slate-400 hover:text-white transition-colors p-1 rounded flex-shrink-0"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       </aside>
     </>

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Motorcycle, Subscriber, Rental, Payment } from '../shared';
+import { supabase } from '../lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -13,7 +14,11 @@ const api = axios.create({
 
 // Interceptor de requisição (antes de enviar)
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      config.headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
     return config;
   },
   (error) => {
@@ -22,15 +27,12 @@ api.interceptors.request.use(
 );
 
 // Interceptor de resposta (após receber)
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    // Erros silenciosos em produção
-    return Promise.reject(error);
+api.interceptors.response.use(undefined, (error) => {
+  if (error.response?.status === 401) {
+    window.location.href = '/login';
   }
-);
+  return Promise.reject(error);
+});
 
 // ============================================
 // MOTORCYCLES
@@ -196,6 +198,33 @@ export const paymentApi = {
   }> => {
     const { data } = await api.get('/payments/validate');
     return data.data;
+  },
+};
+
+// ============================================
+// USERS
+// ============================================
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  created_at: string;
+  isSuperAdmin: boolean;
+}
+
+export const userApi = {
+  getAll: async (): Promise<AdminUser[]> => {
+    const { data } = await api.get('/users');
+    return data.data;
+  },
+
+  create: async (email: string, password: string): Promise<AdminUser> => {
+    const { data } = await api.post('/users', { email, password });
+    return data.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/users/${id}`);
   },
 };
 
