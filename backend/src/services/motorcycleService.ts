@@ -1,4 +1,6 @@
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
+import { RentalRepository } from '../repositories/rentalRepository';
+import { PaymentRepository } from '../repositories/paymentRepository';
 import { Database } from '../models/database.types';
 
 type Motorcycle = Database['public']['Tables']['motorcycles']['Row'];
@@ -6,6 +8,9 @@ type MotorcycleInsert = Database['public']['Tables']['motorcycles']['Insert'];
 type MotorcycleUpdate = Database['public']['Tables']['motorcycles']['Update'];
 
 export class MotorcycleService {
+  private rentalRepo = new RentalRepository();
+  private paymentRepo = new PaymentRepository();
+
   constructor(private motorcycleRepo: MotorcycleRepository) {}
 
   async getAllMotorcycles(): Promise<Motorcycle[]> {
@@ -55,9 +60,13 @@ export class MotorcycleService {
       throw new Error('Moto não encontrada');
     }
 
-    // Verificar se está alugada
-    if (motorcycle.status === 'Alugada') {
-      throw new Error('Não é possível deletar uma moto que está alugada');
+    // Deleção em cascata: pagamentos → aluguéis → moto
+    const rentals = await this.rentalRepo.findByMotorcycleId(id);
+    for (const rental of rentals) {
+      await this.paymentRepo.deleteByRentalId(rental.id);
+    }
+    for (const rental of rentals) {
+      await this.rentalRepo.delete(rental.id);
     }
 
     return this.motorcycleRepo.delete(id);

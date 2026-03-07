@@ -6,6 +6,7 @@ import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import routes from './routes';
+import webhookRouter from './routes/webhooks';
 import logger from './utils/logger';
 
 const app: Application = express();
@@ -29,7 +30,7 @@ logger.info('🔓 CORS configurado', {
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: env.NODE_ENV === 'production' ? 300 : 1000,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
@@ -41,22 +42,15 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging middleware
 app.use(requestLogger);
 
+// Webhook routes (sem autenticação JWT — validação por secret query param)
+app.use('/webhooks', webhookRouter);
+
 // API routes
 app.use('/api', routes);
 
 // Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'MotoRent Pro Backend API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/api/health',
-      payments: '/api/payments',
-      motorcycles: '/api/motorcycles',
-      subscribers: '/api/subscribers',
-      rentals: '/api/rentals'
-    }
-  });
+app.get('/', (_req, res) => {
+  res.json({ message: 'MotoRent Pro Backend API', version: '1.0.0' });
 });
 
 // Error handling middleware (must be last)

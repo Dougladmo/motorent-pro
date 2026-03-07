@@ -56,6 +56,7 @@ export interface Database {
           id: string;
           name: string;
           phone: string;
+          email: string | null;
           document: string;
           active: boolean;
           notes: string | null;
@@ -66,6 +67,7 @@ export interface Database {
           id?: string;
           name: string;
           phone: string;
+          email?: string | null;
           document: string;
           active?: boolean;
           notes?: string | null;
@@ -76,6 +78,7 @@ export interface Database {
           id?: string;
           name?: string;
           phone?: string;
+          email?: string | null;
           document?: string;
           active?: boolean;
           notes?: string | null;
@@ -144,6 +147,11 @@ export interface Database {
           previous_status: PaymentStatus | null;
           is_amount_overridden: boolean;
           reminder_sent_count: number;
+          abacate_pix_id: string | null;
+          pix_br_code: string | null;
+          pix_qr_code_base64: string | null;
+          pix_expires_at: string | null;
+          pix_payment_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -160,6 +168,11 @@ export interface Database {
           previous_status?: PaymentStatus | null;
           is_amount_overridden?: boolean;
           reminder_sent_count?: number;
+          abacate_pix_id?: string | null;
+          pix_br_code?: string | null;
+          pix_qr_code_base64?: string | null;
+          pix_expires_at?: string | null;
+          pix_payment_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -176,6 +189,11 @@ export interface Database {
           previous_status?: PaymentStatus | null;
           is_amount_overridden?: boolean;
           reminder_sent_count?: number;
+          abacate_pix_id?: string | null;
+          pix_br_code?: string | null;
+          pix_qr_code_base64?: string | null;
+          pix_expires_at?: string | null;
+          pix_payment_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };

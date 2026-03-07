@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { PaymentStatus, Payment } from '../shared';
 import { Modal } from '../components/Modal';
+import { AlertDialog } from '../components/AlertDialog';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Search } from 'lucide-react';
 import { formatDate } from '../shared/utils/formatters';
 import { PaymentWeekStats } from '../widgets/payment-filters/PaymentWeekStats';
@@ -12,7 +14,7 @@ import { PaymentEditForm } from '../features/payment-management/ui/PaymentEditFo
 type FilterType = PaymentStatus | 'ALL' | 'CURRENT_WEEK' | 'DATE_RANGE';
 
 export const Payments: React.FC = () => {
-  const { payments, rentals, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid, updatePayment, deletePayment } = useApp();
+  const { payments, rentals, loading, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid, updatePayment, deletePayment } = useApp();
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -21,6 +23,12 @@ export const Payments: React.FC = () => {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [editForm, setEditForm] = useState({ amount: 0, dueDate: '' });
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Dialogs
+  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' | 'warning' | 'info'; title?: string } | null>(null);
+  const [undoPaymentId, setUndoPaymentId] = useState<string | null>(null);
+  const [undoReason, setUndoReason] = useState('');
+  const [isUndoing, setIsUndoing] = useState(false);
 
   // Calcula início e fim da semana atual (segunda a domingo)
   const getCurrentWeekRange = () => {
@@ -47,30 +55,41 @@ export const Payments: React.FC = () => {
     try {
       setSendingId(id);
       await sendReminder(id);
+      setAlertDialog({ message: 'Lembrete enviado com sucesso!', variant: 'success', title: 'Lembrete Enviado' });
     } catch (error) {
       console.error('Erro ao enviar lembrete:', error);
-      alert('Erro ao enviar lembrete. Tente novamente.');
+      setAlertDialog({ message: 'Erro ao enviar lembrete. Tente novamente.', variant: 'error' });
     } finally {
       setSendingId(null);
     }
   };
 
-  const handleUndo = async (paymentId: string) => {
-    const reason = window.prompt('Motivo da reversão (opcional):');
+  const handleUndoClick = (paymentId: string) => {
+    setUndoReason('');
+    setUndoPaymentId(paymentId);
+  };
+
+  const handleConfirmUndo = async () => {
+    if (!undoPaymentId) return;
+    setIsUndoing(true);
     try {
-      markPaymentAsUnpaid(paymentId, reason || undefined);
-      alert('✅ Pagamento revertido com sucesso!');
+      await markPaymentAsUnpaid(undoPaymentId, undoReason.trim() || undefined);
+      setUndoPaymentId(null);
+      setAlertDialog({ message: 'Pagamento revertido com sucesso!', variant: 'success', title: 'Pagamento Revertido' });
     } catch (error: any) {
-      alert(`❌ Erro: ${error.message}`);
+      setUndoPaymentId(null);
+      setAlertDialog({ message: error.message, variant: 'error' });
+    } finally {
+      setIsUndoing(false);
     }
   };
 
   const handleDelete = async (paymentId: string) => {
     try {
       await deletePayment(paymentId);
-      alert('✅ Cobrança cancelada deletada com sucesso!');
+      setAlertDialog({ message: 'Cobrança deletada com sucesso!', variant: 'success', title: 'Cobrança Deletada' });
     } catch (error: any) {
-      alert(`❌ Erro: ${error.message}`);
+      setAlertDialog({ message: error.message, variant: 'error' });
     }
   };
 
@@ -89,7 +108,7 @@ export const Payments: React.FC = () => {
     if (!editingPayment) return;
 
     if (editForm.amount <= 0) {
-      alert('Valor deve ser maior que zero.');
+      setAlertDialog({ message: 'Valor deve ser maior que zero.', variant: 'warning' });
       return;
     }
 
@@ -101,9 +120,9 @@ export const Payments: React.FC = () => {
 
       setIsModalOpen(false);
       setEditingPayment(null);
-      alert('✅ Pagamento atualizado com sucesso!');
+      setAlertDialog({ message: 'Pagamento atualizado com sucesso!', variant: 'success', title: 'Pagamento Atualizado' });
     } catch (error: any) {
-      alert(`❌ Erro ao atualizar pagamento: ${error.message}`);
+      setAlertDialog({ message: `Erro ao atualizar pagamento: ${error.message}`, variant: 'error' });
     }
   };
 
@@ -192,6 +211,43 @@ export const Payments: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <AlertDialog
+        isOpen={!!alertDialog}
+        message={alertDialog?.message ?? ''}
+        variant={alertDialog?.variant}
+        title={alertDialog?.title}
+        onClose={() => setAlertDialog(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!undoPaymentId}
+        title="Reverter Pagamento"
+        onConfirm={handleConfirmUndo}
+        onClose={() => setUndoPaymentId(null)}
+        confirmLabel={isUndoing ? 'Revertendo...' : 'Reverter'}
+        confirmDisabled={isUndoing}
+        cancelLabel="Cancelar"
+        variant="default"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600">
+            Este pagamento voltará ao status <span className="font-semibold">Pendente</span>.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Motivo da reversão <span className="text-slate-400 font-normal">(opcional)</span>
+            </label>
+            <textarea
+              value={undoReason}
+              onChange={e => setUndoReason(e.target.value)}
+              rows={2}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder="Ex: Pagamento estornado..."
+            />
+          </div>
+        </div>
+      </ConfirmDialog>
+
        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <h2 className="text-2xl font-bold text-slate-800">Controle de Cobranças</h2>
@@ -247,10 +303,11 @@ export const Payments: React.FC = () => {
       <PaymentTable
         payments={sortedPayments}
         rentals={rentals}
+        loading={loading}
         onEdit={handleEditClick}
         onSendReminder={handleSendReminder}
         onMarkPaid={markPaymentAsPaid}
-        onMarkUnpaid={handleUndo}
+        onMarkUnpaid={handleUndoClick}
         onDelete={handleDelete}
         sendingId={sendingId}
       />

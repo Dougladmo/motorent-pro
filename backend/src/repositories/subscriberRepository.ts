@@ -82,6 +82,11 @@ export class SubscriberRepository {
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23503') {
+        throw new Error('Não é possível excluir assinante com aluguéis ou pagamentos registrados. Rescindir os contratos primeiro.');
+      }
+      throw error;
+    }
   }
 }

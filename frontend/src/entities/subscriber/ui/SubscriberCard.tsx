@@ -1,6 +1,7 @@
-import React from 'react';
-import { Edit2, XCircle, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';
+import { Edit2, XCircle, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { Subscriber, Rental, Motorcycle, Payment, formatPhone, formatPlate, formatCurrency, PaymentStatus } from '../../../shared';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 interface SubscriberCardProps {
   subscriber: Subscriber;
@@ -21,10 +22,16 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
   onDelete,
   onTerminateRental
 }) => {
-  const handleDelete = () => {
-    if (window.confirm(`Tem certeza que deseja excluir ${subscriber.name}?`)) {
-      onDelete(subscriber.id);
-    }
+  const [expandedRentals, setExpandedRentals] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const toggleRental = (rentalId: string) => {
+    setExpandedRentals(prev => {
+      const next = new Set(prev);
+      if (next.has(rentalId)) next.delete(rentalId);
+      else next.add(rentalId);
+      return next;
+    });
   };
 
   const getTimeRemaining = (endDate: string) => {
@@ -78,12 +85,22 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
   };
 
   return (
+    <>
+    <ConfirmDialog
+      isOpen={confirmDelete}
+      title="Excluir Assinante"
+      message={`Tem certeza que deseja excluir ${subscriber.name}?`}
+      onConfirm={() => onDelete(subscriber.id)}
+      onClose={() => setConfirmDelete(false)}
+      confirmLabel="Excluir"
+      variant="danger"
+    />
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
       <div>
         <div className="flex items-start justify-between mb-2">
           <h3 className="text-lg font-bold text-slate-800">{subscriber.name}</h3>
           <button
-            onClick={handleDelete}
+            onClick={() => setConfirmDelete(true)}
             className="text-slate-400 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={activeRentals.length > 0}
             title={
@@ -142,33 +159,43 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
 
                     {/* Progresso de Faturamento */}
                     <div className="mt-2 pt-2 border-t border-blue-200">
-                      <div className="flex items-center justify-between text-xs mb-1">
+                      <button
+                        onClick={() => toggleRental(rental.id)}
+                        className="w-full flex items-center justify-between text-xs mb-1 hover:opacity-80 transition-opacity"
+                      >
                         <span className="text-blue-600 flex items-center gap-1">
                           <TrendingUp size={12} />
                           Progresso
                         </span>
-                        <span className="font-semibold text-blue-700">{progress.progress.toFixed(0)}%</span>
-                      </div>
+                        <span className="flex items-center gap-1 font-semibold text-blue-700">
+                          {progress.progress.toFixed(0)}%
+                          {expandedRentals.has(rental.id) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </span>
+                      </button>
 
-                      {/* Barra de Progresso */}
-                      <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
-                        <div
-                          className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${progress.progress}%` }}
-                        ></div>
-                      </div>
+                      {expandedRentals.has(rental.id) && (
+                        <>
+                          {/* Barra de Progresso */}
+                          <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                            <div
+                              className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${progress.progress}%` }}
+                            ></div>
+                          </div>
 
-                      {/* Valores */}
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-blue-500">Faturado:</span>
-                          <p className="font-bold text-green-700">{formatCurrency(progress.totalPaid)}</p>
-                        </div>
-                        <div>
-                          <span className="text-blue-500">Pendente:</span>
-                          <p className="font-bold text-orange-600">{formatCurrency(progress.totalPending)}</p>
-                        </div>
-                      </div>
+                          {/* Valores */}
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-blue-500">Faturado:</span>
+                              <p className="font-bold text-green-700">{formatCurrency(progress.totalPaid)}</p>
+                            </div>
+                            <div>
+                              <span className="text-blue-500">Pendente:</span>
+                              <p className="font-bold text-orange-600">{formatCurrency(progress.totalPending)}</p>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </li>
                 );
@@ -180,5 +207,6 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
 };

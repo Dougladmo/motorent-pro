@@ -35,6 +35,13 @@ export interface Payment {
   // Validation
   expectedAmount: number;
   isAmountOverridden?: boolean;
+
+  // Abacate Pay PIX
+  abacatePixId?: string;
+  pixBrCode?: string;
+  pixQrCodeBase64?: string;
+  pixExpiresAt?: string;
+  pixPaymentUrl?: string;
 }
 
 export interface DashboardStats {

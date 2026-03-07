@@ -52,7 +52,8 @@ export class PaymentRepository {
   }
 
   async findFutureByRentalId(rentalId: string): Promise<Payment[]> {
-    const today = new Date().toISOString().split('T')[0];
+    const _today = new Date();
+    const today = `${_today.getFullYear()}-${String(_today.getMonth() + 1).padStart(2, '0')}-${String(_today.getDate()).padStart(2, '0')}`;
 
     const { data, error } = await this.supabase
       .from('payments')
@@ -66,7 +67,8 @@ export class PaymentRepository {
   }
 
   async findOverduePayments(): Promise<Payment[]> {
-    const today = new Date().toISOString().split('T')[0];
+    const _today = new Date();
+    const today = `${_today.getFullYear()}-${String(_today.getMonth() + 1).padStart(2, '0')}-${String(_today.getDate()).padStart(2, '0')}`;
 
     const { data, error } = await this.supabase
       .from('payments')
@@ -128,6 +130,17 @@ export class PaymentRepository {
     return data || [];
   }
 
+  async findPendingWithoutPix(): Promise<Payment[]> {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('status', 'Pendente')
+      .is('pix_br_code', null);
+
+    if (error) throw error;
+    return data || [];
+  }
+
   async existsByRentalAndDate(rentalId: string, dueDate: string): Promise<boolean> {
     const { data } = await this.supabase
       .from('payments')
@@ -144,6 +157,15 @@ export class PaymentRepository {
       .from('payments')
       .delete()
       .eq('id', id);
+
+    if (error) throw error;
+  }
+
+  async deleteByRentalId(rentalId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('payments')
+      .delete()
+      .eq('rental_id', rentalId);
 
     if (error) throw error;
   }

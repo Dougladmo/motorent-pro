@@ -2,16 +2,23 @@ import cron from 'node-cron';
 import { PaymentRepository } from '../repositories/paymentRepository';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
+import { NotificationService } from '../services/notificationService';
+import { AbacatePayService } from '../services/abacatePayService';
 import { Database } from '../models/database.types';
 
 type PaymentInsert = Database['public']['Tables']['payments']['Insert'];
 
 export class PaymentCronService {
+  private abacatePayService: AbacatePayService;
+
   constructor(
     private paymentRepo: PaymentRepository,
     private rentalRepo: RentalRepository,
-    private subscriberRepo: SubscriberRepository
-  ) {}
+    private subscriberRepo: SubscriberRepository,
+    private notificationService: NotificationService
+  ) {
+    this.abacatePayService = new AbacatePayService();
+  }
 
   async runPaymentGeneration(): Promise<void> {
     console.log('[CRON] ========================================');
@@ -20,7 +27,7 @@ export class PaymentCronService {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     try {
       // STEP 1: Atualizar PENDING → OVERDUE
@@ -71,6 +78,7 @@ export class PaymentCronService {
     let totalNewPayments = 0;
 
     for (const rental of activeRentals) {
+      try {
       const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
       if (!subscriber) {
         console.warn(`[CRON] Assinante ${rental.subscriber_id} não encontrado, pulando`);
@@ -98,7 +106,7 @@ export class PaymentCronService {
       const newPayments: PaymentInsert[] = [];
 
       while (nextDueDate <= maxDate) {
-        const dateStr = nextDueDate.toISOString().split('T')[0];
+        const dateStr = `${nextDueDate.getFullYear()}-${String(nextDueDate.getMonth() + 1).padStart(2, '0')}-${String(nextDueDate.getDate()).padStart(2, '0')}`;
 
         // Verificar se já existe
         const exists = await this.paymentRepo.existsByRentalAndDate(rental.id, dateStr);
@@ -121,9 +129,61 @@ export class PaymentCronService {
       }
 
       if (newPayments.length > 0) {
-        await this.paymentRepo.bulkCreate(newPayments);
+        const createdPayments = await this.paymentRepo.bulkCreate(newPayments);
         totalNewPayments += newPayments.length;
         console.log(`[CRON] Aluguel ${rental.id}: ${newPayments.length} novos pagamentos criados`);
+
+        // Gerar QR Code PIX e notificar apenas pagamentos Pendentes (não retroativos)
+        for (const created of createdPayments) {
+          if (created.status !== 'Pendente') continue;
+
+          // Tentar gerar QR Code PIX (degradação graciosa em caso de falha)
+          const pixResult = await this.abacatePayService.createPixQrCode({
+            amount: created.amount,
+            description: `Aluguel - ${subscriber.name} - ${created.due_date}`,
+            expiresIn: 604800,
+            customer: {
+              name: subscriber.name,
+              cellphone: subscriber.phone,
+              email: subscriber.email,
+              taxId: subscriber.document
+            },
+            metadata: {
+              paymentId: created.id,
+              rentalId: rental.id,
+              subscriberId: rental.subscriber_id
+            }
+          });
+
+          if (pixResult) {
+            await this.paymentRepo.update(created.id, {
+              abacate_pix_id: pixResult.abacatePixId,
+              pix_br_code: pixResult.pixBrCode,
+              pix_qr_code_base64: pixResult.pixQrCodeBase64,
+              pix_expires_at: pixResult.pixExpiresAt,
+              pix_payment_url: pixResult.pixPaymentUrl || null
+            });
+          }
+
+          try {
+            await this.notificationService.sendPaymentNotification({
+              subscriberName: subscriber.name,
+              subscriberPhone: subscriber.phone,
+              subscriberEmail: subscriber.email,
+              paymentAmount: created.amount,
+              paymentDueDate: created.due_date,
+              totalDebt: created.amount,
+              pixBrCode: pixResult?.pixBrCode,
+              pixQrCodeBase64: pixResult?.pixQrCodeBase64,
+              pixPaymentUrl: pixResult?.pixPaymentUrl
+            });
+          } catch (err) {
+            console.error(`[CRON] Erro ao notificar pagamento ${created.id}:`, err);
+          }
+        }
+      }
+      } catch (err) {
+        console.error(`[CRON] Erro ao processar rental ${rental.id}:`, err);
       }
     }
 
@@ -155,7 +215,7 @@ export class PaymentCronService {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     // Parse start date
     const [y, m, d] = rental.start_date.split('-').map(Number);
@@ -207,6 +267,58 @@ export class PaymentCronService {
     return newPayments.length;
   }
 
+  async backfillMissingQrCodes(): Promise<void> {
+    console.log('[CRON] STEP 3: Backfill de QR Codes ausentes...');
+
+    const pending = await this.paymentRepo.findPendingWithoutPix();
+    if (pending.length === 0) {
+      console.log('[CRON] Nenhum pagamento pendente sem QR Code encontrado');
+      return;
+    }
+
+    console.log(`[CRON] ${pending.length} pagamentos pendentes sem QR Code`);
+
+    for (const payment of pending) {
+      try {
+        const rental = await this.rentalRepo.findById(payment.rental_id);
+        if (!rental) continue;
+
+        const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
+        if (!subscriber) continue;
+
+        const pixResult = await this.abacatePayService.createPixQrCode({
+          amount: payment.amount,
+          description: `Aluguel - ${subscriber.name} - ${payment.due_date}`,
+          expiresIn: 604800,
+          customer: {
+            name: subscriber.name,
+            cellphone: subscriber.phone,
+            email: subscriber.email,
+            taxId: subscriber.document
+          },
+          metadata: {
+            paymentId: payment.id,
+            rentalId: rental.id,
+            subscriberId: rental.subscriber_id
+          }
+        });
+
+        if (pixResult) {
+          await this.paymentRepo.update(payment.id, {
+            abacate_pix_id: pixResult.abacatePixId,
+            pix_br_code: pixResult.pixBrCode,
+            pix_qr_code_base64: pixResult.pixQrCodeBase64,
+            pix_expires_at: pixResult.pixExpiresAt,
+            pix_payment_url: pixResult.pixPaymentUrl || null
+          });
+          console.log(`[CRON] QR Code gerado para pagamento ${payment.id}`);
+        }
+      } catch (err) {
+        console.error(`[CRON] Erro ao backfill pagamento ${payment.id}:`, err);
+      }
+    }
+  }
+
   startCronJobs(): void {
     const cronExpression = process.env.CRON_PAYMENT_GENERATION || '0 */6 * * *';
 
@@ -223,8 +335,10 @@ export class PaymentCronService {
 
     // Executar imediatamente na inicialização
     console.log('[CRON] Executando primeira rodada ao iniciar...');
-    this.runPaymentGeneration().catch(err => {
-      console.error('[CRON INIT ERROR]', err);
-    });
+    this.runPaymentGeneration()
+      .then(() => this.backfillMissingQrCodes())
+      .catch(err => {
+        console.error('[CRON INIT ERROR]', err);
+      });
   }
 }

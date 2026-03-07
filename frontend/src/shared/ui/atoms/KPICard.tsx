@@ -14,23 +14,26 @@ export const KPICard: React.FC<KPICardProps> = ({
   variant = 'default'
 }) => {
   const variantStyles = {
-    default: { bg: 'bg-slate-100', text: 'text-slate-600' },
-    success: { bg: 'bg-green-100', text: 'text-green-600' },
-    warning: { bg: 'bg-yellow-100', text: 'text-yellow-600' },
-    danger: { bg: 'bg-red-100', text: 'text-red-600' }
+    default: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-600' },
+    success: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-500' },
+    warning: { bg: 'bg-orange-50', text: 'text-orange-500', border: 'border-orange-500' },
+    danger: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-500' }
   };
 
-  const { bg, text } = variantStyles[variant];
+  const { bg, text, border } = variantStyles[variant];
+
+  const valueStr = String(value);
+  const valueSizeClass = valueStr.length > 12 ? 'text-lg' : valueStr.length > 8 ? 'text-xl' : 'text-2xl';
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
-      <div>
-        <p className="text-sm font-medium text-slate-500">{title}</p>
-        <h3 className="text-2xl font-bold text-slate-800 mt-2">{value}</h3>
+    <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 ${border} flex flex-col gap-3`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-slate-500 leading-snug">{title}</p>
+        <div className={`p-2 h-10 w-10 flex-shrink-0 flex items-center justify-center ${bg} ${text} rounded-xl`}>
+          {icon}
+        </div>
       </div>
-      <div className={`p-2.5 ${bg} ${text} rounded-lg`}>
-        {icon}
-      </div>
+      <h3 className={`${valueSizeClass} font-bold text-slate-800 leading-tight`}>{value}</h3>
     </div>
   );
 };
