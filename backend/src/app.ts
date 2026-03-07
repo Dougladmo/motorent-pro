@@ -45,18 +45,8 @@ app.use(requestLogger);
 app.use('/api', routes);
 
 // Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'MotoRent Pro Backend API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/api/health',
-      payments: '/api/payments',
-      motorcycles: '/api/motorcycles',
-      subscribers: '/api/subscribers',
-      rentals: '/api/rentals'
-    }
-  });
+app.get('/', (_req, res) => {
+  res.json({ message: 'MotoRent Pro Backend API', version: '1.0.0' });
 });
 
 // Error handling middleware (must be last)

@@ -28,6 +28,17 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
     return;
   }
 
+  if (typeof password !== 'string' || password.length < 8) {
+    res.status(400).json({ error: 'A senha deve ter no mínimo 8 caracteres' });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (typeof email !== 'string' || !emailRegex.test(email)) {
+    res.status(400).json({ error: 'Email inválido' });
+    return;
+  }
+
   const { data, error } = await getSupabaseClient().auth.admin.createUser({
     email,
     password,
