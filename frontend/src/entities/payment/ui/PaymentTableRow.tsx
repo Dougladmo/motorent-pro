@@ -1,9 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Check, Edit2, RotateCcw, AlertCircle, Trash2, QrCode, Copy, X } from 'lucide-react';
 import { Payment, PaymentStatus } from '../../../shared';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { formatCurrency, formatDate } from '../../../shared';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
+
+// Cooldown progressivo: 1ª vez → 1min, 2ª → 5min, 3ª → 15min, 4ª+ → 30min
+const COOLDOWN_LEVELS = [1 * 60, 5 * 60, 15 * 60, 30 * 60]; // segundos
+
+function getCooldownSeconds(reminderCount: number): number {
+  const idx = Math.min(reminderCount, COOLDOWN_LEVELS.length - 1);
+  return COOLDOWN_LEVELS[idx];
+}
+
+function formatCountdown(seconds: number): string {
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+  return `${seconds}s`;
+}
+
+function useCooldown(paymentId: string) {
+  const storageKey = `reminder_cd_${paymentId}`;
+
+  const getRemainingSeconds = useCallback((): number => {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return 0;
+    const { lockedUntil } = JSON.parse(raw) as { lockedUntil: number };
+    return Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+  }, [storageKey]);
+
+  const [remaining, setRemaining] = useState<number>(getRemainingSeconds);
+
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const id = setInterval(() => {
+      const r = getRemainingSeconds();
+      setRemaining(r);
+      if (r <= 0) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [remaining, getRemainingSeconds]);
+
+  const lock = useCallback((reminderCount: number) => {
+    const secs = getCooldownSeconds(reminderCount);
+    localStorage.setItem(storageKey, JSON.stringify({ lockedUntil: Date.now() + secs * 1000 }));
+    setRemaining(secs);
+  }, [storageKey]);
+
+  return { remaining, lock };
+}
 
 interface PaymentTableRowProps {
   payment: Payment;
@@ -29,6 +77,15 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showPixModal, setShowPixModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { remaining, lock } = useCooldown(payment.id);
+
+  const inCooldown = remaining > 0;
+
+  async function handleSendReminder() {
+    if (inCooldown || isSending) return;
+    await onSendReminder(payment.id);
+    lock(payment.reminderSentCount); // bloqueia com base no envio atual
+  }
   const { totalDebt, hasOverdue } = subscriberInfo;
   const showTotalDebt = hasOverdue && payment.status !== PaymentStatus.PAID;
 
@@ -135,15 +192,24 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
               <Edit2 size={18} />
             </button>
             <button
-              onClick={() => onSendReminder(payment.id)}
-              disabled={isSending}
-              className="px-3 py-1.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors relative disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Enviar Lembrete WhatsApp"
+              onClick={handleSendReminder}
+              disabled={isSending || inCooldown}
+              className="px-3 py-1.5 text-xs rounded transition-colors relative disabled:cursor-not-allowed
+                text-blue-600 hover:text-blue-700 hover:bg-blue-50
+                disabled:text-slate-400 disabled:hover:bg-transparent"
+              title={inCooldown ? `Aguarde ${formatCountdown(remaining)} para enviar novamente` : 'Enviar Lembrete WhatsApp'}
             >
               {isSending ? (
                 <span className="flex items-center gap-1.5">
                   <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                   Enviando...
+                </span>
+              ) : inCooldown ? (
+                <span className="flex items-center gap-1">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {formatCountdown(remaining)}
                 </span>
               ) : (
                 'Enviar lembrete manualmente'
