@@ -61,8 +61,8 @@ export const Dashboard: React.FC = () => {
     .reduce((acc, curr) => acc + curr.amount, 0);
 
   const chartData = [
-    { name: 'Recebido', value: filteredStats.totalRevenue, color: '#22c55e' },
-    { name: 'Pendente', value: filteredStats.totalPending, color: '#eab308' },
+    { name: 'Recebido', value: filteredStats.totalRevenue, color: '#10b981' },
+    { name: 'Pendente', value: filteredStats.totalPending, color: '#f97316' },
     { name: 'Atrasado', value: globalOverdue, color: '#ef4444' },
   ];
 
@@ -87,13 +87,13 @@ export const Dashboard: React.FC = () => {
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <h2 className="text-2xl font-bold text-slate-800">Visão Geral</h2>
-            <p className="text-slate-500">Acompanhe o desempenho financeiro da sua frota.</p>
+            <p className="text-slate-500 mt-1">Acompanhe o desempenho financeiro da sua frota.</p>
         </div>
-        
+
         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
-            <Calendar size={18} className="text-slate-400 ml-2" />
-            <select 
-                value={timeRange} 
+            <Calendar size={18} className="text-orange-500 ml-2" />
+            <select
+                value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value as TimeRange)}
                 className="bg-transparent border-none text-sm font-medium text-slate-700 focus:ring-0 cursor-pointer py-1.5 pr-8"
             >

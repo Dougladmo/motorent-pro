@@ -14,21 +14,21 @@ export const KPICard: React.FC<KPICardProps> = ({
   variant = 'default'
 }) => {
   const variantStyles = {
-    default: { bg: 'bg-slate-100', text: 'text-slate-600' },
-    success: { bg: 'bg-green-100', text: 'text-green-600' },
-    warning: { bg: 'bg-yellow-100', text: 'text-yellow-600' },
-    danger: { bg: 'bg-red-100', text: 'text-red-600' }
+    default: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-600' },
+    success: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-500' },
+    warning: { bg: 'bg-orange-50', text: 'text-orange-500', border: 'border-orange-500' },
+    danger: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-500' }
   };
 
-  const { bg, text } = variantStyles[variant];
+  const { bg, text, border } = variantStyles[variant];
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-start justify-between">
+    <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 ${border} flex items-start justify-between`}>
       <div>
         <p className="text-sm font-medium text-slate-500">{title}</p>
         <h3 className="text-2xl font-bold text-slate-800 mt-2">{value}</h3>
       </div>
-      <div className={`p-2.5 ${bg} ${text} rounded-lg`}>
+      <div className={`p-3 h-12 w-12 flex items-center justify-center ${bg} ${text} rounded-xl`}>
         {icon}
       </div>
     </div>
