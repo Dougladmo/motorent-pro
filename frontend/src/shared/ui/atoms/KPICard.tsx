@@ -22,15 +22,18 @@ export const KPICard: React.FC<KPICardProps> = ({
 
   const { bg, text, border } = variantStyles[variant];
 
+  const valueStr = String(value);
+  const valueSizeClass = valueStr.length > 12 ? 'text-lg' : valueStr.length > 8 ? 'text-xl' : 'text-2xl';
+
   return (
-    <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 ${border} flex items-start justify-between`}>
-      <div>
-        <p className="text-sm font-medium text-slate-500">{title}</p>
-        <h3 className="text-2xl font-bold text-slate-800 mt-2">{value}</h3>
+    <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 ${border} flex flex-col gap-3`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-slate-500 leading-snug">{title}</p>
+        <div className={`p-2 h-10 w-10 flex-shrink-0 flex items-center justify-center ${bg} ${text} rounded-xl`}>
+          {icon}
+        </div>
       </div>
-      <div className={`p-3 h-12 w-12 flex items-center justify-center ${bg} ${text} rounded-xl`}>
-        {icon}
-      </div>
+      <h3 className={`${valueSizeClass} font-bold text-slate-800 leading-tight`}>{value}</h3>
     </div>
   );
 };
