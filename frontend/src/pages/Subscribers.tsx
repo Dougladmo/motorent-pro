@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { MotorcycleStatus, Subscriber } from '../shared';
-import { Plus, Key, Check } from 'lucide-react';
+import { MotorcycleStatus, Subscriber, PaymentStatus } from '../shared';
+import { Plus, Check, AlertTriangle } from 'lucide-react';
 import { WEEK_DAYS } from '../shared';
 import { validatePhone, validateCPF, validatePositiveNumber } from '../shared';
-import { formatPhone, formatCPF } from '../shared';
+import { formatPhone, formatCPF, formatCurrency } from '../shared';
 import { SubscriberGrid } from '../entities/subscriber/ui/SubscriberGrid';
 import { FormInput } from '../shared/ui/atoms/FormInput';
 import { FormSelect } from '../shared/ui/atoms/FormSelect';
+import { AlertDialog } from '../components/AlertDialog';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export const Subscribers: React.FC = () => {
   const { subscribers, motorcycles, addSubscriber, updateSubscriber, createRental, rentals, payments, deleteSubscriber, terminateRental } = useApp();
@@ -15,54 +17,59 @@ export const Subscribers: React.FC = () => {
   const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
 
   // Forms state
-  const [subForm, setSubForm] = useState({ name: '', phone: '', document: '' });
+  const [subForm, setSubForm] = useState({ name: '', phone: '', document: '', email: '' });
   const [rentalForm, setRentalForm] = useState({
     subscriberId: '',
     motorcycleId: '',
     weeklyValue: 250,
     dueDayOfWeek: 1,
-    contractDurationMonths: 12 // Duração padrão: 1 ano
+    contractDurationMonths: 12
   });
+
+  // Dialogs
+  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' | 'warning' | 'info'; title?: string } | null>(null);
+  const [terminatingRental, setTerminatingRental] = useState<{ rentalId: string; subscriberName: string; bikePlate: string; outstandingBalance: number } | null>(null);
+  const [terminateReason, setTerminateReason] = useState('');
+  const [isTerminating, setIsTerminating] = useState(false);
 
   const handleCreateSubscriber = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate inputs
     if (!subForm.name.trim()) {
-      alert('Nome é obrigatório.');
+      setAlertDialog({ message: 'Nome é obrigatório.', variant: 'warning' });
       return;
     }
 
     if (!validatePhone(subForm.phone)) {
-      alert('Telefone inválido. Use o formato (00) 00000-0000.');
+      setAlertDialog({ message: 'Telefone inválido. Use o formato (00) 00000-0000.', variant: 'warning' });
       return;
     }
 
     if (subForm.document && !validateCPF(subForm.document)) {
-      alert('CPF inválido.');
+      setAlertDialog({ message: 'CPF inválido.', variant: 'warning' });
       return;
     }
 
     try {
       if (editingSubscriber) {
-        // Modo edição
         await updateSubscriber(editingSubscriber.id, {
           name: subForm.name,
           phone: subForm.phone,
           document: subForm.document,
+          email: subForm.email || undefined,
           active: true
         });
       } else {
-        // Modo criação
-        await addSubscriber({ ...subForm, active: true });
+        await addSubscriber({ ...subForm, email: subForm.email || undefined, active: true });
       }
 
       setView('LIST');
       setEditingSubscriber(null);
-      setSubForm({ name: '', phone: '', document: '' });
+      setSubForm({ name: '', phone: '', document: '', email: '' });
     } catch (error) {
       console.error('Erro ao salvar assinante:', error);
-      alert('Erro ao salvar assinante. Tente novamente.');
+      setAlertDialog({ message: 'Erro ao salvar assinante. Tente novamente.', variant: 'error' });
     }
   };
 
@@ -71,7 +78,8 @@ export const Subscribers: React.FC = () => {
     setSubForm({
       name: subscriber.name,
       phone: subscriber.phone,
-      document: subscriber.document
+      document: subscriber.document,
+      email: subscriber.email || ''
     });
     setView('EDIT_SUB');
   };
@@ -81,22 +89,21 @@ export const Subscribers: React.FC = () => {
 
     // Validate inputs
     if (!rentalForm.subscriberId) {
-      alert('Selecione um assinante.');
+      setAlertDialog({ message: 'Selecione um assinante.', variant: 'warning' });
       return;
     }
 
     if (!rentalForm.motorcycleId) {
-      alert('Selecione uma moto.');
+      setAlertDialog({ message: 'Selecione uma moto.', variant: 'warning' });
       return;
     }
 
     if (!validatePositiveNumber(rentalForm.weeklyValue)) {
-      alert('Valor semanal deve ser maior que zero.');
+      setAlertDialog({ message: 'Valor semanal deve ser maior que zero.', variant: 'warning' });
       return;
     }
 
     try {
-      // Calcular data de término (data início + duração em meses)
       const startDate = new Date();
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + rentalForm.contractDurationMonths);
@@ -104,7 +111,6 @@ export const Subscribers: React.FC = () => {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
 
-      // Remover contractDurationMonths do rentalForm antes de enviar
       const { contractDurationMonths, ...rentalData } = rentalForm;
 
       await createRental({
@@ -119,47 +125,101 @@ export const Subscribers: React.FC = () => {
       setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1, contractDurationMonths: 12 });
     } catch (error) {
       console.error('Erro ao criar aluguel:', error);
-      alert('Erro ao criar aluguel. Tente novamente.');
+      setAlertDialog({ message: 'Erro ao criar aluguel. Tente novamente.', variant: 'error' });
     }
   };
 
   const availableBikes = motorcycles.filter(m => m.status === MotorcycleStatus.AVAILABLE);
 
-  const handleTerminateRental = async (rentalId: string, subscriberName: string, bikePlate: string) => {
-    const reason = window.prompt(
-      `Rescindir contrato de ${subscriberName} (${bikePlate}).\n\n` +
-      `Informe o motivo da rescisão:`
-    );
-
-    if (!reason || reason.trim() === '') {
-      return; // Usuário cancelou
-    }
-
+  const handleDeleteSubscriber = async (id: string) => {
     try {
-      await terminateRental(rentalId, reason.trim());
-      alert('✅ Contrato rescindido com sucesso!\n\nA moto foi liberada e os pagamentos futuros foram cancelados.');
+      await deleteSubscriber(id);
     } catch (error: any) {
-      alert(`❌ Erro ao rescindir contrato: ${error.message}`);
+      setAlertDialog({ message: `Erro ao excluir assinante: ${error.message}`, variant: 'error', title: 'Erro ao excluir' });
+    }
+  };
+
+  const handleTerminateRental = (rentalId: string, subscriberName: string, bikePlate: string) => {
+    const rentalPayments = payments.filter(p => p.rentalId === rentalId);
+    const totalPaid = rentalPayments.filter(p => p.status === PaymentStatus.PAID).reduce((sum, p) => sum + p.amount, 0);
+    const totalExpected = rentalPayments.filter(p => p.status !== PaymentStatus.CANCELLED).reduce((sum, p) => sum + p.amount, 0);
+    const outstandingBalance = totalExpected - totalPaid;
+
+    setTerminateReason('');
+    setTerminatingRental({ rentalId, subscriberName, bikePlate, outstandingBalance });
+  };
+
+  const handleConfirmTerminate = async () => {
+    if (!terminatingRental) return;
+    setIsTerminating(true);
+    try {
+      await terminateRental(terminatingRental.rentalId, terminateReason.trim() || 'Rescisão de contrato');
+      setTerminatingRental(null);
+      setAlertDialog({ message: 'Contrato rescindido com sucesso! A moto foi liberada e os pagamentos futuros foram cancelados.', variant: 'success', title: 'Contrato Rescindido' });
+    } catch (error: any) {
+      setTerminatingRental(null);
+      setAlertDialog({ message: `Erro ao rescindir contrato: ${error.message}`, variant: 'error' });
+    } finally {
+      setIsTerminating(false);
     }
   };
 
   return (
     <div className="space-y-6">
+      <AlertDialog
+        isOpen={!!alertDialog}
+        message={alertDialog?.message ?? ''}
+        variant={alertDialog?.variant}
+        title={alertDialog?.title}
+        onClose={() => setAlertDialog(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!terminatingRental}
+        title={`Rescindir Contrato`}
+        onConfirm={handleConfirmTerminate}
+        onClose={() => setTerminatingRental(null)}
+        confirmLabel={isTerminating ? 'Rescindindo...' : 'Rescindir'}
+        confirmDisabled={isTerminating}
+        cancelLabel="Cancelar"
+        variant="danger"
+      >
+        {terminatingRental && (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">
+              Rescindir contrato de <span className="font-semibold">{terminatingRental.subscriberName}</span> ({terminatingRental.bikePlate}).
+            </p>
+            {terminatingRental.outstandingBalance > 0 && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
+                <AlertTriangle size={16} className="text-red-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-red-700">
+                  <span className="font-semibold">Saldo devedor: {formatCurrency(terminatingRental.outstandingBalance)}</span>. Este valor continuará registrado após a rescisão.
+                </p>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Motivo da rescisão <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <textarea
+                value={terminateReason}
+                onChange={e => setTerminateReason(e.target.value)}
+                rows={3}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                placeholder="Ex: Devolução antecipada, inadimplência..."
+              />
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
+
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Assinantes</h2>
           <p className="text-slate-500">Gestão de clientes e contratos.</p>
         </div>
         <div className="flex gap-3">
-             <button 
-                onClick={() => setView('NEW_RENTAL')}
-                disabled={availableBikes.length === 0}
-                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium disabled:opacity-50"
-            >
-                <Key size={18} />
-                Novo Aluguel
-            </button>
-            <button 
+            <button
                 onClick={() => setView('NEW_SUB')}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-blue-900/20"
             >
@@ -177,7 +237,7 @@ export const Subscribers: React.FC = () => {
           motorcycles={motorcycles}
           payments={payments}
           onEdit={handleEditClick}
-          onDelete={deleteSubscriber}
+          onDelete={handleDeleteSubscriber}
           onTerminateRental={handleTerminateRental}
         />
       )}
@@ -226,13 +286,24 @@ export const Subscribers: React.FC = () => {
                         />
                     </div>
                 </div>
+                <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-slate-400 font-normal">(opcional)</span></label>
+                    <input
+                        id="email"
+                        type="email"
+                        value={subForm.email}
+                        onChange={e => setSubForm({...subForm, email: e.target.value})}
+                        className="w-full border border-slate-300 rounded-lg p-3"
+                        placeholder="exemplo@email.com"
+                    />
+                </div>
                 <div className="flex justify-end gap-3 pt-4">
                     <button
                         type="button"
                         onClick={() => {
                             setView('LIST');
                             setEditingSubscriber(null);
-                            setSubForm({ name: '', phone: '', document: '' });
+                            setSubForm({ name: '', phone: '', document: '', email: '' });
                         }}
                         className="px-6 py-2 text-slate-600 font-medium"
                     >

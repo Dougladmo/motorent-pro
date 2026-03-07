@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Bike, Users, Banknote, BookOpen, UserCog, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Bike, Users, Banknote, HelpCircle, UserCog, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
@@ -19,7 +19,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
     { path: '/motorcycles', label: 'Motos', icon: <Bike size={20} /> },
     { path: '/subscribers', label: 'Assinantes', icon: <Users size={20} /> },
     { path: '/users', label: 'Usuários', icon: <UserCog size={20} /> },
-    { path: '/architecture', label: 'Arquitetura', icon: <BookOpen size={20} /> },
+    { path: '/architecture', label: 'Como usar', icon: <HelpCircle size={20} /> },
   ];
 
   const emailInitial = user?.email?.charAt(0).toUpperCase() ?? 'A';
@@ -44,9 +44,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
         md:translate-x-0 md:static
       `}>
         {/* Header: logo + collapse button */}
-        <div className="flex items-center h-16 border-b border-slate-200 px-4 relative">
+        <div className="flex items-center py-4 border-b border-slate-200 px-4 relative">
           <div className={`flex-1 flex items-center justify-center overflow-hidden transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-            <img src="/logo.png" alt="Norte Motos" className="h-12 w-auto object-contain" />
+            <img src="/logo.png" alt="Norte Motos" className="h-16 w-auto object-contain" />
           </div>
           {isCollapsed && (
             <div className="flex-1 flex items-center justify-center">
@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
                     w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
                     ${isCollapsed ? 'justify-center' : ''}
                     ${isActive
-                      ? 'bg-blue-600 text-white border-l-4 border-orange-500 shadow-sm'
+                      ? 'bg-blue-500 text-white border-l-4 border-orange-500 shadow-sm'
                       : 'text-slate-500 hover:bg-slate-100 hover:text-orange-500'}
                   `}
                 >

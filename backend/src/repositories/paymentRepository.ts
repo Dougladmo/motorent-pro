@@ -147,4 +147,13 @@ export class PaymentRepository {
 
     if (error) throw error;
   }
+
+  async deleteByRentalId(rentalId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('payments')
+      .delete()
+      .eq('rental_id', rentalId);
+
+    if (error) throw error;
+  }
 }

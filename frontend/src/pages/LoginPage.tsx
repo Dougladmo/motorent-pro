@@ -19,16 +19,16 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white">MotoRent Pro</h1>
-          <p className="text-gray-400 mt-1 text-sm">Faça login para continuar</p>
+          <img src="/logo.png" alt="Norte Motos" className="h-20 w-auto object-contain mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Faça login para continuar</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-gray-900 rounded-xl p-6 space-y-4 border border-gray-800">
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 space-y-4 border border-slate-200 shadow-sm">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
             <input
               type="email"
               value={email}
@@ -36,12 +36,12 @@ export const LoginPage: React.FC = () => {
               required
               autoComplete="email"
               placeholder="admin@motorent.com"
-              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-400"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Senha</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
             <input
               type="password"
               value={password}
@@ -49,18 +49,18 @@ export const LoginPage: React.FC = () => {
               required
               autoComplete="current-password"
               placeholder="••••••••"
-              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-400"
             />
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm">{error}</p>
+            <p className="text-red-500 text-sm">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium rounded-lg py-2 text-sm transition-colors"
+            className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-medium rounded-lg py-2 text-sm transition-colors border-b-2 border-orange-500"
           >
             {isLoading ? 'Entrando...' : 'Entrar'}
           </button>

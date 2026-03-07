@@ -91,7 +91,11 @@ const transformPayment = (data: any): Payment => ({
   previousStatus: data.previous_status,
   markedAsPaidAt: data.marked_as_paid_at,
   expectedAmount: data.expected_amount || data.amount,
-  isAmountOverridden: data.is_amount_overridden || false
+  isAmountOverridden: data.is_amount_overridden || false,
+  abacatePixId: data.abacate_pix_id ?? undefined,
+  pixBrCode: data.pix_br_code ?? undefined,
+  pixQrCodeBase64: data.pix_qr_code_base64 ?? undefined,
+  pixExpiresAt: data.pix_expires_at ?? undefined
 });
 
 // Função para transformar dados do frontend para backend
@@ -273,24 +277,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error('Aluguel já está inativo');
       }
 
-      // Calcular saldo devedor
-      const rentalPayments = payments.filter(p => p.rentalId === rentalId);
-      const totalPaid = rentalPayments
-        .filter(p => p.status === PaymentStatus.PAID)
-        .reduce((sum, p) => sum + p.amount, 0);
-      const totalExpected = rentalPayments
-        .filter(p => p.status !== PaymentStatus.CANCELLED)
-        .reduce((sum, p) => sum + p.amount, 0);
-      const outstandingBalance = totalExpected - totalPaid;
-
-      if (outstandingBalance > 0) {
-        const confirmed = window.confirm(
-          `⚠️ ATENÇÃO: Saldo devedor de R$ ${outstandingBalance.toFixed(2)}.\n\n` +
-          `Deseja continuar com a rescisão do contrato?`
-        );
-        if (!confirmed) return;
-      }
-
       const terminationReason = reason || 'Rescisão de contrato';
 
       // Usar o endpoint específico de terminate que já cancela pagamentos futuros
@@ -344,14 +330,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error('Pagamento já está marcado como pago');
       }
 
-      if (verifiedAmount && verifiedAmount !== payment.expectedAmount) {
-        const confirmed = window.confirm(
-          `ATENÇÃO: Valor esperado R$ ${payment.expectedAmount.toFixed(2)}, ` +
-          `mas você está marcando R$ ${verifiedAmount.toFixed(2)}. Continuar?`
-        );
-        if (!confirmed) return;
-      }
-
       const updated = await paymentApi.markAsPaid(id, verifiedAmount);
       setPayments(prev => prev.map(p => p.id === id ? transformPayment(updated) : p));
 
@@ -403,10 +381,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const payment = payments.find(p => p.id === id);
       if (!payment) throw new Error('Pagamento não encontrado');
-
-      if (payment.status !== PaymentStatus.CANCELLED) {
-        throw new Error('Apenas cobranças canceladas podem ser deletadas');
-      }
 
       await paymentApi.delete(id);
       setPayments(prev => prev.filter(p => p.id !== id));

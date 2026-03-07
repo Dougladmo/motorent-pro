@@ -2,16 +2,23 @@ import cron from 'node-cron';
 import { PaymentRepository } from '../repositories/paymentRepository';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
+import { NotificationService } from '../services/notificationService';
+import { AbacatePayService } from '../services/abacatePayService';
 import { Database } from '../models/database.types';
 
 type PaymentInsert = Database['public']['Tables']['payments']['Insert'];
 
 export class PaymentCronService {
+  private abacatePayService: AbacatePayService;
+
   constructor(
     private paymentRepo: PaymentRepository,
     private rentalRepo: RentalRepository,
-    private subscriberRepo: SubscriberRepository
-  ) {}
+    private subscriberRepo: SubscriberRepository,
+    private notificationService: NotificationService
+  ) {
+    this.abacatePayService = new AbacatePayService();
+  }
 
   async runPaymentGeneration(): Promise<void> {
     console.log('[CRON] ========================================');
@@ -121,9 +128,52 @@ export class PaymentCronService {
       }
 
       if (newPayments.length > 0) {
-        await this.paymentRepo.bulkCreate(newPayments);
+        const createdPayments = await this.paymentRepo.bulkCreate(newPayments);
         totalNewPayments += newPayments.length;
         console.log(`[CRON] Aluguel ${rental.id}: ${newPayments.length} novos pagamentos criados`);
+
+        // Gerar QR Code PIX e notificar apenas pagamentos Pendentes (não retroativos)
+        for (const created of createdPayments) {
+          if (created.status !== 'Pendente') continue;
+
+          // Tentar gerar QR Code PIX (degradação graciosa em caso de falha)
+          const pixResult = await this.abacatePayService.createPixQrCode({
+            amount: created.amount,
+            description: `Aluguel - ${subscriber.name} - ${created.due_date}`,
+            expiresIn: 604800,
+            customer: {
+              name: subscriber.name,
+              cellphone: subscriber.phone,
+              email: subscriber.email,
+              taxId: subscriber.document
+            },
+            metadata: {
+              paymentId: created.id,
+              rentalId: rental.id,
+              subscriberId: rental.subscriber_id
+            }
+          });
+
+          if (pixResult) {
+            await this.paymentRepo.update(created.id, {
+              abacate_pix_id: pixResult.abacatePixId,
+              pix_br_code: pixResult.pixBrCode,
+              pix_qr_code_base64: pixResult.pixQrCodeBase64,
+              pix_expires_at: pixResult.pixExpiresAt
+            });
+          }
+
+          await this.notificationService.sendPaymentNotification({
+            subscriberName: subscriber.name,
+            subscriberPhone: subscriber.phone,
+            subscriberEmail: subscriber.email,
+            paymentAmount: created.amount,
+            paymentDueDate: created.due_date,
+            totalDebt: created.amount,
+            pixBrCode: pixResult?.pixBrCode,
+            pixQrCodeBase64: pixResult?.pixQrCodeBase64
+          });
+        }
       }
     }
 

@@ -6,6 +6,7 @@ import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import routes from './routes';
+import webhookRouter from './routes/webhooks';
 import logger from './utils/logger';
 
 const app: Application = express();
@@ -40,6 +41,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
 app.use(requestLogger);
+
+// Webhook routes (sem autenticação JWT — validação por secret query param)
+app.use('/webhooks', webhookRouter);
 
 // API routes
 app.use('/api', routes);

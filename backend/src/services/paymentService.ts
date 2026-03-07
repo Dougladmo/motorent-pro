@@ -2,17 +2,24 @@ import { PaymentRepository } from '../repositories/paymentRepository';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
+import { NotificationService } from './notificationService';
+import { AbacatePayService } from './abacatePayService';
 import { Database } from '../models/database.types';
 
 type Payment = Database['public']['Tables']['payments']['Row'];
 
 export class PaymentService {
+  private abacatePayService: AbacatePayService;
+
   constructor(
     private paymentRepo: PaymentRepository,
     private rentalRepo: RentalRepository,
     private motorcycleRepo: MotorcycleRepository,
-    private subscriberRepo: SubscriberRepository
-  ) {}
+    private subscriberRepo: SubscriberRepository,
+    private notificationService: NotificationService
+  ) {
+    this.abacatePayService = new AbacatePayService();
+  }
 
   async getAllPayments(): Promise<Payment[]> {
     return this.paymentRepo.findAll();
@@ -136,11 +143,54 @@ export class PaymentService {
       totalDebt += unpaidPayments.reduce((sum, p) => sum + p.amount, 0);
     }
 
-    // Simular envio de WhatsApp (substituir por integração real)
-    console.log(`[WhatsApp Simulado] Enviando lembrete para ${subscriber.name} (${subscriber.phone})`);
-    console.log(`  - Pagamento: R$ ${payment.amount.toFixed(2)}`);
-    console.log(`  - Vencimento: ${payment.due_date}`);
-    console.log(`  - Dívida total: R$ ${totalDebt.toFixed(2)}`);
+    // Garantir QR Code PIX: reutilizar existente ou criar novo
+    let pixBrCode = payment.pix_br_code ?? undefined;
+    let pixQrCodeBase64 = payment.pix_qr_code_base64 ?? undefined;
+
+    if (!pixBrCode) {
+      console.log(`[PaymentService] Pagamento ${paymentId} sem QR Code PIX, criando...`);
+      const pixResult = await this.abacatePayService.createPixQrCode({
+        amount: payment.amount,
+        description: `Aluguel - ${subscriber.name} - ${payment.due_date}`,
+        expiresIn: 604800,
+        customer: {
+          name: subscriber.name,
+          cellphone: subscriber.phone,
+          email: subscriber.email,
+          taxId: subscriber.document
+        },
+        metadata: {
+          paymentId: payment.id,
+          rentalId: payment.rental_id,
+          subscriberId: rental.subscriber_id
+        }
+      });
+
+      if (pixResult) {
+        await this.paymentRepo.update(paymentId, {
+          abacate_pix_id: pixResult.abacatePixId,
+          pix_br_code: pixResult.pixBrCode,
+          pix_qr_code_base64: pixResult.pixQrCodeBase64,
+          pix_expires_at: pixResult.pixExpiresAt
+        });
+        pixBrCode = pixResult.pixBrCode;
+        pixQrCodeBase64 = pixResult.pixQrCodeBase64;
+        console.log(`[PaymentService] QR Code PIX criado para pagamento ${paymentId}: ${pixResult.abacatePixId}`);
+      }
+    } else {
+      console.log(`[PaymentService] Reutilizando QR Code PIX existente para pagamento ${paymentId}`);
+    }
+
+    await this.notificationService.sendReminder({
+      subscriberName: subscriber.name,
+      subscriberPhone: subscriber.phone,
+      subscriberEmail: subscriber.email,
+      paymentAmount: payment.amount,
+      paymentDueDate: payment.due_date,
+      totalDebt,
+      pixBrCode,
+      pixQrCodeBase64
+    });
 
     // Incrementar contador de lembretes
     await this.paymentRepo.update(paymentId, {
@@ -165,13 +215,8 @@ export class PaymentService {
       throw new Error('Pagamento não encontrado');
     }
 
-    // VALIDAÇÃO: Só permite deletar cobranças canceladas
-    if (payment.status !== 'Cancelado') {
-      throw new Error('Apenas cobranças canceladas podem ser deletadas');
-    }
-
     await this.paymentRepo.delete(paymentId);
-    console.log(`[PaymentService] Cobrança cancelada ${paymentId} deletada permanentemente`);
+    console.log(`[PaymentService] Cobrança ${paymentId} deletada permanentemente`);
   }
 
   async validateIntegrity(): Promise<{

@@ -1,4 +1,6 @@
 import { SubscriberRepository } from '../repositories/subscriberRepository';
+import { RentalRepository } from '../repositories/rentalRepository';
+import { PaymentRepository } from '../repositories/paymentRepository';
 import { Database } from '../models/database.types';
 
 type Subscriber = Database['public']['Tables']['subscribers']['Row'];
@@ -6,6 +8,9 @@ type SubscriberInsert = Database['public']['Tables']['subscribers']['Insert'];
 type SubscriberUpdate = Database['public']['Tables']['subscribers']['Update'];
 
 export class SubscriberService {
+  private rentalRepo = new RentalRepository();
+  private paymentRepo = new PaymentRepository();
+
   constructor(private subscriberRepo: SubscriberRepository) {}
 
   async getAllSubscribers(): Promise<Subscriber[]> {
@@ -55,7 +60,15 @@ export class SubscriberService {
       throw new Error('Assinante não encontrado');
     }
 
-    // Nota: validação de aluguéis ativos deve ser feita via constraint no banco
+    // Deleção em cascata: pagamentos → aluguéis → assinante
+    const rentals = await this.rentalRepo.findBySubscriberId(id);
+    for (const rental of rentals) {
+      await this.paymentRepo.deleteByRentalId(rental.id);
+    }
+    for (const rental of rentals) {
+      await this.rentalRepo.delete(rental.id);
+    }
+
     return this.subscriberRepo.delete(id);
   }
 }

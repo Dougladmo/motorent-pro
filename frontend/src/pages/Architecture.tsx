@@ -1,293 +1,243 @@
-import React from 'react';
-import { Database, Server, Smartphone, Shield, Layers, Code, GitBranch, Zap, CloudLightning, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, Bike, Users, Banknote, Plus, CheckCircle, MessageCircle, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+
+interface AccordionProps {
+  title: string;
+  icon: React.ReactNode;
+  accentColor: string;
+  children: React.ReactNode;
+}
+
+const Accordion: React.FC<AccordionProps> = ({ title, icon, accentColor, children }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className={`${accentColor}`}>{icon}</span>
+          <span className="font-bold text-slate-800 text-base">{title}</span>
+        </div>
+        {open ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+      </button>
+      {open && (
+        <div className="px-6 pb-6 border-t border-slate-100">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface StepProps {
+  number: number;
+  text: string;
+}
+
+const Step: React.FC<StepProps> = ({ number, text }) => (
+  <div className="flex items-start gap-3">
+    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center mt-0.5">
+      {number}
+    </span>
+    <p className="text-slate-600 text-sm leading-relaxed">{text}</p>
+  </div>
+);
+
+interface TipProps {
+  text: string;
+}
+
+const Tip: React.FC<TipProps> = ({ text }) => (
+  <div className="mt-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+    <HelpCircle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+    <p className="text-sm text-amber-800">{text}</p>
+  </div>
+);
 
 export const Architecture: React.FC = () => {
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
+    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in pb-12">
       <header>
-        <h2 className="text-2xl font-bold text-slate-800">Arquitetura do Sistema</h2>
-        <p className="text-slate-500">Documentação técnica e roadmap do projeto.</p>
+        <h2 className="text-2xl font-bold text-slate-800">Como usar o sistema</h2>
+        <p className="text-slate-500 mt-1">Guia passo a passo para gerenciar suas motos, clientes e cobranças.</p>
       </header>
 
-      {/* Overview Diagram Concept */}
-      <section className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <Layers className="text-blue-600" />
-            Visão Geral da Solução
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm text-blue-600">
-                    <Smartphone size={24} />
-                </div>
-                <h4 className="font-bold text-slate-700">Frontend (SPA)</h4>
-                <p className="text-sm text-slate-500 mt-2">
-                    React 19 + TypeScript + Vite
-                    <br/>
-                    Geração automática de cobranças semanais
-                </p>
+      {/* Visao geral */}
+      <div className="bg-blue-600 text-white p-6 rounded-xl">
+        <h3 className="font-bold text-lg mb-2">Bem-vindo ao MotoRent Pro</h3>
+        <p className="text-blue-100 text-sm leading-relaxed">
+          Este sistema foi feito para facilitar o dia a dia da sua locadora. Aqui você cadastra suas motos,
+          registra seus clientes, cria aluguéis e acompanha todas as cobranças — tudo em um só lugar.
+          Clique em cada seção abaixo para ver como funciona.
+        </p>
+      </div>
+
+      {/* Dashboard */}
+      <Accordion title="Dashboard — Visão geral do negócio" icon={<LayoutDashboard size={22} />} accentColor="text-blue-600">
+        <div className="space-y-4 mt-4">
+          <p className="text-slate-600 text-sm leading-relaxed">
+            O Dashboard é a primeira tela que você vê ao entrar no sistema. Ele mostra um resumo de tudo que está acontecendo na sua locadora.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-center">
+              <p className="text-2xl font-bold text-blue-600">Receita</p>
+              <p className="text-xs text-slate-500 mt-1">Quanto você recebeu no período</p>
             </div>
-            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm text-purple-600">
-                    <Server size={24} />
-                </div>
-                <h4 className="font-bold text-slate-700">Backend API</h4>
-                <p className="text-sm text-slate-500 mt-2">
-                    Node.js + Express + TypeScript
-                    <br/>
-                    Upload de imagens com Multer
-                </p>
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-center">
+              <p className="text-2xl font-bold text-orange-500">Pendente</p>
+              <p className="text-xs text-slate-500 mt-1">Cobranças que ainda não foram pagas</p>
             </div>
-            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm text-emerald-600">
-                    <Database size={24} />
-                </div>
-                <h4 className="font-bold text-slate-700">Supabase</h4>
-                <p className="text-sm text-slate-500 mt-2">
-                    PostgreSQL Database
-                    <br/>
-                    Storage para imagens
-                </p>
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-center">
+              <p className="text-2xl font-bold text-red-500">Atrasado</p>
+              <p className="text-xs text-slate-500 mt-1">Cobranças com prazo vencido</p>
             </div>
-            <div className="text-center p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm text-green-600">
-                    <MessageCircle size={24} />
-                </div>
-                <h4 className="font-bold text-slate-700">WhatsApp API</h4>
-                <p className="text-sm text-slate-500 mt-2">
-                    Evolution API / Baileys
-                    <br/>
-                    Notificações automáticas
-                </p>
-            </div>
+          </div>
+          <p className="text-slate-600 text-sm">
+            Você pode filtrar os dados por <strong>semana</strong>, <strong>quinzena</strong> ou <strong>mês</strong> usando os botões no topo.
+            O gráfico mostra a evolução da sua receita ao longo do tempo.
+          </p>
+          <Tip text="Use o Dashboard todo dia para saber rapidamente se há cobranças vencidas que precisam de atenção." />
         </div>
-      </section>
+      </Accordion>
 
-      {/* Tech Stack */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Code className="text-slate-600" /> Stack Tecnológico
-            </h3>
-            <ul className="space-y-3 text-sm">
-                <li className="flex justify-between border-b border-slate-50 pb-2">
-                    <span className="text-slate-500">Frontend</span>
-                    <span className="font-medium text-slate-800">React 19 + Vite + TypeScript</span>
-                </li>
-                <li className="flex justify-between border-b border-slate-50 pb-2">
-                    <span className="text-slate-500">Backend</span>
-                    <span className="font-medium text-slate-800">Node.js + Express + TypeScript</span>
-                </li>
-                <li className="flex justify-between border-b border-slate-50 pb-2">
-                    <span className="text-slate-500">Database</span>
-                    <span className="font-medium text-slate-800">Supabase (PostgreSQL)</span>
-                </li>
-                <li className="flex justify-between border-b border-slate-50 pb-2">
-                    <span className="text-slate-500">Storage</span>
-                    <span className="font-medium text-slate-800">Supabase Storage</span>
-                </li>
-                <li className="flex justify-between border-b border-slate-50 pb-2">
-                    <span className="text-slate-500">Upload</span>
-                    <span className="font-medium text-slate-800">Multer Middleware</span>
-                </li>
-                 <li className="flex justify-between pt-1">
-                    <span className="text-slate-500">Hospedagem</span>
-                    <span className="font-medium text-slate-800">Vercel (planejado)</span>
-                </li>
-            </ul>
+      {/* Motos */}
+      <Accordion title="Motos — Cadastro da sua frota" icon={<Bike size={22} />} accentColor="text-orange-500">
+        <div className="space-y-4 mt-4">
+          <p className="text-slate-600 text-sm leading-relaxed">
+            Na página de <strong>Motos</strong> você gerencia toda a sua frota. Veja quais motos estão disponíveis, quais estão alugadas e adicione novas motos ao cadastro.
+          </p>
+          <h4 className="font-semibold text-slate-700 text-sm">Como adicionar uma moto nova:</h4>
+          <div className="space-y-3">
+            <Step number={1} text='Clique no botão "Nova Moto" no canto superior direito da tela.' />
+            <Step number={2} text="Preencha a placa, o modelo e o ano da moto." />
+            <Step number={3} text="Se quiser, adicione uma foto da moto clicando na área de imagem." />
+            <Step number={4} text='Clique em "Salvar". A moto aparecerá na lista como disponível.' />
+          </div>
+          <div className="mt-4 space-y-2">
+            <h4 className="font-semibold text-slate-700 text-sm">Status das motos:</h4>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
+              <span className="text-sm text-slate-600"><strong>Disponível</strong> — a moto está livre para ser alugada.</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
+              <span className="text-sm text-slate-600"><strong>Alugada</strong> — a moto está com um cliente no momento.</span>
+            </div>
+          </div>
+          <Tip text="Você pode excluir uma moto clicando no ícone de lixeira. Só é possível excluir motos que não estão alugadas." />
         </div>
+      </Accordion>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Zap className="text-slate-600" /> Geração Automática de Cobranças
-            </h3>
-            <div className="space-y-3 text-sm text-slate-600">
-                <p><strong>Trigger:</strong> useEffect monitora mudanças em aluguéis e assinantes</p>
-                <p><strong>Frequência:</strong> Semanal (7 dias) baseado na data de início</p>
-                <p><strong>Lookahead:</strong> Gera cobranças até 7 dias no futuro</p>
-                <p><strong>Status:</strong></p>
-                <ul className="ml-4 space-y-1">
-                    <li>• Vencidas → <span className="font-mono bg-red-50 text-red-700 px-1">OVERDUE</span></li>
-                    <li>• Futuras → <span className="font-mono bg-yellow-50 text-yellow-700 px-1">PENDING</span></li>
-                    <li>• Pagas → <span className="font-mono bg-green-50 text-green-700 px-1">PAID</span></li>
-                </ul>
-                <p className="text-xs text-slate-400 mt-2 italic">
-                    * Notificações WhatsApp automáticas para cobranças vencendo hoje
-                </p>
-            </div>
+      {/* Assinantes */}
+      <Accordion title="Assinantes — Cadastro de clientes" icon={<Users size={22} />} accentColor="text-purple-600">
+        <div className="space-y-4 mt-4">
+          <p className="text-slate-600 text-sm leading-relaxed">
+            Na página de <strong>Assinantes</strong> você mantém o cadastro dos seus clientes — as pessoas que alugam motos de você.
+          </p>
+          <h4 className="font-semibold text-slate-700 text-sm">Como cadastrar um novo cliente:</h4>
+          <div className="space-y-3">
+            <Step number={1} text='Clique em "Novo Assinante".' />
+            <Step number={2} text="Preencha o nome completo, o telefone (WhatsApp) e o CPF do cliente." />
+            <Step number={3} text='Clique em "Salvar". O cliente ficará disponível para criar um aluguel.' />
+          </div>
+          <h4 className="font-semibold text-slate-700 text-sm mt-2">Como criar um aluguel para o cliente:</h4>
+          <div className="space-y-3">
+            <Step number={1} text="Na lista de assinantes, localize o cliente desejado." />
+            <Step number={2} text='Clique no botão com o ícone de moto (ou "Novo Aluguel") ao lado do nome do cliente.' />
+            <Step number={3} text="Selecione a moto disponível, informe a data de início e o valor semanal do aluguel." />
+            <Step number={4} text='Clique em "Confirmar". O sistema vai criar automaticamente as cobranças semanais a partir dessa data.' />
+          </div>
+          <Tip text="O número de telefone do cliente é usado para enviar lembretes de cobrança via WhatsApp. Certifique-se de que está correto e no formato com DDD." />
         </div>
-      </section>
+      </Accordion>
 
-      {/* Data Model */}
-      <section className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <Database className="text-emerald-600" />
-            Modelo de Dados e Relacionamentos
-        </h3>
-        <div className="space-y-6">
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <h4 className="font-bold text-slate-700 mb-3">Entidades Principais</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <p className="font-mono text-blue-600 mb-2">Motorcycle</p>
-                        <ul className="text-slate-600 space-y-1 ml-4">
-                            <li>• plate, model, year</li>
-                            <li>• status (AVAILABLE | RENTED)</li>
-                            <li>• <strong>image_url</strong> (Supabase Storage)</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <p className="font-mono text-blue-600 mb-2">Subscriber (Cliente)</p>
-                        <ul className="text-slate-600 space-y-1 ml-4">
-                            <li>• name, phone, cpf</li>
-                            <li>• Relacionamento: 1:N com Rental</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <p className="font-mono text-blue-600 mb-2">Rental (Aluguel)</p>
-                        <ul className="text-slate-600 space-y-1 ml-4">
-                            <li>• motorcycleId, subscriberId</li>
-                            <li>• startDate, weeklyPrice</li>
-                            <li>• <strong>Gera pagamentos semanais</strong></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <p className="font-mono text-blue-600 mb-2">Payment (Cobrança)</p>
-                        <ul className="text-slate-600 space-y-1 ml-4">
-                            <li>• rentalId, subscriberName</li>
-                            <li>• dueDate, amount</li>
-                            <li>• status (PENDING | OVERDUE | PAID)</li>
-                        </ul>
-                    </div>
-                </div>
+      {/* Cobranças */}
+      <Accordion title="Cobranças — Controle de pagamentos" icon={<Banknote size={22} />} accentColor="text-emerald-600">
+        <div className="space-y-4 mt-4">
+          <p className="text-slate-600 text-sm leading-relaxed">
+            Na página de <strong>Cobranças</strong> você acompanha todas as parcelas semanais dos seus clientes. O sistema gera as cobranças automaticamente — você só precisa registrar os pagamentos recebidos.
+          </p>
+          <h4 className="font-semibold text-slate-700 text-sm">Status das cobranças:</h4>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
+              <span className="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-semibold">Pendente</span>
+              <span className="text-sm text-slate-600">A cobrança ainda está dentro do prazo.</span>
             </div>
-
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="font-bold text-blue-900 mb-2">Fluxo de Upload de Imagens</h4>
-                <div className="space-y-2 text-sm text-blue-800">
-                    <p>1. <strong>Frontend:</strong> Formulário com preview + validação (tipo e tamanho)</p>
-                    <p>2. <strong>POST /api/motorcycles/with-image:</strong> FormData com imagem + dados da moto</p>
-                    <p>3. <strong>Multer:</strong> Processa multipart/form-data em memória</p>
-                    <p>4. <strong>uploadService:</strong> Upload para bucket <code className="bg-blue-100 px-1">motorcycle-images</code></p>
-                    <p>5. <strong>Supabase Storage:</strong> Retorna URL pública da imagem</p>
-                    <p>6. <strong>Database:</strong> Salva moto com <code className="bg-blue-100 px-1">image_url</code></p>
-                </div>
+            <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
+              <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold">Atrasada</span>
+              <span className="text-sm text-slate-600">A data de vencimento já passou e o cliente não pagou.</span>
             </div>
+            <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
+              <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">Paga</span>
+              <span className="text-sm text-slate-600">O pagamento foi confirmado.</span>
+            </div>
+          </div>
+          <h4 className="font-semibold text-slate-700 text-sm mt-2">Como marcar uma cobrança como paga:</h4>
+          <div className="space-y-3">
+            <Step number={1} text="Encontre a cobrança do cliente na lista." />
+            <Step number={2} text='Clique no botão com o ícone de check (confirmar pagamento) ao lado da cobrança.' />
+            <Step number={3} text='O status muda para "Paga" e o valor entra na receita do Dashboard.' />
+          </div>
+          <Tip text='Use o filtro no topo da página para visualizar apenas cobranças "Atrasadas" e focar nos clientes que precisam de contato.' />
         </div>
-      </section>
+      </Accordion>
 
-      {/* Roadmap */}
-      <section className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <GitBranch className="text-purple-600" />
-            Roadmap de Desenvolvimento
-        </h3>
-        <div className="relative border-l-2 border-slate-200 ml-3 space-y-8">
-            <div className="ml-6 relative">
-                <span className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-green-600 border-2 border-white shadow"></span>
-                <h4 className="font-bold text-slate-800">✅ Fase 1: Backend e Infraestrutura (Concluído)</h4>
-                <ul className="text-sm text-slate-500 mt-2 space-y-1 ml-4">
-                    <li>• Backend Node.js/Express com TypeScript</li>
-                    <li>• Integração com Supabase (PostgreSQL + Storage)</li>
-                    <li>• Upload de imagens de motos com Multer</li>
-                    <li>• Sistema de geração automática de cobranças semanais</li>
-                </ul>
+      {/* WhatsApp */}
+      <Accordion title="Lembretes via WhatsApp" icon={<MessageCircle size={22} />} accentColor="text-green-600">
+        <div className="space-y-4 mt-4">
+          <p className="text-slate-600 text-sm leading-relaxed">
+            O sistema permite enviar lembretes de cobrança diretamente pelo WhatsApp para os seus clientes, sem precisar copiar nenhum número manualmente.
+          </p>
+          <h4 className="font-semibold text-slate-700 text-sm">Como enviar um lembrete manual:</h4>
+          <div className="space-y-3">
+            <Step number={1} text="Na página de Cobranças, localize a cobrança do cliente." />
+            <Step number={2} text='Clique no botão com o ícone de WhatsApp (ou "Enviar lembrete").' />
+            <Step number={3} text="O sistema envia automaticamente uma mensagem para o número cadastrado do cliente informando o valor e o vencimento." />
+          </div>
+          <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-green-800">
+                <strong>Cobrança automática:</strong> O sistema envia um lembrete automaticamente no dia do vencimento de cada cobrança, sem precisar de nenhuma ação sua.
+              </p>
             </div>
-            <div className="ml-6 relative">
-                <span className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-blue-600 border-2 border-white shadow"></span>
-                <h4 className="font-bold text-slate-800">🔄 Fase 2: Integração de Dados (Em Andamento)</h4>
-                <ul className="text-sm text-slate-500 mt-2 space-y-1 ml-4">
-                    <li>• Migrar estado do AppContext para API REST</li>
-                    <li>• Conectar operações CRUD ao backend</li>
-                    <li>• Implementar controllers para pagamentos</li>
-                    <li>• Persistir cobranças geradas no Supabase</li>
-                </ul>
-            </div>
-            <div className="ml-6 relative">
-                <span className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-slate-300 border-2 border-white"></span>
-                <h4 className="font-bold text-slate-800">📋 Fase 3: Integração WhatsApp (Próximo)</h4>
-                <ul className="text-sm text-slate-500 mt-2 space-y-1 ml-4">
-                    <li>• Integrar Evolution API / Baileys</li>
-                    <li>• Implementar envio real de notificações</li>
-                    <li>• Configurar templates de mensagens</li>
-                    <li>• Sistema de retry para falhas de envio</li>
-                </ul>
-            </div>
-            <div className="ml-6 relative">
-                <span className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-slate-300 border-2 border-white"></span>
-                <h4 className="font-bold text-slate-800">🚀 Fase 4: Deploy e Produção (Planejado)</h4>
-                <ul className="text-sm text-slate-500 mt-2 space-y-1 ml-4">
-                    <li>• Deploy na Vercel (frontend + backend)</li>
-                    <li>• Configuração de variáveis de ambiente</li>
-                    <li>• Testes end-to-end em produção</li>
-                    <li>• Monitoramento e logs</li>
-                </ul>
-            </div>
+          </div>
+          <Tip text="Para que o envio funcione corretamente, o telefone do cliente deve estar cadastrado com o DDD. Exemplo: 92999998888." />
         </div>
-      </section>
+      </Accordion>
 
-      {/* Security & Best Practices */}
-      <section className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <Shield className="text-indigo-600" />
-            Segurança e Boas Práticas
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-                <h4 className="font-bold text-slate-700 text-sm">Backend</h4>
-                <ul className="text-sm text-slate-600 space-y-2 ml-4">
-                    <li>• <strong>Validação de arquivos:</strong> Tipo (JPEG/PNG/WEBP) e tamanho (max 5MB)</li>
-                    <li>• <strong>CORS configurado:</strong> Origem específica do frontend</li>
-                    <li>• <strong>Helmet:</strong> Headers de segurança HTTP</li>
-                    <li>• <strong>TypeScript:</strong> Type safety em toda API</li>
-                    <li>• <strong>Error handling:</strong> Tratamento centralizado de erros</li>
-                </ul>
-            </div>
-            <div className="space-y-3">
-                <h4 className="font-bold text-slate-700 text-sm">Supabase</h4>
-                <ul className="text-sm text-slate-600 space-y-2 ml-4">
-                    <li>• <strong>RLS Policies:</strong> Controle de acesso a nível de row</li>
-                    <li>• <strong>Storage bucket público:</strong> Apenas leitura pública de imagens</li>
-                    <li>• <strong>Environment variables:</strong> Credenciais em .env</li>
-                    <li>• <strong>UUID filenames:</strong> Previne conflitos de nomes</li>
-                    <li>• <strong>PostgreSQL:</strong> ACID compliance e transações</li>
-                </ul>
-            </div>
+      {/* Duvidas Frequentes */}
+      <Accordion title="Duvidas frequentes" icon={<HelpCircle size={22} />} accentColor="text-slate-500">
+        <div className="space-y-5 mt-4">
+          <div>
+            <p className="font-semibold text-slate-700 text-sm">As cobranças são geradas automaticamente?</p>
+            <p className="text-slate-500 text-sm mt-1">Sim. Ao criar um aluguel, o sistema gera cobranças semanais automaticamente a partir da data de inicio. Voce nao precisa criar cada cobrança manualmente.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-700 text-sm">O que acontece se eu nao marcar um pagamento como pago?</p>
+            <p className="text-slate-500 text-sm mt-1">A cobrança passa para o status "Atrasada" automaticamente apos o vencimento. Ela continuara aparecendo na lista ate que voce a marque como paga.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-700 text-sm">Posso excluir um cliente que tem aluguel ativo?</p>
+            <p className="text-slate-500 text-sm mt-1">Nao e recomendado. Primeiro encerre o aluguel ativo do cliente, depois exclua o cadastro para nao perder o historico de cobranças.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-700 text-sm">Como altero o valor semanal de um aluguel?</p>
+            <p className="text-slate-500 text-sm mt-1">No momento, e necessario encerrar o aluguel atual e criar um novo com o valor atualizado. Futuras versoes do sistema permitirao editar diretamente.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-700 text-sm">A foto da moto e obrigatoria?</p>
+            <p className="text-slate-500 text-sm mt-1">Nao. A foto e opcional. Se nao for adicionada, o sistema exibe um icone padrao no lugar da imagem.</p>
+          </div>
         </div>
-      </section>
+      </Accordion>
 
-      {/* Payment Automation Details */}
-      <section className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <Zap className="text-yellow-600" />
-            Sistema de Pagamentos Automáticos
-        </h3>
-        <div className="space-y-4">
-            <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                <h4 className="font-bold text-yellow-900 mb-2">Geração Inteligente de Cobranças</h4>
-                <p className="text-sm text-yellow-800 mb-3">
-                    O sistema utiliza um "cron job" no frontend (useEffect) para gerar cobranças semanais automaticamente:
-                </p>
-                <ul className="text-sm text-yellow-800 space-y-2 ml-4">
-                    <li><strong>1. Trigger:</strong> Ativação ao montar componente ou quando rentals/subscribers mudam</li>
-                    <li><strong>2. Cálculo:</strong> Para cada rental ativo, calcula datas de vencimento semanais (a cada 7 dias)</li>
-                    <li><strong>3. Lookahead:</strong> Gera cobranças até 7 dias no futuro (previne gaps)</li>
-                    <li><strong>4. Deduplicação:</strong> Verifica cobranças existentes antes de criar novas</li>
-                    <li><strong>5. Status:</strong> Define OVERDUE (vencidas), PENDING (futuras) ou mantém PAID (pagas)</li>
-                    <li><strong>6. Notificação:</strong> Simula envio WhatsApp para cobranças vencendo hoje</li>
-                </ul>
-            </div>
-
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <h4 className="font-bold text-green-900 mb-2">Integração WhatsApp (Planejada)</h4>
-                <p className="text-sm text-green-800">
-                    <strong>Atual:</strong> Simulação via console.log agregando dívidas totais por cliente
-                  <br/>
-                  <strong>Próximo:</strong> Integração real com Evolution API / Baileys para envio de notificações automáticas e lembretes manuais
-                </p>
-            </div>
-        </div>
-      </section>
+      {/* Rodape de ajuda */}
+      <div className="text-center py-4">
+        <p className="text-slate-400 text-sm">Ficou com alguma duvida? Entre em contato com o suporte.</p>
+      </div>
     </div>
   );
 };

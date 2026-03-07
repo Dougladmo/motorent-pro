@@ -6,6 +6,7 @@ interface ImageUploadFieldProps {
   imagePreview: string | null;
   onImageSelect: (file: File) => void;
   onImageRemove: () => void;
+  onError?: (message: string) => void;
   editMode?: boolean;
   hasNewImage?: boolean;
 }
@@ -15,22 +16,21 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
   imagePreview,
   onImageSelect,
   onImageRemove,
+  onError,
   editMode = false,
   hasNewImage = false
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validar tipo de arquivo
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
-        alert('Tipo de arquivo não permitido. Use JPEG, JPG, PNG ou WEBP.');
+        onError?.('Tipo de arquivo não permitido. Use JPEG, JPG, PNG ou WEBP.');
         return;
       }
 
-      // Validar tamanho (5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('Arquivo muito grande. Tamanho máximo: 5MB');
+        onError?.('Arquivo muito grande. Tamanho máximo: 5MB.');
         return;
       }
 

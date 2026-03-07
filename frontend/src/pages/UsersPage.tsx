@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { UserPlus, Trash2, Shield, User } from 'lucide-react';
 import { userApi, AdminUser } from '../services/api';
+import { AlertDialog } from '../components/AlertDialog';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -10,6 +12,8 @@ export const UsersPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const loadUsers = async () => {
     setIsLoading(true);
@@ -46,18 +50,32 @@ export const UsersPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja remover este usuário?')) return;
     try {
       await userApi.delete(id);
       setUsers((prev) => prev.filter((u) => u.id !== id));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao remover usuário';
-      alert(msg);
+      setAlertDialog({ message: msg, variant: 'error' });
     }
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <AlertDialog
+        isOpen={!!alertDialog}
+        message={alertDialog?.message ?? ''}
+        variant={alertDialog?.variant}
+        onClose={() => setAlertDialog(null)}
+      />
+      <ConfirmDialog
+        isOpen={!!deletingUserId}
+        title="Remover Usuário"
+        message="Tem certeza que deseja remover este usuário? Esta ação não pode ser desfeita."
+        onConfirm={() => deletingUserId && handleDelete(deletingUserId)}
+        onClose={() => setDeletingUserId(null)}
+        confirmLabel="Remover"
+        variant="danger"
+      />
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Usuários</h1>
@@ -68,7 +86,7 @@ export const UsersPage: React.FC = () => {
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           <UserPlus size={16} />
-          Novo Admin
+          Novo Usuário
         </button>
       </header>
 
@@ -114,7 +132,7 @@ export const UsersPage: React.FC = () => {
                   <td className="px-6 py-4 text-right">
                     {!u.isSuperAdmin && (
                       <button
-                        onClick={() => handleDelete(u.id)}
+                        onClick={() => setDeletingUserId(u.id)}
                         className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded"
                         title="Remover usuário"
                       >
@@ -132,7 +150,7 @@ export const UsersPage: React.FC = () => {
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 w-full max-w-sm">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">Novo Administrador</h2>
+            <h2 className="text-lg font-semibold text-slate-800 mb-4">Novo Usuário</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>

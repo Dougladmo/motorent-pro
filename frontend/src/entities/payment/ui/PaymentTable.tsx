@@ -1,21 +1,43 @@
 import React from 'react';
 import { Payment, Rental, PaymentStatus } from '../../../shared';
 import { PaymentTableRow } from './PaymentTableRow';
+import { Skeleton } from '../../../shared/ui/atoms/Skeleton';
 
 interface PaymentTableProps {
   payments: Payment[];
   rentals: Rental[];
+  loading?: boolean;
   onEdit: (payment: Payment) => void;
   onSendReminder: (id: string) => Promise<void>;
   onMarkPaid: (id: string) => Promise<void>;
-  onMarkUnpaid: (id: string) => Promise<void>;
+  onMarkUnpaid: (id: string) => void | Promise<void>;
   onDelete: (id: string) => Promise<void>;
   sendingId: string | null;
 }
 
+const PaymentRowSkeleton: React.FC = () => (
+  <tr>
+    <td className="px-6 py-4">
+      <Skeleton className="h-4 w-36" />
+      <Skeleton className="h-3 w-24 mt-1" />
+    </td>
+    <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
+    <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+    <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+    <td className="px-6 py-4 text-right">
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-8 w-8 rounded-lg" />
+        <Skeleton className="h-8 w-8 rounded-lg" />
+        <Skeleton className="h-8 w-8 rounded-lg" />
+      </div>
+    </td>
+  </tr>
+);
+
 export const PaymentTable: React.FC<PaymentTableProps> = ({
   payments,
   rentals,
+  loading = false,
   onEdit,
   onSendReminder,
   onMarkPaid,
@@ -53,7 +75,10 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {payments.map((payment) => (
+          {loading && Array.from({ length: 5 }).map((_, i) => (
+            <PaymentRowSkeleton key={i} />
+          ))}
+          {!loading && payments.map((payment) => (
             <PaymentTableRow
               key={payment.id}
               payment={payment}
@@ -66,7 +91,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
               isSending={sendingId === payment.id}
             />
           ))}
-          {payments.length === 0 && (
+          {!loading && payments.length === 0 && (
             <tr>
               <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
                 Nenhum pagamento encontrado.
