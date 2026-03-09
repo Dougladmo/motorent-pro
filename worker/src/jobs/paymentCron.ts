@@ -36,6 +36,9 @@ export class PaymentCronService {
       // STEP 2: Gerar novos pagamentos
       await this.generateNewPayments(today, todayStr);
 
+      // STEP 3: Enviar lembretes de vencimento próximo
+      await this.sendUpcomingPaymentReminders();
+
       console.log('[CRON] Geração concluída com sucesso');
     } catch (error) {
       console.error('[CRON ERROR]', error);
@@ -265,6 +268,74 @@ export class PaymentCronService {
     }
 
     return newPayments.length;
+  }
+
+  async sendUpcomingPaymentReminders(): Promise<void> {
+    const reminderDaysBefore = parseInt(process.env.REMINDER_DAYS_BEFORE || '1');
+    console.log(`[CRON] STEP 3: Enviando lembretes de vencimento (${reminderDaysBefore} dia(s) antes)...`);
+
+    const target = new Date();
+    target.setHours(0, 0, 0, 0);
+    target.setDate(target.getDate() + reminderDaysBefore);
+    const targetDate = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+
+    const payments = await this.paymentRepo.findPendingByDueDateAndNoReminder(targetDate);
+
+    if (payments.length === 0) {
+      console.log('[CRON] Nenhum pagamento pendente para lembrete hoje');
+      return;
+    }
+
+    console.log(`[CRON] ${payments.length} pagamento(s) para lembrete com vencimento em ${targetDate}`);
+
+    for (const payment of payments) {
+      try {
+        const rental = await this.rentalRepo.findById(payment.rental_id);
+        if (!rental) {
+          console.warn(`[CRON] Rental ${payment.rental_id} não encontrado para pagamento ${payment.id}`);
+          continue;
+        }
+
+        const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
+        if (!subscriber) {
+          console.warn(`[CRON] Assinante ${rental.subscriber_id} não encontrado para pagamento ${payment.id}`);
+          continue;
+        }
+
+        // Calcular dívida total: pagamentos Pendente + Atrasado de todos os aluguéis ativos do assinante
+        const allRentals = await this.rentalRepo.findAllActive();
+        const subscriberRentals = allRentals.filter(r => r.subscriber_id === rental.subscriber_id);
+        let totalDebt = 0;
+        for (const r of subscriberRentals) {
+          const rPayments = await this.paymentRepo.findByRentalId(r.id);
+          for (const p of rPayments) {
+            if (p.status === 'Pendente' || p.status === 'Atrasado') {
+              totalDebt += p.amount;
+            }
+          }
+        }
+
+        await this.notificationService.sendReminder({
+          subscriberName: subscriber.name,
+          subscriberPhone: subscriber.phone,
+          subscriberEmail: subscriber.email,
+          paymentAmount: payment.amount,
+          paymentDueDate: payment.due_date,
+          totalDebt,
+          pixBrCode: payment.pix_br_code ?? undefined,
+          pixQrCodeBase64: payment.pix_qr_code_base64 ?? undefined,
+          pixPaymentUrl: payment.pix_payment_url ?? undefined
+        });
+
+        await this.paymentRepo.update(payment.id, {
+          reminder_sent_count: (payment.reminder_sent_count ?? 0) + 1
+        });
+
+        console.log(`[CRON] Lembrete enviado para ${subscriber.name} (pagamento ${payment.id})`);
+      } catch (err) {
+        console.error(`[CRON] Erro ao enviar lembrete para pagamento ${payment.id}:`, err);
+      }
+    }
   }
 
   async backfillMissingQrCodes(): Promise<void> {

@@ -59,10 +59,10 @@ export const Modal: React.FC<ModalProps> = ({
     >
       <div
         ref={modalRef}
-        className={`bg-white rounded-xl shadow-xl ${maxWidthClasses[maxWidth]} w-full animate-fade-in`}
+        className={`bg-white rounded-xl shadow-xl ${maxWidthClasses[maxWidth]} w-full animate-fade-in max-h-[90vh] flex flex-col`}
       >
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <h3 id="modal-title" className="text-xl font-bold text-slate-800">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-100 flex-shrink-0">
+          <h3 id="modal-title" className="text-lg md:text-xl font-bold text-slate-800">
             {title}
           </h3>
           <button
@@ -73,7 +73,7 @@ export const Modal: React.FC<ModalProps> = ({
             <X size={20} />
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-4 md:p-6 overflow-y-auto">
           {children}
         </div>
       </div>

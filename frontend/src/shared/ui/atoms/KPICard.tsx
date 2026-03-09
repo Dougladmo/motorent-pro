@@ -5,13 +5,15 @@ interface KPICardProps {
   value: string | number;
   icon: React.ReactNode;
   variant?: 'default' | 'success' | 'warning' | 'danger';
+  className?: string;
 }
 
 export const KPICard: React.FC<KPICardProps> = ({
   title,
   value,
   icon,
-  variant = 'default'
+  variant = 'default',
+  className = ''
 }) => {
   const variantStyles = {
     default: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-600' },
@@ -26,7 +28,7 @@ export const KPICard: React.FC<KPICardProps> = ({
   const valueSizeClass = valueStr.length > 12 ? 'text-lg' : valueStr.length > 8 ? 'text-xl' : 'text-2xl';
 
   return (
-    <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 ${border} flex flex-col gap-3`}>
+    <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 ${border} flex flex-col gap-3 ${className}`}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-slate-500 leading-snug">{title}</p>
         <div className={`p-2 h-10 w-10 flex-shrink-0 flex items-center justify-center ${bg} ${text} rounded-xl`}>

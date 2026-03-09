@@ -244,7 +244,7 @@ export const Subscribers: React.FC = () => {
       )}
 
       {(view === 'NEW_SUB' || view === 'EDIT_SUB') && (
-         <div className="bg-white max-w-2xl mx-auto p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
+         <div className="bg-white max-w-2xl mx-auto p-4 md:p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
              <h3 className="text-xl font-bold text-slate-800 mb-6">
                 {editingSubscriber ? 'Editar Assinante' : 'Cadastrar Assinante'}
              </h3>
@@ -319,7 +319,7 @@ export const Subscribers: React.FC = () => {
       )}
 
       {view === 'NEW_RENTAL' && (
-         <div className="bg-white max-w-2xl mx-auto p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
+         <div className="bg-white max-w-2xl mx-auto p-4 md:p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
              <h3 className="text-xl font-bold text-slate-800 mb-6">Novo Contrato de Aluguel</h3>
              <form onSubmit={handleCreateRental} className="space-y-5">
                 <div>

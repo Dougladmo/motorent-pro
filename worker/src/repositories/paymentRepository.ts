@@ -130,6 +130,18 @@ export class PaymentRepository {
     return data || [];
   }
 
+  async findPendingByDueDateAndNoReminder(dueDate: string): Promise<Payment[]> {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('status', 'Pendente')
+      .eq('due_date', dueDate)
+      .eq('reminder_sent_count', 0);
+
+    if (error) throw error;
+    return data || [];
+  }
+
   async findPendingWithoutPix(): Promise<Payment[]> {
     const { data, error } = await this.supabase
       .from('payments')

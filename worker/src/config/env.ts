@@ -13,6 +13,7 @@ interface EnvConfig {
   PIX_KEY: string;
   RESEND_API_KEY: string;
   RESEND_FROM_EMAIL: string;
+  REMINDER_DAYS_BEFORE: number;
 }
 
 const validateEnv = (): EnvConfig => {
@@ -45,6 +46,7 @@ const validateEnv = (): EnvConfig => {
     PIX_KEY: process.env.PIX_KEY!,
     RESEND_API_KEY: process.env.RESEND_API_KEY!,
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL!,
+    REMINDER_DAYS_BEFORE: parseInt(process.env.REMINDER_DAYS_BEFORE || '1'),
   };
 };
 

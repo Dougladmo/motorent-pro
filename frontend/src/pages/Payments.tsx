@@ -4,7 +4,6 @@ import { PaymentStatus, Payment } from '../shared';
 import { Modal } from '../components/Modal';
 import { AlertDialog } from '../components/AlertDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Search } from 'lucide-react';
 import { formatDate } from '../shared/utils/formatters';
 import { PaymentWeekStats } from '../widgets/payment-filters/PaymentWeekStats';
 import { PaymentFiltersBar } from '../widgets/payment-filters/PaymentFiltersBar';
@@ -248,35 +247,21 @@ export const Payments: React.FC = () => {
         </div>
       </ConfirmDialog>
 
-       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h2 className="text-2xl font-bold text-slate-800">Controle de Cobranças</h2>
-            <p className="text-slate-500">
-              Gerencie pagamentos e envie lembretes automáticos.
-              {filter === 'CURRENT_WEEK' && (
-                <span className="ml-2 text-green-600 font-medium">
-                  📅 Semana: {formatDate(weekRange.start)} a {formatDate(weekRange.end)}
-                </span>
-              )}
-              {filter === 'DATE_RANGE' && dateRange.start && dateRange.end && (
-                <span className="ml-2 text-purple-600 font-medium">
-                  📅 Período: {formatDate(dateRange.start)} a {formatDate(dateRange.end)}
-                </span>
-              )}
-            </p>
-        </div>
-        <div className="flex gap-2">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                    type="text"
-                    placeholder="Buscar assinante..."
-                    className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
-        </div>
+       <header className="flex flex-col gap-1">
+        <h2 className="text-2xl font-bold text-slate-800">Controle de Cobranças</h2>
+        <p className="text-slate-500 text-sm">
+          Gerencie pagamentos e envie lembretes automáticos.
+          {filter === 'CURRENT_WEEK' && (
+            <span className="block mt-0.5 text-green-600 font-medium">
+              📅 Semana: {formatDate(weekRange.start)} a {formatDate(weekRange.end)}
+            </span>
+          )}
+          {filter === 'DATE_RANGE' && dateRange.start && dateRange.end && (
+            <span className="block mt-0.5 text-purple-600 font-medium">
+              📅 Período: {formatDate(dateRange.start)} a {formatDate(dateRange.end)}
+            </span>
+          )}
+        </p>
       </header>
 
       {/* Estatísticas da Semana Atual */}

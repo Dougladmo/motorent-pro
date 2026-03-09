@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
       {/* Sidebar Container */}
       <aside className={`
         fixed top-0 left-0 z-30 h-screen bg-white border-r border-slate-200
-        transition-all duration-300 ease-in-out
+        transition-all duration-300 ease-in-out flex flex-col
         ${isCollapsed ? 'md:w-20' : 'md:w-64'}
         w-64
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
           </button>
         </div>
 
-        <nav className="mt-6 px-3">
+        <nav className="flex-1 overflow-y-auto mt-6 px-3">
           {!isCollapsed && (
             <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-widest text-orange-500">Menu</p>
           )}
@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
           </ul>
         </nav>
 
-        <div className="absolute bottom-0 w-full p-4 border-t border-slate-200">
+        <div className="p-4 border-t border-slate-200 flex-shrink-0">
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               {emailInitial}
