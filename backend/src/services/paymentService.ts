@@ -4,12 +4,14 @@ import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { NotificationService } from './notificationService';
 import { AbacatePayService } from './abacatePayService';
+import { UploadService } from './uploadService';
 import { Database } from '../models/database.types';
 
 type Payment = Database['public']['Tables']['payments']['Row'];
 
 export class PaymentService {
   private abacatePayService: AbacatePayService;
+  private uploadService: UploadService;
 
   constructor(
     private paymentRepo: PaymentRepository,
@@ -19,6 +21,7 @@ export class PaymentService {
     private notificationService: NotificationService
   ) {
     this.abacatePayService = new AbacatePayService();
+    this.uploadService = new UploadService();
   }
 
   async getAllPayments(): Promise<Payment[]> {
@@ -184,6 +187,17 @@ export class PaymentService {
       console.log(`[PaymentService] Reutilizando QR Code PIX existente para pagamento ${paymentId}`);
     }
 
+    // Fazer upload do QR Code para URL pública (funciona em todos os clientes de email)
+    let pixQrCodeUrl: string | undefined;
+    if (pixQrCodeBase64) {
+      try {
+        pixQrCodeUrl = await this.uploadService.uploadQrCodeToStorage(pixQrCodeBase64, paymentId);
+        console.log(`[PaymentService] QR Code enviado para storage: ${pixQrCodeUrl}`);
+      } catch (err) {
+        console.warn(`[PaymentService] Falha ao fazer upload do QR Code, email será enviado sem imagem:`, err);
+      }
+    }
+
     await this.notificationService.sendReminder({
       subscriberName: subscriber.name,
       subscriberPhone: subscriber.phone,
@@ -193,6 +207,7 @@ export class PaymentService {
       totalDebt,
       pixBrCode,
       pixQrCodeBase64,
+      pixQrCodeUrl,
       pixPaymentUrl
     });
 

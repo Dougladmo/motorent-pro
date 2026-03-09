@@ -4,6 +4,23 @@ import { RentalRepository } from '../repositories/rentalRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { NotificationService } from '../services/notificationService';
 import { AbacatePayService } from '../services/abacatePayService';
+import { createStorage } from 'formdata-io/storage';
+
+function getQrStorage() {
+  return createStorage({
+    provider: 'supabase',
+    bucket: 'qr-codes',
+    url: process.env.SUPABASE_URL!,
+    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    publicBucket: true
+  });
+}
+
+async function uploadQrCodeToStorage(base64: string, paymentId: string): Promise<string> {
+  const dataUri = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
+  const result = await getQrStorage().upload(dataUri, { filename: `qrcode_${paymentId}.png` });
+  return result.url;
+}
 
 export class PaymentCronService {
   private abacatePayService: AbacatePayService;
@@ -325,6 +342,15 @@ export class PaymentCronService {
 
           if (newStatus === 'Pendente') {
             try {
+              let pixQrCodeUrl: string | undefined;
+              if (pixResult?.pixQrCodeBase64) {
+                try {
+                  pixQrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, created.id);
+                } catch (uploadErr) {
+                  console.warn(`[CRON] Falha ao fazer upload do QR Code para ${created.id}:`, uploadErr);
+                }
+              }
+
               await this.notificationService.sendPaymentNotification({
                 subscriberName: subscriber.name,
                 subscriberPhone: subscriber.phone,
@@ -334,6 +360,7 @@ export class PaymentCronService {
                 totalDebt: totalAmount,
                 pixBrCode: pixResult?.pixBrCode,
                 pixQrCodeBase64: pixResult?.pixQrCodeBase64,
+                pixQrCodeUrl,
                 pixPaymentUrl: pixResult?.pixPaymentUrl
               });
             } catch (err) {
@@ -506,6 +533,15 @@ export class PaymentCronService {
           }
         }
 
+        let pixQrCodeUrl: string | undefined;
+        if (payment.pix_qr_code_base64) {
+          try {
+            pixQrCodeUrl = await uploadQrCodeToStorage(payment.pix_qr_code_base64, payment.id);
+          } catch (uploadErr) {
+            console.warn(`[CRON] Falha ao fazer upload do QR Code para ${payment.id}:`, uploadErr);
+          }
+        }
+
         await this.notificationService.sendReminder({
           subscriberName: subscriber.name,
           subscriberPhone: subscriber.phone,
@@ -515,6 +551,7 @@ export class PaymentCronService {
           totalDebt,
           pixBrCode: payment.pix_br_code ?? undefined,
           pixQrCodeBase64: payment.pix_qr_code_base64 ?? undefined,
+          pixQrCodeUrl,
           pixPaymentUrl: payment.pix_payment_url ?? undefined
         });
 
