@@ -5,7 +5,7 @@ import { PaymentRepository } from '../repositories/paymentRepository';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
-import { getNotificationService } from '../jobs/paymentCronInstance';
+import { NotificationService } from '../services/notificationService';
 
 const router = Router();
 
@@ -20,7 +20,7 @@ const paymentService = new PaymentService(
   rentalRepo,
   motorcycleRepo,
   subscriberRepo,
-  getNotificationService()
+  new NotificationService()
 );
 const controller = new PaymentController(paymentService);
 

@@ -3,7 +3,6 @@ dotenv.config();
 
 import app from './app';
 import { env } from './config/env';
-import { getPaymentCronService } from './jobs/paymentCronInstance';
 import logger from './utils/logger';
 
 const PORT = env.PORT;
@@ -13,12 +12,7 @@ const server = app.listen(PORT, () => {
   logger.info(`[SERVER] Backend rodando na porta ${PORT}`);
   logger.info(`[SERVER] Ambiente: ${env.NODE_ENV}`);
   logger.info(`[SERVER] Frontend URL: ${env.FRONTEND_URL}`);
-
-  // Iniciar CRON jobs
-  const paymentCronService = getPaymentCronService();
-  paymentCronService.startCronJobs();
-
-  logger.info('[SERVER] CRON jobs iniciados');
+  logger.info('[SERVER] Geração de pagamentos delegada ao motorent-worker');
 });
 
 // Graceful shutdown

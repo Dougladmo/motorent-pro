@@ -5,7 +5,6 @@ import { RentalRepository } from '../repositories/rentalRepository';
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { PaymentRepository } from '../repositories/paymentRepository';
-import { getPaymentCronService } from '../jobs/paymentCronInstance';
 
 const router = Router();
 
@@ -16,9 +15,6 @@ const subscriberRepo = new SubscriberRepository();
 const paymentRepo = new PaymentRepository();
 
 const rentalService = new RentalService(rentalRepo, motorcycleRepo, subscriberRepo, paymentRepo);
-
-// Injetar PaymentCronService no RentalService
-rentalService.setPaymentCronService(getPaymentCronService());
 
 const controller = new RentalController(rentalService);
 

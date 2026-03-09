@@ -1,0 +1,25 @@
+{
+  "name": "motorent-worker",
+  "version": "1.0.0",
+  "description": "MotoRent Pro - Worker de geração de pagamentos",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
+    "dotenv": "^17.2.4",
+    "node-cron": "^4.2.1",
+    "resend": "^6.9.3",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.2",
+    "@types/node-cron": "^3.0.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
