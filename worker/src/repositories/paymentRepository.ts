@@ -153,6 +153,18 @@ export class PaymentRepository {
     return data || [];
   }
 
+  async findActiveByRentalId(rentalId: string): Promise<Payment[]> {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('rental_id', rentalId)
+      .in('status', ['Pendente', 'Atrasado'])
+      .order('due_date', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
   async existsByRentalAndDate(rentalId: string, dueDate: string): Promise<boolean> {
     const { data } = await this.supabase
       .from('payments')

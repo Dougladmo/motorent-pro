@@ -28,9 +28,12 @@ const mockCreatePixQrCode = jest.fn().mockResolvedValue({
   pixPaymentUrl: ''
 });
 
+const mockCancelPixQrCode = jest.fn().mockResolvedValue(true);
+
 jest.mock('../../services/abacatePayService', () => ({
   AbacatePayService: jest.fn().mockImplementation(() => ({
-    createPixQrCode: mockCreatePixQrCode
+    createPixQrCode: mockCreatePixQrCode,
+    cancelPixQrCode: mockCancelPixQrCode
   }))
 }));
 
@@ -45,12 +48,45 @@ import { SeedData, seedDb } from '../helpers/seed';
 let seedData: SeedData;
 let cronService: PaymentCronService;
 
+// Helper to insert an extra payment directly into the DB
+function insertExtraPayment(
+  db: ReturnType<typeof getDb>,
+  rentalId: string,
+  overrides: {
+    amount?: number;
+    due_date?: string;
+    status?: string;
+    abacate_pix_id?: string | null;
+  } = {}
+): string {
+  const id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
+      paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
+      abacate_pix_id, pix_br_code, pix_qr_code_base64, pix_expires_at, pix_payment_url, created_at, updated_at)
+    VALUES (?, ?, 'João Silva', ?, 300, ?, ?, NULL, NULL, NULL, 0, 0, ?, NULL, NULL, NULL, NULL, ?, ?)
+  `).run(
+    id, rentalId,
+    overrides.amount ?? 300,
+    overrides.due_date ?? '2026-06-01',
+    overrides.status ?? 'Pendente',
+    overrides.abacate_pix_id ?? null,
+    now, now
+  );
+  return id;
+}
+
 beforeEach(() => {
   resetDb();
   seedData = seedDb(getDb());
   mockSendPaymentNotification.mockClear();
   mockSendReminder.mockClear();
   mockCreatePixQrCode.mockClear();
+  mockCancelPixQrCode.mockClear();
 
   const paymentRepo = new PaymentRepository();
   const rentalRepo = new RentalRepository();
@@ -73,6 +109,114 @@ describe('PaymentCronService', () => {
 
       const payment = db.prepare('SELECT * FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
       expect(payment.status).toBe('Atrasado');
+    });
+  });
+
+  describe('consolidateExistingDuplicates (via runPaymentGeneration)', () => {
+    it('2 Pendente no mesmo rental → consolida em 1, amount = soma, status = Pendente', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments WHERE id = ?').run(seedData.payment1Id);
+      // payment2Id: Pendente, due_date='2026-06-01', amount=300
+      // Add a second Pendente payment with a future date
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2026-07-01', status: 'Pendente', amount: 300 });
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { amount: number; status: string }[];
+      expect(active).toHaveLength(1);
+      expect(active[0].amount).toBe(600);
+      expect(active[0].status).toBe('Pendente');
+    });
+
+    it('1 Pendente + 1 Atrasado → status consolidado = Atrasado', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments WHERE id = ?').run(seedData.payment1Id);
+      // payment2Id: Pendente, due_date='2026-06-01'
+      // Add an Atrasado payment
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2026-05-01', status: 'Atrasado', amount: 300 });
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { status: string }[];
+      expect(active).toHaveLength(1);
+      expect(active[0].status).toBe('Atrasado');
+    });
+
+    it('2 Pendente com latest due_date < today → status consolidado = Atrasado', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+      // Both past dates (well before any reasonable "today")
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2025-11-01', status: 'Pendente', amount: 300 });
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2025-12-01', status: 'Pendente', amount: 300 });
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { status: string }[];
+      expect(active).toHaveLength(1);
+      expect(active[0].status).toBe('Atrasado');
+    });
+
+    it('cancelPixQrCode chamado para cada pagamento com abacate_pix_id', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments WHERE id = ?').run(seedData.payment1Id);
+      // Give payment2 a PIX id
+      db.prepare("UPDATE payments SET abacate_pix_id = 'pix-cancel-1' WHERE id = ?").run(seedData.payment2Id);
+      // Add another active payment with a PIX id (far future → STEP 2 won't retrigger)
+      insertExtraPayment(db, seedData.rental1Id, {
+        due_date: '2026-07-01',
+        status: 'Pendente',
+        amount: 300,
+        abacate_pix_id: 'pix-cancel-2'
+      });
+
+      await cronService.runPaymentGeneration();
+
+      expect(mockCancelPixQrCode).toHaveBeenCalledWith('pix-cancel-1');
+      expect(mockCancelPixQrCode).toHaveBeenCalledWith('pix-cancel-2');
+    });
+
+    it('após consolidação, apenas 1 registro ativo no banco', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments WHERE id = ?').run(seedData.payment1Id);
+      // Add 2 more to create 3 total active payments
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2026-07-01', status: 'Pendente', amount: 300 });
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2026-08-01', status: 'Atrasado', amount: 300 });
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as unknown[];
+      expect(active).toHaveLength(1);
+    });
+
+    it('novo PIX criado para o registro consolidado com valor total', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments WHERE id = ?').run(seedData.payment1Id);
+      // payment2Id: amount=300 + one more = total 600
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2026-07-01', status: 'Pendente', amount: 300 });
+
+      await cronService.runPaymentGeneration();
+
+      expect(mockCreatePixQrCode).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 600 })
+      );
+    });
+
+    it('rental com apenas 1 ativo → não consolida (cancelPixQrCode não chamado)', async () => {
+      const db = getDb();
+      // Remove payment1 (Pago), leaving only payment2 (1 active)
+      db.prepare('DELETE FROM payments WHERE id = ?').run(seedData.payment1Id);
+
+      await cronService.runPaymentGeneration();
+
+      expect(mockCancelPixQrCode).not.toHaveBeenCalled();
     });
   });
 
@@ -101,6 +245,7 @@ describe('PaymentCronService', () => {
       const afterCount = (db.prepare('SELECT COUNT(*) as cnt FROM payments').get() as { cnt: number }).cnt;
       // Only new payments should be added, not duplicates for existing dates
       const newCount = afterCount - beforeCount;
+      void newCount;
       // Verify no duplicate exists for existing seed date
       const dups = db.prepare('SELECT due_date, COUNT(*) as cnt FROM payments WHERE rental_id = ? GROUP BY due_date HAVING cnt > 1').all(seedData.rental1Id);
       expect(dups).toHaveLength(0);
@@ -147,6 +292,137 @@ describe('PaymentCronService', () => {
         expect(p.due_date <= pastEndDate).toBe(true);
       });
     });
+
+    it('atualiza pagamento existente quando nova semana é detectada (não cria novo)', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
+
+      // Active payment with due_date = today; lookahead will find today+7 as uncovered
+      const existingId = insertExtraPayment(db, seedData.rental1Id, {
+        due_date: todayStr,
+        status: 'Pendente',
+        amount: 300
+      });
+
+      await cronService.runPaymentGeneration();
+
+      const afterActive = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { id: string; amount: number }[];
+
+      // Still exactly 1 active (updated, not duplicated)
+      expect(afterActive).toHaveLength(1);
+      // Same payment ID — updated in place, not replaced
+      expect(afterActive[0].id).toBe(existingId);
+      // Amount accumulated (today+7 was added)
+      expect(afterActive[0].amount).toBeGreaterThan(300);
+    });
+
+    it('acumulação: ativo de R$300 + 2 semanas → amount = R$900', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+      // Active payment with due_date = 7 days ago
+      // STEP 2 will find: cursor=today, cursor=today+7 → 2 uncovered weeks
+      insertExtraPayment(db, seedData.rental1Id, {
+        due_date: sevenDaysAgoStr,
+        status: 'Pendente',
+        amount: 300
+      });
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { amount: number }[];
+
+      expect(active).toHaveLength(1);
+      expect(active[0].amount).toBe(900); // 300 + 2 * 300
+    });
+
+    it('atualização cancela PIX antigo do pagamento ativo', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
+
+      // Active payment with a PIX id; STEP 2 will update it and cancel the old PIX
+      insertExtraPayment(db, seedData.rental1Id, {
+        due_date: todayStr,
+        status: 'Pendente',
+        amount: 300,
+        abacate_pix_id: 'old-pix-to-cancel'
+      });
+
+      await cronService.runPaymentGeneration();
+
+      expect(mockCancelPixQrCode).toHaveBeenCalledWith('old-pix-to-cancel');
+    });
+
+    it('novo PIX gerado com valor acumulado após atualização', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
+
+      insertExtraPayment(db, seedData.rental1Id, {
+        due_date: todayStr,
+        status: 'Pendente',
+        amount: 300
+      });
+
+      await cronService.runPaymentGeneration();
+
+      // createPixQrCode should have been called with an amount > original 300
+      const calls = mockCreatePixQrCode.mock.calls;
+      expect(calls.length).toBeGreaterThanOrEqual(1);
+      const lastCallAmount = calls[calls.length - 1][0].amount;
+      expect(lastCallAmount).toBeGreaterThan(300);
+    });
+
+    it('rental sem ativo → cria exatamente 1 pagamento consolidado', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run('2026-01-01', seedData.rental1Id);
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as unknown[];
+      expect(active).toHaveLength(1);
+    });
+
+    it('após runPaymentGeneration, no máximo 1 pagamento ativo por rental', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      // Insert 3 active payments to simulate bad state
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2026-05-01', status: 'Pendente', amount: 300 });
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2026-06-01', status: 'Pendente', amount: 300 });
+      insertExtraPayment(db, seedData.rental1Id, { due_date: '2026-07-01', status: 'Atrasado', amount: 300 });
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as unknown[];
+      expect(active).toHaveLength(1);
+    });
   });
 
   describe('generatePaymentsForRental', () => {
@@ -173,6 +449,50 @@ describe('PaymentCronService', () => {
 
       const count = await cronService.generatePaymentsForRental(seedData.rental1Id);
       expect(count).toBe(0);
+    });
+
+    it('contrato novo com start_date = hoje → cria exatamente 1 pagamento', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run(todayStr, seedData.rental1Id);
+
+      const count = await cronService.generatePaymentsForRental(seedData.rental1Id);
+
+      expect(count).toBe(1);
+      const payments = db.prepare('SELECT * FROM payments WHERE rental_id = ?').all(seedData.rental1Id) as unknown[];
+      expect(payments).toHaveLength(1);
+    });
+
+    it('start_date no passado (3 semanas atrás) → 1 pagamento consolidado com amount >= 3 × weekly_value', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const threeWeeksAgo = new Date(today);
+      threeWeeksAgo.setDate(threeWeeksAgo.getDate() - 21);
+      const threeWeeksAgoStr = threeWeeksAgo.toISOString().split('T')[0];
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run(threeWeeksAgoStr, seedData.rental1Id);
+
+      const count = await cronService.generatePaymentsForRental(seedData.rental1Id);
+
+      expect(count).toBe(1);
+      const payments = db.prepare('SELECT * FROM payments WHERE rental_id = ?').all(seedData.rental1Id) as { amount: number }[];
+      expect(payments).toHaveLength(1);
+      expect(payments[0].amount).toBeGreaterThanOrEqual(300 * 3);
+    });
+
+    it('sempre retorna 1, independente do número de semanas consolidadas', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      // Rental starting many weeks ago → many uncovered weeks, but still returns 1
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run('2026-01-01', seedData.rental1Id);
+
+      const count = await cronService.generatePaymentsForRental(seedData.rental1Id);
+      expect(count).toBe(1);
     });
   });
 

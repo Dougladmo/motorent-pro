@@ -31,6 +31,26 @@ export class AbacatePayService {
     this.apiKey = process.env.ABACATE_PAY_API_KEY || '';
   }
 
+  async cancelPixQrCode(pixId: string): Promise<boolean> {
+    if (!this.apiKey) return false;
+    try {
+      const res = await fetch(`${this.baseUrl}/pixQrCode/${pixId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+        signal: AbortSignal.timeout(10_000)
+      });
+      if (!res.ok) {
+        console.warn(`[AbacatePay] Falha ao cancelar PIX ${pixId}: ${res.status}`);
+        return false;
+      }
+      console.log(`[AbacatePay] PIX ${pixId} cancelado`);
+      return true;
+    } catch (err) {
+      console.error(`[AbacatePay] Erro ao cancelar PIX ${pixId}:`, err);
+      return false;
+    }
+  }
+
   async createPixQrCode(params: CreatePixQrCodeParams): Promise<PixQrCodeResult | null> {
     if (!this.apiKey) {
       console.warn('[AbacatePay] ABACATE_PAY_API_KEY não configurada, pulando geração de QR Code');
