@@ -153,6 +153,29 @@ export class PaymentRepository {
     return data || [];
   }
 
+  async findPaidByRentalId(rentalId: string): Promise<Payment[]> {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('rental_id', rentalId)
+      .eq('status', 'Pago')
+      .order('due_date', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async findActiveWithoutPix(): Promise<Payment[]> {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .in('status', ['Pendente', 'Atrasado'])
+      .is('pix_br_code', null);
+
+    if (error) throw error;
+    return data || [];
+  }
+
   async findActiveByRentalId(rentalId: string): Promise<Payment[]> {
     const { data, error } = await this.supabase
       .from('payments')

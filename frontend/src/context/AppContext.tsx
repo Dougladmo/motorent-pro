@@ -61,6 +61,7 @@ const transformSubscriber = (data: any): Subscriber => ({
   id: data.id,
   name: data.name,
   phone: data.phone,
+  email: data.email ?? undefined,
   document: data.document,
   active: data.active,
   notes: data.notes
@@ -77,7 +78,9 @@ const transformRental = (data: any): Rental => ({
   isActive: data.is_active,
   terminatedAt: data.terminated_at,
   terminationReason: data.termination_reason,
-  outstandingBalance: data.outstanding_balance || 0
+  outstandingBalance: data.outstanding_balance || 0,
+  totalContractValue: data.total_contract_value ?? 0,
+  totalPaid: data.total_paid ?? 0
 });
 
 const transformPayment = (data: any): Payment => ({
@@ -97,7 +100,8 @@ const transformPayment = (data: any): Payment => ({
   pixBrCode: data.pix_br_code ?? undefined,
   pixQrCodeBase64: data.pix_qr_code_base64 ?? undefined,
   pixExpiresAt: data.pix_expires_at ?? undefined,
-  pixPaymentUrl: data.pix_payment_url ?? undefined
+  pixPaymentUrl: data.pix_payment_url ?? undefined,
+  proofUrl: data.proof_url ?? undefined
 });
 
 // Função para transformar dados do frontend para backend

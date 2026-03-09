@@ -76,8 +76,20 @@ export class RentalService {
       throw new Error('Assinante não encontrado');
     }
 
+    // Calcular valor total do contrato
+    const startDate = new Date(data.start_date);
+    const endDate = data.end_date ? new Date(data.end_date) : null;
+    const totalWeeks = endDate
+      ? Math.round((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000))
+      : 0;
+    const totalContractValue = totalWeeks * data.weekly_value;
+
     // Criar aluguel
-    const rental = await this.rentalRepo.create(data);
+    const rental = await this.rentalRepo.create({
+      ...data,
+      total_contract_value: totalContractValue,
+      total_paid: 0
+    });
 
     // Atualizar status da moto
     await this.motorcycleRepo.update(data.motorcycle_id, {

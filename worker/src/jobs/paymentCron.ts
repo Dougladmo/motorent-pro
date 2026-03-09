@@ -50,6 +50,9 @@ export class PaymentCronService {
       // STEP 1: Atualizar PENDING → OVERDUE
       await this.updateOverduePayments(todayStr);
 
+      // STEP 1.5: Regenerar PIX ausentes (Pendente/Atrasado sem pix_br_code)
+      await this.regenerateMissingPixCodes();
+
       // STEP 2: Gerar/atualizar pagamentos (lógica consolidada)
       await this.generateNewPayments(today, todayStr);
 
@@ -225,10 +228,19 @@ export class PaymentCronService {
           const [ay, am, ad] = activePayment.due_date.split('-').map(Number);
           lastCoveredDate = new Date(ay, am - 1, ad);
         } else {
-          // Nenhuma cobrança ativa: começa do início do contrato menos 7 dias
-          const [sy, sm, sd] = rental.start_date.split('-').map(Number);
-          lastCoveredDate = new Date(sy, sm - 1, sd);
-          lastCoveredDate.setDate(lastCoveredDate.getDate() - 7);
+          // Nenhuma cobrança ativa: verificar se há pagamentos já pagos
+          const paidPayments = await this.paymentRepo.findPaidByRentalId(rental.id);
+          if (paidPayments.length > 0) {
+            // Continuar a partir do último pagamento pago
+            const latestPaid = paidPayments[0]; // já ordenado por due_date desc
+            const [py, pm, pd] = latestPaid.due_date.split('-').map(Number);
+            lastCoveredDate = new Date(py, pm - 1, pd);
+          } else {
+            // Contrato sem nenhum pagamento: começa do início
+            const [sy, sm, sd] = rental.start_date.split('-').map(Number);
+            lastCoveredDate = new Date(sy, sm - 1, sd);
+            lastCoveredDate.setDate(lastCoveredDate.getDate() - 7);
+          }
         }
 
         // Calcular datas não cobertas
@@ -381,6 +393,59 @@ export class PaymentCronService {
       console.log('[CRON] Nenhum pagamento precisou ser gerado/atualizado');
     } else {
       console.log(`[CRON] Total de rentals processados: ${totalProcessed}`);
+    }
+  }
+
+  private async regenerateMissingPixCodes(): Promise<void> {
+    console.log('[CRON] STEP 1.5: Regenerando PIX para pagamentos sem código...');
+
+    const paymentsWithoutPix = await this.paymentRepo.findActiveWithoutPix();
+
+    if (paymentsWithoutPix.length === 0) {
+      console.log('[CRON] Nenhum pagamento ativo sem PIX encontrado');
+      return;
+    }
+
+    console.log(`[CRON] ${paymentsWithoutPix.length} pagamento(s) sem PIX`);
+
+    for (const payment of paymentsWithoutPix) {
+      try {
+        const rental = await this.rentalRepo.findById(payment.rental_id);
+        if (!rental) continue;
+
+        const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
+        if (!subscriber) continue;
+
+        const pixResult = await this.abacatePayService.createPixQrCode({
+          amount: payment.amount,
+          description: `Aluguel - ${subscriber.name} - ${payment.due_date}`,
+          expiresIn: 604800,
+          customer: {
+            name: subscriber.name,
+            cellphone: subscriber.phone,
+            email: subscriber.email,
+            taxId: subscriber.document
+          },
+          metadata: {
+            paymentId: payment.id,
+            rentalId: rental.id,
+            subscriberId: rental.subscriber_id
+          }
+        });
+
+        if (pixResult) {
+          await this.paymentRepo.update(payment.id, {
+            abacate_pix_id: pixResult.abacatePixId,
+            pix_br_code: pixResult.pixBrCode,
+            pix_qr_code_base64: pixResult.pixQrCodeBase64,
+            pix_expires_at: pixResult.pixExpiresAt,
+            pix_payment_url: pixResult.pixPaymentUrl || null
+          });
+          console.log(`[CRON] PIX regenerado para pagamento ${payment.id} (${payment.status})`);
+        }
+      } catch (err) {
+        console.error(`[CRON] Erro ao regenerar PIX para ${payment.id}:`, err);
+      }
     }
   }
 
@@ -569,13 +634,13 @@ export class PaymentCronService {
   async backfillMissingQrCodes(): Promise<void> {
     console.log('[CRON] STEP 3: Backfill de QR Codes ausentes...');
 
-    const pending = await this.paymentRepo.findPendingWithoutPix();
+    const pending = await this.paymentRepo.findActiveWithoutPix();
     if (pending.length === 0) {
-      console.log('[CRON] Nenhum pagamento pendente sem QR Code encontrado');
+      console.log('[CRON] Nenhum pagamento ativo sem QR Code encontrado');
       return;
     }
 
-    console.log(`[CRON] ${pending.length} pagamentos pendentes sem QR Code`);
+    console.log(`[CRON] ${pending.length} pagamentos ativos sem QR Code`);
 
     for (const payment of pending) {
       try {

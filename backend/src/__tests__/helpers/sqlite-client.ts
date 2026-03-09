@@ -57,6 +57,8 @@ function initSchema(database: Database.Database): void {
       terminated_at TEXT,
       termination_reason TEXT,
       outstanding_balance REAL NOT NULL DEFAULT 0,
+      total_contract_value REAL NOT NULL DEFAULT 0,
+      total_paid REAL NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -79,6 +81,7 @@ function initSchema(database: Database.Database): void {
       pix_qr_code_base64 TEXT,
       pix_expires_at TEXT,
       pix_payment_url TEXT,
+      proof_url TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );

@@ -1,3 +1,9 @@
+jest.mock('../../services/uploadService', () => ({
+  UploadService: jest.fn().mockImplementation(() => ({
+    uploadQrCodeToStorage: jest.fn().mockResolvedValue('https://mock-url/qr.png')
+  }))
+}));
+
 jest.mock('../../config/supabase', () => ({
   getSupabaseClient: () => {
     const { getMockClient } = require('../helpers/sqlite-client');

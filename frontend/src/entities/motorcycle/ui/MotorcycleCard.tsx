@@ -76,8 +76,8 @@ export const MotorcycleCard: React.FC<MotorcycleCardProps> = ({
       <div className="p-5">
         <h3 className="text-lg font-bold text-slate-800">{motorcycle.model}</h3>
         <div className="flex items-center justify-between mt-2 text-sm text-slate-500">
-          <span className="font-mono font-semibold">{formatPlate(motorcycle.plate)}</span>
-          <span>{motorcycle.year}</span>
+          <span className="font-mono font-semibold">Placa: {formatPlate(motorcycle.plate)}</span>
+          <span>Ano: {motorcycle.year}</span>
         </div>
 
         {/* Receita Total da Moto */}

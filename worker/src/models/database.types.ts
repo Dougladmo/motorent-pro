@@ -99,6 +99,8 @@ export interface Database {
           terminated_at: string | null;
           termination_reason: string | null;
           outstanding_balance: number;
+          total_contract_value: number;
+          total_paid: number;
           created_at: string;
           updated_at: string;
         };
@@ -114,6 +116,8 @@ export interface Database {
           terminated_at?: string | null;
           termination_reason?: string | null;
           outstanding_balance?: number;
+          total_contract_value?: number;
+          total_paid?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -129,6 +133,8 @@ export interface Database {
           terminated_at?: string | null;
           termination_reason?: string | null;
           outstanding_balance?: number;
+          total_contract_value?: number;
+          total_paid?: number;
           created_at?: string;
           updated_at?: string;
         };

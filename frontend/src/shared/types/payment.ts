@@ -42,6 +42,9 @@ export interface Payment {
   pixQrCodeBase64?: string;
   pixExpiresAt?: string;
   pixPaymentUrl?: string;
+
+  // Comprovante de pagamento
+  proofUrl?: string;
 }
 
 export interface DashboardStats {

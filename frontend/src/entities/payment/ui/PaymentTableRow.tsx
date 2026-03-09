@@ -127,7 +127,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
         variant="default"
       >
         <p className="text-sm text-slate-600">
-          Confirma que o pagamento de <span className="font-semibold">{payment.subscriberName}</span> no valor de{' '}
+          Confirma que o pagamento de <span className="font-semibold capitalize">{payment.subscriberName}</span> no valor de{' '}
           <span className="font-semibold">{formatCurrency(payment.amount)}</span> foi recebido?
         </p>
       </ConfirmDialog>
@@ -141,7 +141,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
                 <X size={20} />
               </button>
             </div>
-            <p className="text-sm text-slate-500 mb-1">{payment.subscriberName}</p>
+            <p className="text-sm text-slate-500 mb-1 capitalize">{payment.subscriberName}</p>
             <p className="text-lg font-bold text-slate-800 mb-4">{formatCurrency(payment.amount)} — Vence {formatDate(payment.dueDate)}</p>
             {payment.pixQrCodeBase64 && (
               <img src={payment.pixQrCodeBase64} alt="QR Code PIX" className="w-48 h-48 mx-auto mb-4 rounded-lg border border-slate-200" />
@@ -266,7 +266,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
         <div className="p-4 space-y-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="font-semibold text-slate-800 truncate">{payment.subscriberName}</p>
+              <p className="font-semibold text-slate-800 truncate capitalize">{payment.subscriberName}</p>
               {motorcycle && (
                 <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                   <Bike size={11} />
@@ -312,7 +312,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-6 py-4">
         <div className="flex items-center gap-1.5">
-          <span className="font-medium text-slate-800">{payment.subscriberName}</span>
+          <span className="font-medium text-slate-800 capitalize">{payment.subscriberName}</span>
           {motorcycle && (
             <div className="group relative inline-flex items-center">
               <Bike size={14} className="text-slate-400 cursor-default hover:text-slate-600 transition-colors" />

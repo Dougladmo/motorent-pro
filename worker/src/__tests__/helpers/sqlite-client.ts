@@ -158,6 +158,8 @@ class SupabaseQueryBuilder {
   private isField: string | null = null;
   // Whether .select() was chained after insert/update to request return data
   private returningRows = false;
+  private orderColumn: string | null = null;
+  private orderAscending = true;
 
   constructor(table: string, database: Database.Database) {
     this.table = table;
@@ -227,7 +229,9 @@ class SupabaseQueryBuilder {
     return this;
   }
 
-  order(_column: string, _opts?: { ascending?: boolean }): this {
+  order(column: string, opts?: { ascending?: boolean }): this {
+    this.orderColumn = column;
+    this.orderAscending = opts?.ascending !== false;
     return this;
   }
 
@@ -261,6 +265,9 @@ class SupabaseQueryBuilder {
 
   private readRows(whereClause: string, whereValues: unknown[]): Record<string, unknown>[] {
     let sql = `SELECT ${this.selectColumns} FROM ${this.table} ${whereClause}`;
+    if (this.orderColumn !== null) {
+      sql += ` ORDER BY ${this.orderColumn} ${this.orderAscending ? 'ASC' : 'DESC'}`;
+    }
     if (this.limitValue !== null) {
       sql += ` LIMIT ${this.limitValue}`;
     }

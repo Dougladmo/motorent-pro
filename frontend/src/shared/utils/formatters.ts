@@ -49,26 +49,51 @@ export const formatCPF = (cpf: string): string => {
 };
 
 /**
- * Format plate to uppercase with hyphen (supports both old and Mercosul formats)
+ * Format plate to uppercase with progressive formatting (supports both old and Mercosul formats)
  * Old format: ABC-1234
  * Mercosul format: ABC1D23 (no hyphen)
  */
 export const formatPlate = (plate: string): string => {
-  const cleaned = plate.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  const cleaned = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
-  if (cleaned.length >= 7) {
-    // Check if it's Mercosul format (3 letters + 1 number + 1 letter + 2 numbers)
-    const mercosulMatch = cleaned.match(/^([A-Z]{3})(\d{1})([A-Z]{1})(\d{2})$/);
-    if (mercosulMatch) {
-      return `${mercosulMatch[1]}${mercosulMatch[2]}${mercosulMatch[3]}${mercosulMatch[4]}`;
-    }
-
-    // Old format (3 letters + 4 numbers)
-    const oldMatch = cleaned.match(/^([A-Z]{3})(\d{4})$/);
-    if (oldMatch) {
-      return `${oldMatch[1]}-${oldMatch[2]}`;
-    }
+  if (cleaned.length <= 3) {
+    return cleaned.replace(/[^A-Z]/g, '').substring(0, 3);
   }
 
-  return cleaned;
+  const prefix = cleaned.substring(0, 3).replace(/[^A-Z]/g, '');
+  if (prefix.length < 3) return prefix;
+
+  const rest = cleaned.substring(3);
+  const char4 = rest[0];
+
+  // 4th character must be a digit
+  if (!char4 || !/\d/.test(char4)) return prefix;
+
+  if (rest.length === 1) {
+    return `${prefix}${char4}`;
+  }
+
+  const char5 = rest[1];
+
+  if (/[A-Z]/.test(char5)) {
+    // Mercosul format: ABC1D + up to 2 digits (no hyphen)
+    const remaining = rest.substring(2).replace(/[^0-9]/g, '').substring(0, 2);
+    return `${prefix}${char4}${char5}${remaining}`;
+  } else if (/\d/.test(char5)) {
+    // Old format: ABC-1234
+    const digits = (char4 + rest.substring(1).replace(/[^0-9]/g, '')).substring(0, 4);
+    return `${prefix}-${digits}`;
+  }
+
+  return `${prefix}${char4}`;
+};
+
+/**
+ * Capitalize each word of a name (first letter uppercase, rest lowercase)
+ */
+export const capitalizeName = (name: string): string => {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
 };

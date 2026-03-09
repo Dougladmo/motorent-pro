@@ -71,7 +71,7 @@ export class AbacatePayService {
       customer: {
         name: params.customer.name,
         cellphone: params.customer.cellphone,
-        email: params.customer.email || 'sem-email@motorentpro.com',
+        email: params.customer.email ?? 'sem-email@motorentpro.com',
         taxId: sanitizedTaxId
       },
       metadata: params.metadata

@@ -36,6 +36,9 @@ export async function handleAbacateWebhook(req: Request, res: Response): Promise
         id: string;
         amount: number;
         status: string;
+        pixPaymentUrl?: string;
+        receiptUrl?: string;
+        e2eId?: string;
         metadata?: { paymentId?: string };
       };
     };
@@ -61,8 +64,15 @@ export async function handleAbacateWebhook(req: Request, res: Response): Promise
         return;
       }
 
+      // Capturar URL de comprovante: preferir URL fornecida pelo AbacatePay, fallback para referência
+      const proofUrl = data.pixPaymentUrl
+        || data.receiptUrl
+        || (data.e2eId ? `e2e:${data.e2eId}` : null)
+        || `abacatepay:${data.id}`;
+
+      await paymentRepo.update(paymentId, { pix_payment_url: proofUrl });
       await paymentService.markAsPaid(paymentId, data.amount / 100);
-      console.log(`[Webhook] Pagamento ${paymentId} confirmado via Abacate Pay PIX ${data.id}`);
+      console.log(`[Webhook] Pagamento ${paymentId} confirmado via Abacate Pay PIX ${data.id}. Comprovante: ${proofUrl}`);
     }
 
     if (event === 'pix.expired') {

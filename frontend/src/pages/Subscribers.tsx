@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { subscriberApi } from '../services/api';
 import { MotorcycleStatus, Subscriber, PaymentStatus } from '../shared';
 import { Plus, Check, AlertTriangle } from 'lucide-react';
 import { WEEK_DAYS } from '../shared';
 import { validatePhone, validateCPF, validatePositiveNumber } from '../shared';
-import { formatPhone, formatCPF, formatCurrency } from '../shared';
+import { formatPhone, formatCPF, formatCurrency, capitalizeName } from '../shared';
 import { SubscriberGrid } from '../entities/subscriber/ui/SubscriberGrid';
 import { FormInput } from '../shared/ui/atoms/FormInput';
 import { FormSelect } from '../shared/ui/atoms/FormSelect';
 import { AlertDialog } from '../components/AlertDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Modal } from '../components/Modal';
 
 export const Subscribers: React.FC = () => {
   const { subscribers, motorcycles, loading, addSubscriber, updateSubscriber, createRental, rentals, payments, deleteSubscriber, terminateRental } = useApp();
-  const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'EDIT_SUB' | 'NEW_RENTAL'>('LIST');
+  const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'NEW_RENTAL'>('LIST');
   const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Forms state
   const [subForm, setSubForm] = useState({ name: '', phone: '', document: '', email: '' });
@@ -54,34 +57,51 @@ export const Subscribers: React.FC = () => {
     try {
       if (editingSubscriber) {
         await updateSubscriber(editingSubscriber.id, {
-          name: subForm.name,
+          name: capitalizeName(subForm.name),
           phone: subForm.phone,
           document: subForm.document,
           email: subForm.email || undefined,
           active: true
         });
+        handleCloseEditModal();
       } else {
-        await addSubscriber({ ...subForm, email: subForm.email || undefined, active: true });
+        await addSubscriber({ ...subForm, name: capitalizeName(subForm.name), email: subForm.email || undefined, active: true });
+        setView('LIST');
+        setSubForm({ name: '', phone: '', document: '', email: '' });
       }
-
-      setView('LIST');
-      setEditingSubscriber(null);
-      setSubForm({ name: '', phone: '', document: '', email: '' });
     } catch (error) {
       console.error('Erro ao salvar assinante:', error);
       setAlertDialog({ message: 'Erro ao salvar assinante. Tente novamente.', variant: 'error' });
     }
   };
 
-  const handleEditClick = (subscriber: Subscriber) => {
-    setEditingSubscriber(subscriber);
-    setSubForm({
-      name: subscriber.name,
-      phone: subscriber.phone,
-      document: subscriber.document,
-      email: subscriber.email || ''
-    });
-    setView('EDIT_SUB');
+  const handleEditClick = async (subscriber: Subscriber) => {
+    try {
+      const fresh = await subscriberApi.getById(subscriber.id);
+      const data = fresh as any;
+      setEditingSubscriber({ ...subscriber, email: data.email ?? subscriber.email });
+      setSubForm({
+        name: data.name ?? subscriber.name,
+        phone: data.phone ?? subscriber.phone,
+        document: data.document ?? subscriber.document,
+        email: data.email ?? subscriber.email ?? ''
+      });
+    } catch {
+      setEditingSubscriber(subscriber);
+      setSubForm({
+        name: subscriber.name,
+        phone: subscriber.phone,
+        document: subscriber.document,
+        email: subscriber.email ?? ''
+      });
+    }
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingSubscriber(null);
+    setSubForm({ name: '', phone: '', document: '', email: '' });
   };
 
   const handleCreateRental = async (e: React.FormEvent) => {
@@ -243,11 +263,9 @@ export const Subscribers: React.FC = () => {
         />
       )}
 
-      {(view === 'NEW_SUB' || view === 'EDIT_SUB') && (
+      {view === 'NEW_SUB' && (
          <div className="bg-white max-w-2xl mx-auto p-4 md:p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
-             <h3 className="text-xl font-bold text-slate-800 mb-6">
-                {editingSubscriber ? 'Editar Assinante' : 'Cadastrar Assinante'}
-             </h3>
+             <h3 className="text-xl font-bold text-slate-800 mb-6">Cadastrar Assinante</h3>
              <form onSubmit={handleCreateSubscriber} className="space-y-5">
                 <div>
                     <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
@@ -288,9 +306,9 @@ export const Subscribers: React.FC = () => {
                     </div>
                 </div>
                 <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-slate-400 font-normal">(opcional)</span></label>
+                    <label htmlFor="new-email" className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-slate-400 font-normal">(opcional)</span></label>
                     <input
-                        id="email"
+                        id="new-email"
                         type="email"
                         value={subForm.email}
                         onChange={e => setSubForm({...subForm, email: e.target.value})}
@@ -303,7 +321,6 @@ export const Subscribers: React.FC = () => {
                         type="button"
                         onClick={() => {
                             setView('LIST');
-                            setEditingSubscriber(null);
                             setSubForm({ name: '', phone: '', document: '', email: '' });
                         }}
                         className="px-6 py-2 text-slate-600 font-medium"
@@ -311,12 +328,80 @@ export const Subscribers: React.FC = () => {
                         Cancelar
                     </button>
                     <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">
-                        {editingSubscriber ? 'Atualizar' : 'Salvar'}
+                        Salvar
                     </button>
                 </div>
              </form>
          </div>
       )}
+
+      <Modal isOpen={isEditModalOpen} onClose={handleCloseEditModal} title="Editar Assinante">
+        <form onSubmit={handleCreateSubscriber} className="space-y-5">
+          <div>
+            <label htmlFor="edit-name" className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
+            <input
+              id="edit-name"
+              required
+              type="text"
+              value={subForm.name}
+              onChange={e => setSubForm({...subForm, name: e.target.value})}
+              className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: João Silva"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="edit-phone" className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
+              <input
+                id="edit-phone"
+                required
+                type="tel"
+                placeholder="(00) 00000-0000"
+                value={formatPhone(subForm.phone)}
+                onChange={e => setSubForm({...subForm, phone: e.target.value.replace(/\D/g, '')})}
+                className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-document" className="block text-sm font-medium text-slate-700 mb-1">CPF</label>
+              <input
+                id="edit-document"
+                type="text"
+                value={formatCPF(subForm.document)}
+                onChange={e => setSubForm({...subForm, document: e.target.value.replace(/\D/g, '')})}
+                className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="000.000.000-00"
+                maxLength={14}
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="edit-email" className="block text-sm font-medium text-slate-700 mb-1">
+              Email <span className="text-slate-400 font-normal">(opcional)</span>
+            </label>
+            <input
+              id="edit-email"
+              type="email"
+              value={subForm.email}
+              onChange={e => setSubForm({...subForm, email: e.target.value})}
+              className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="exemplo@email.com"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleCloseEditModal}
+              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+              Atualizar
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {view === 'NEW_RENTAL' && (
          <div className="bg-white max-w-2xl mx-auto p-4 md:p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">

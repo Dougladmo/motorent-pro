@@ -16,4 +16,8 @@ export interface Rental {
   terminatedAt?: string;
   terminationReason?: string;
   outstandingBalance: number;
+
+  // Financial tracking
+  totalContractValue: number;
+  totalPaid: number;
 }

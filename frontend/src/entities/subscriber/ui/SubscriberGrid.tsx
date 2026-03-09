@@ -10,7 +10,7 @@ interface SubscriberGridProps {
   motorcycles: Motorcycle[];
   payments: Payment[];
   loading?: boolean;
-  onEdit: (sub: Subscriber) => void;
+  onEdit: (sub: Subscriber) => Promise<void>;
   onDelete: (id: string) => void;
   onTerminateRental: (rentalId: string, subName: string, bikePlate: string) => void;
 }
