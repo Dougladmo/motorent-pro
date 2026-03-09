@@ -1,8 +1,12 @@
 import { Request, Response } from 'express';
 import { PaymentService } from '../services/paymentService';
+import { ReminderJobService } from '../services/reminderJobService';
 
 export class PaymentController {
-  constructor(private service: PaymentService) {}
+  constructor(
+    private service: PaymentService,
+    private reminderJobService?: ReminderJobService
+  ) {}
 
   getAllPayments = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -88,11 +92,46 @@ export class PaymentController {
     try {
       const { id } = req.params as { id: string };
 
-      await this.service.sendReminder(id);
-      res.json({ success: true, message: 'Lembrete enviado com sucesso' });
+      // Validate payment exists before enqueuing
+      const payment = await this.service.getPaymentById(id);
+      if (!payment) {
+        res.status(404).json({ success: false, error: 'Pagamento não encontrado' });
+        return;
+      }
+
+      if (this.reminderJobService) {
+        const jobId = await this.reminderJobService.enqueue(id);
+        res.status(202).json({ success: true, jobId });
+      } else {
+        // Fallback: synchronous (legacy behavior)
+        await this.service.sendReminder(id);
+        res.json({ success: true, message: 'Lembrete enviado com sucesso' });
+      }
     } catch (error: any) {
       console.error('[PaymentController] Error sending reminder:', error);
       res.status(400).json({ success: false, error: error.message });
+    }
+  };
+
+  getReminderJobStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { jobId } = req.params as { jobId: string };
+
+      if (!this.reminderJobService) {
+        res.status(501).json({ success: false, error: 'Job queue not configured' });
+        return;
+      }
+
+      const job = await this.reminderJobService.getJobStatus(jobId);
+      if (!job) {
+        res.status(404).json({ success: false, error: 'Job não encontrado' });
+        return;
+      }
+
+      res.json({ success: true, data: job });
+    } catch (error: any) {
+      console.error('[PaymentController] Error fetching job status:', error);
+      res.status(500).json({ success: false, error: error.message });
     }
   };
 

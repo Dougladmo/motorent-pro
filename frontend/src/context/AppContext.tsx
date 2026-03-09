@@ -34,7 +34,7 @@ interface AppContextType {
   createRental: (rental: Omit<Rental, 'id'>) => Promise<void>;
   updatePayment: (id: string, updates: { amount?: number; dueDate?: string }) => Promise<void>;
   markPaymentAsPaid: (id: string, verifiedAmount?: number) => Promise<void>;
-  sendReminder: (paymentId: string) => Promise<boolean>;
+  sendReminder: (paymentId: string) => Promise<string>;
   deleteMotorcycle: (id: string) => Promise<void>;
   deleteSubscriber: (id: string) => Promise<void>;
   deletePayment: (id: string) => Promise<void>;
@@ -366,16 +366,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const sendReminder = async (paymentId: string): Promise<boolean> => {
+  const sendReminder = async (paymentId: string): Promise<string> => {
     try {
-      await paymentApi.sendReminder(paymentId);
-
-      // Atualizar contador localmente
-      setPayments(prev => prev.map(p =>
-        p.id === paymentId ? { ...p, reminderSentCount: p.reminderSentCount + 1 } : p
-      ));
-
-      return true;
+      const result = await paymentApi.sendReminder(paymentId);
+      return result.jobId;
     } catch (error: any) {
       console.error('Erro ao enviar lembrete:', error);
       throw new Error(error.response?.data?.error || error.message);

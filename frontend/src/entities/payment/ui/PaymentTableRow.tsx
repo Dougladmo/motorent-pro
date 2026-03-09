@@ -81,6 +81,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
   isMobile = false
 }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmMarkPaid, setConfirmMarkPaid] = useState(false);
   const [showPixModal, setShowPixModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const { remaining, lock } = useCooldown(payment.id);
@@ -116,6 +117,20 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
         confirmLabel="Deletar"
         variant="danger"
       />
+
+      <ConfirmDialog
+        isOpen={confirmMarkPaid}
+        title="Confirmar Pagamento"
+        onConfirm={() => { setConfirmMarkPaid(false); onMarkPaid(payment.id); }}
+        onClose={() => setConfirmMarkPaid(false)}
+        confirmLabel="Confirmar Pagamento"
+        variant="default"
+      >
+        <p className="text-sm text-slate-600">
+          Confirma que o pagamento de <span className="font-semibold">{payment.subscriberName}</span> no valor de{' '}
+          <span className="font-semibold">{formatCurrency(payment.amount)}</span> foi recebido?
+        </p>
+      </ConfirmDialog>
 
       {showPixModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowPixModal(false)}>
@@ -212,7 +227,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
             )}
           </button>
           <button
-            onClick={() => onMarkPaid(payment.id)}
+            onClick={() => setConfirmMarkPaid(true)}
             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
             title="Marcar como Pago"
           >

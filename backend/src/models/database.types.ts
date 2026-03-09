@@ -256,6 +256,32 @@ export interface Database {
           created_at?: string;
         };
       };
+      reminder_jobs: {
+        Row: {
+          id: string;
+          payment_id: string;
+          status: 'pending' | 'processing' | 'completed' | 'failed';
+          error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          payment_id: string;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          payment_id?: string;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 }

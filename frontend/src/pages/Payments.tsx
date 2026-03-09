@@ -54,10 +54,8 @@ export const Payments: React.FC = () => {
     try {
       setSendingId(id);
       await sendReminder(id);
-      setAlertDialog({ message: 'Lembrete enviado com sucesso!', variant: 'success', title: 'Lembrete Enviado' });
     } catch (error) {
       console.error('Erro ao enviar lembrete:', error);
-      setAlertDialog({ message: 'Erro ao enviar lembrete. Tente novamente.', variant: 'error' });
     } finally {
       setSendingId(null);
     }
@@ -230,7 +228,16 @@ export const Payments: React.FC = () => {
       >
         <div className="space-y-3">
           <p className="text-sm text-slate-600">
-            Este pagamento voltará ao status <span className="font-semibold">Pendente</span>.
+            Este pagamento voltará ao status{' '}
+            <span className="font-semibold">
+              {(() => {
+                const p = payments.find(p => p.id === undoPaymentId);
+                if (p?.previousStatus && p.previousStatus !== PaymentStatus.PAID) {
+                  return p.previousStatus;
+                }
+                return p && p.dueDate < new Date().toISOString().split('T')[0] ? 'Atrasado' : 'Pendente';
+              })()}
+            </span>.
           </p>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">

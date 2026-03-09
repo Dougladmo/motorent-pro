@@ -6,6 +6,8 @@ import { RentalRepository } from '../repositories/rentalRepository';
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { NotificationService } from '../services/notificationService';
+import { ReminderJobRepository } from '../repositories/reminderJobRepository';
+import { ReminderJobService } from '../services/reminderJobService';
 
 const router = Router();
 
@@ -22,11 +24,16 @@ const paymentService = new PaymentService(
   subscriberRepo,
   new NotificationService()
 );
-const controller = new PaymentController(paymentService);
+
+const reminderJobRepo = new ReminderJobRepository();
+const reminderJobService = new ReminderJobService(reminderJobRepo, paymentService);
+
+const controller = new PaymentController(paymentService, reminderJobService);
 
 // Endpoints
 router.get('/', controller.getAllPayments);
 router.get('/validate', controller.validateIntegrity);
+router.get('/jobs/:jobId', controller.getReminderJobStatus);
 router.get('/:id', controller.getPaymentById);
 router.patch('/:id/mark-paid', controller.markAsPaid);
 router.patch('/:id/mark-unpaid', controller.markAsUnpaid);

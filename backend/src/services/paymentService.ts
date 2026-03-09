@@ -93,7 +93,9 @@ export class PaymentService {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const newStatus = payment.due_date < today ? 'Atrasado' : 'Pendente';
+    const newStatus = (payment.previous_status && payment.previous_status !== 'Pago')
+      ? payment.previous_status
+      : (payment.due_date < today ? 'Atrasado' : 'Pendente');
 
     const updated = await this.paymentRepo.update(paymentId, {
       status: newStatus,

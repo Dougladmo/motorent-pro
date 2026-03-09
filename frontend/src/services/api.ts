@@ -184,8 +184,21 @@ export const paymentApi = {
     return data.data;
   },
 
-  sendReminder: async (id: string): Promise<void> => {
-    await api.post(`/payments/${id}/send-reminder`);
+  sendReminder: async (id: string): Promise<{ jobId: string }> => {
+    const { data } = await api.post(`/payments/${id}/send-reminder`);
+    return data;
+  },
+
+  getJobStatus: async (jobId: string): Promise<{
+    id: string;
+    payment_id: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    error: string | null;
+    created_at: string;
+    updated_at: string;
+  }> => {
+    const { data } = await api.get(`/payments/jobs/${jobId}`);
+    return data.data;
   },
 
   delete: async (id: string): Promise<void> => {
