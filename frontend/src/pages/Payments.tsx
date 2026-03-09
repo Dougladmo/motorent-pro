@@ -13,7 +13,7 @@ import { PaymentEditForm } from '../features/payment-management/ui/PaymentEditFo
 type FilterType = PaymentStatus | 'ALL' | 'CURRENT_WEEK' | 'DATE_RANGE';
 
 export const Payments: React.FC = () => {
-  const { payments, rentals, loading, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid, updatePayment, deletePayment } = useApp();
+  const { payments, rentals, motorcycles, loading, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid, updatePayment, deletePayment } = useApp();
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -288,6 +288,7 @@ export const Payments: React.FC = () => {
       <PaymentTable
         payments={sortedPayments}
         rentals={rentals}
+        motorcycles={motorcycles}
         loading={loading}
         onEdit={handleEditClick}
         onSendReminder={handleSendReminder}

@@ -174,6 +174,23 @@ export const Architecture: React.FC = () => {
               <span className="text-sm text-slate-600">O pagamento foi confirmado.</span>
             </div>
           </div>
+          <h4 className="font-semibold text-slate-700 text-sm mt-2">Informações na lista de cobranças:</h4>
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 bg-slate-50 rounded-lg p-3">
+              <Bike size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-slate-700">Moto da cobrança</p>
+                <p className="text-sm text-slate-500 mt-0.5">Ao passar o mouse sobre o ícone de moto ao lado do nome do cliente, você vê o modelo e a placa da moto vinculada àquela cobrança.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-slate-50 rounded-lg p-3">
+              <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 flex-shrink-0 mt-0.5 whitespace-nowrap">N semanas em atraso</span>
+              <div>
+                <p className="text-sm font-medium text-slate-700">Contador de semanas em atraso</p>
+                <p className="text-sm text-slate-500 mt-0.5">Para cobranças atrasadas, o sistema exibe quantas semanas o cliente está devendo. Isso ajuda a identificar rapidamente quem precisa de atenção urgente.</p>
+              </div>
+            </div>
+          </div>
           <h4 className="font-semibold text-slate-700 text-sm mt-2">Como marcar uma cobrança como paga:</h4>
           <div className="space-y-3">
             <Step number={1} text="Encontre a cobrança do cliente na lista." />
@@ -230,6 +247,10 @@ export const Architecture: React.FC = () => {
           <div>
             <p className="font-semibold text-slate-700 text-sm">A foto da moto e obrigatoria?</p>
             <p className="text-slate-500 text-sm mt-1">Nao. A foto e opcional. Se nao for adicionada, o sistema exibe um icone padrao no lugar da imagem.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-700 text-sm">O que significa o contador de semanas em atraso?</p>
+            <p className="text-slate-500 text-sm mt-1">O contador mostra quantas semanas o cliente está sem pagar. Como regra de negócio, contratos com <strong>3 ou mais semanas em atraso</strong> devem ser encerrados. Fique atento: quando o contador chegar em 3, entre em contato com o cliente e, se necessário, encerre o contrato na página de Assinantes.</p>
           </div>
         </div>
       </Accordion>

@@ -1,11 +1,12 @@
 import React from 'react';
-import { Payment, Rental, PaymentStatus } from '../../../shared';
+import { Payment, Rental, PaymentStatus, Motorcycle } from '../../../shared';
 import { PaymentTableRow } from './PaymentTableRow';
 import { Skeleton } from '../../../shared/ui/atoms/Skeleton';
 
 interface PaymentTableProps {
   payments: Payment[];
   rentals: Rental[];
+  motorcycles: Motorcycle[];
   loading?: boolean;
   onEdit: (payment: Payment) => void;
   onSendReminder: (id: string) => Promise<void>;
@@ -13,6 +14,16 @@ interface PaymentTableProps {
   onMarkUnpaid: (id: string) => void | Promise<void>;
   onDelete: (id: string) => Promise<void>;
   sendingId: string | null;
+}
+
+function getWeeksOverdue(payment: Payment): number {
+  if (payment.status !== PaymentStatus.OVERDUE) return 0;
+  if (payment.isAmountOverridden) return 0;
+  const totalWeeks = Math.round(payment.amount / payment.expectedAmount);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+  return payment.dueDate < todayStr ? totalWeeks : Math.max(0, totalWeeks - 1);
 }
 
 const PaymentRowSkeleton: React.FC = () => (
@@ -37,6 +48,7 @@ const PaymentRowSkeleton: React.FC = () => (
 export const PaymentTable: React.FC<PaymentTableProps> = ({
   payments,
   rentals,
+  motorcycles,
   loading = false,
   onEdit,
   onSendReminder,
@@ -45,6 +57,12 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
   onDelete,
   sendingId
 }) => {
+  const getMotorcycle = (payment: Payment): Motorcycle | undefined => {
+    const rental = rentals.find(r => r.id === payment.rentalId);
+    if (!rental) return undefined;
+    return motorcycles.find(m => m.id === rental.motorcycleId);
+  };
+
   const getSubscriberInfo = (payment: Payment) => {
     const rental = rentals.find(r => r.id === payment.rentalId);
     if (!rental) return { totalDebt: payment.amount, hasOverdue: false };
@@ -88,6 +106,8 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
             key={payment.id}
             payment={payment}
             subscriberInfo={getSubscriberInfo(payment)}
+            motorcycle={getMotorcycle(payment)}
+            weeksOverdue={getWeeksOverdue(payment)}
             onSendReminder={onSendReminder}
             onMarkPaid={onMarkPaid}
             onEdit={onEdit}
@@ -122,6 +142,8 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
               key={payment.id}
               payment={payment}
               subscriberInfo={getSubscriberInfo(payment)}
+              motorcycle={getMotorcycle(payment)}
+              weeksOverdue={getWeeksOverdue(payment)}
               onSendReminder={onSendReminder}
               onMarkPaid={onMarkPaid}
               onEdit={onEdit}

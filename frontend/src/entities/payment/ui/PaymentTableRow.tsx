@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Check, Edit2, RotateCcw, AlertCircle, Trash2, QrCode, Copy, X } from 'lucide-react';
-import { Payment, PaymentStatus } from '../../../shared';
+import { Check, Edit2, RotateCcw, AlertCircle, Trash2, QrCode, Copy, X, Bike } from 'lucide-react';
+import { Payment, PaymentStatus, Motorcycle } from '../../../shared';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { formatCurrency, formatDate } from '../../../shared';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
@@ -56,6 +56,8 @@ function useCooldown(paymentId: string) {
 interface PaymentTableRowProps {
   payment: Payment;
   subscriberInfo: { totalDebt: number; hasOverdue: boolean };
+  motorcycle?: Motorcycle;
+  weeksOverdue: number;
   onSendReminder: (id: string) => Promise<void>;
   onMarkPaid: (id: string) => Promise<void>;
   onEdit: (payment: Payment) => void;
@@ -68,6 +70,8 @@ interface PaymentTableRowProps {
 export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
   payment,
   subscriberInfo,
+  motorcycle,
+  weeksOverdue,
   onSendReminder,
   onMarkPaid,
   onEdit,
@@ -248,9 +252,22 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="font-semibold text-slate-800 truncate">{payment.subscriberName}</p>
+              {motorcycle && (
+                <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                  <Bike size={11} />
+                  {motorcycle.model} • {motorcycle.plate}
+                </p>
+              )}
               <p className="text-sm text-slate-500 mt-0.5">{formatDate(payment.dueDate)}</p>
             </div>
-            <StatusBadge status={payment.status} className="flex-shrink-0" />
+            <div className="flex flex-col items-end gap-1">
+              <StatusBadge status={payment.status} className="flex-shrink-0" />
+              {weeksOverdue > 0 && (
+                <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap">
+                  {weeksOverdue} {weeksOverdue === 1 ? 'sem.' : 'sem.'} atraso
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -278,7 +295,22 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     <>
     {dialogs}
     <tr className="hover:bg-slate-50 transition-colors">
-      <td className="px-6 py-4 font-medium text-slate-800">{payment.subscriberName}</td>
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium text-slate-800">{payment.subscriberName}</span>
+          {motorcycle && (
+            <div className="group relative inline-flex items-center">
+              <Bike size={14} className="text-slate-400 cursor-default hover:text-slate-600 transition-colors" />
+              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-20 hidden group-hover:block bg-slate-800 text-white text-xs rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-lg">
+                <span className="font-medium">{motorcycle.model}</span>
+                <span className="text-slate-300 mx-1">•</span>
+                <span>{motorcycle.plate}</span>
+                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-slate-800" />
+              </div>
+            </div>
+          )}
+        </div>
+      </td>
       <td className="px-6 py-4 text-slate-600">{formatDate(payment.dueDate)}</td>
       <td className="px-6 py-4 text-slate-800 font-medium">
         <div>{formatCurrency(payment.amount)}</div>
@@ -293,7 +325,14 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
         )}
       </td>
       <td className="px-6 py-4">
-        <StatusBadge status={payment.status} />
+        <div className="flex flex-col gap-1 items-start">
+          <StatusBadge status={payment.status} />
+          {weeksOverdue > 0 && (
+            <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap">
+              {weeksOverdue} {weeksOverdue === 1 ? 'semana' : 'semanas'} em atraso
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-6 py-4 text-right">
         <div className="flex items-center justify-end gap-1">
