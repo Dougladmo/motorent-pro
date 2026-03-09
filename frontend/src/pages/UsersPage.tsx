@@ -94,7 +94,46 @@ export const UsersPage: React.FC = () => {
         <div className="text-slate-500 text-sm">Carregando...</div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full">
+          {/* Mobile card view */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {users.map((u) => (
+              <div key={u.id} className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <User size={14} className="text-blue-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{u.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {u.isSuperAdmin ? (
+                        <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                          <Shield size={10} />
+                          Admin
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                          Usuário
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-400">{new Date(u.created_at).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  </div>
+                </div>
+                {!u.isSuperAdmin && (
+                  <button
+                    onClick={() => setDeletingUserId(u.id)}
+                    className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded flex-shrink-0"
+                    title="Remover usuário"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table view */}
+          <table className="hidden md:table w-full">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
                 <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Usuário</th>

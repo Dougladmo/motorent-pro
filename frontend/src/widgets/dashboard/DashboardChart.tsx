@@ -56,14 +56,14 @@ export const DashboardChart: React.FC<DashboardChartProps> = ({ chartData, range
         <h3 className="text-lg font-bold text-slate-800">Balanço</h3>
         <span className="bg-orange-50 text-orange-600 text-xs font-medium px-2 py-0.5 rounded-full">{rangeLabel}</span>
       </div>
-      <div className="h-64">
+      <div className="h-48 md:h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-            <XAxis type="number" tick={{ fill: '#64748b' }} />
-            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12, fill: '#64748b' }} />
+            <XAxis type="number" tick={{ fill: '#64748b', fontSize: 11 }} />
+            <YAxis dataKey="name" type="category" width={72} tick={{ fontSize: 12, fill: '#64748b' }} />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={30}>
+            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={28}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}

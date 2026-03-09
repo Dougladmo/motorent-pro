@@ -4,7 +4,7 @@ import { PaymentService } from '../services/paymentService';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
-import { getNotificationService } from '../jobs/paymentCronInstance';
+import { NotificationService } from '../services/notificationService';
 
 const paymentRepo = new PaymentRepository();
 const paymentService = new PaymentService(
@@ -12,7 +12,7 @@ const paymentService = new PaymentService(
   new RentalRepository(),
   new MotorcycleRepository(),
   new SubscriberRepository(),
-  getNotificationService()
+  new NotificationService()
 );
 
 export async function handleAbacateWebhook(req: Request, res: Response): Promise<void> {

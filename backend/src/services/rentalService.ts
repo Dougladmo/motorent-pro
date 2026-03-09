@@ -3,15 +3,12 @@ import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { PaymentRepository } from '../repositories/paymentRepository';
 import { Database } from '../models/database.types';
-import { PaymentCronService } from '../jobs/paymentCron';
 
 type Rental = Database['public']['Tables']['rentals']['Row'];
 type RentalInsert = Database['public']['Tables']['rentals']['Insert'];
 type RentalUpdate = Database['public']['Tables']['rentals']['Update'];
 
 export class RentalService {
-  private paymentCronService: PaymentCronService | null = null;
-
   constructor(
     private rentalRepo: RentalRepository,
     private motorcycleRepo: MotorcycleRepository,
@@ -19,9 +16,21 @@ export class RentalService {
     private paymentRepo: PaymentRepository
   ) {}
 
-  // Setter para injetar o PaymentCronService depois da inicialização
-  setPaymentCronService(cronService: PaymentCronService) {
-    this.paymentCronService = cronService;
+  private async triggerWorkerPaymentGeneration(rentalId: string): Promise<void> {
+    const workerUrl = process.env.WORKER_URL || 'http://localhost:3002';
+    try {
+      const response = await fetch(`${workerUrl}/trigger/rental/${rentalId}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const json = await response.json() as { paymentsCreated?: number };
+        console.log(`[RentalService] Worker gerou ${json.paymentsCreated ?? 0} pagamentos para o contrato ${rentalId}`);
+      } else {
+        console.warn(`[RentalService] Worker retornou status ${response.status} para rental ${rentalId}`);
+      }
+    } catch (err) {
+      console.warn(`[RentalService] Worker indisponível para rental ${rentalId}, pagamentos serão gerados no próximo ciclo do cron:`, err);
+    }
   }
 
   async getAllRentals(): Promise<Rental[]> {
@@ -77,18 +86,8 @@ export class RentalService {
 
     console.log(`[RentalService] Aluguel ${rental.id} criado. Moto ${motorcycle.plate} agora está alugada.`);
 
-    // Gerar pagamentos iniciais imediatamente
-    if (this.paymentCronService) {
-      try {
-        const paymentsCreated = await this.paymentCronService.generatePaymentsForRental(rental.id);
-        console.log(`[RentalService] ${paymentsCreated} pagamentos gerados para o novo contrato`);
-      } catch (error) {
-        console.error('[RentalService] Erro ao gerar pagamentos iniciais:', error);
-        // Não falhar a criação do rental se a geração de pagamentos falhar
-      }
-    } else {
-      console.warn('[RentalService] PaymentCronService não configurado, pagamentos serão gerados pelo CRON');
-    }
+    // Disparar geração de pagamentos no worker (não-bloqueante)
+    await this.triggerWorkerPaymentGeneration(rental.id);
 
     return rental;
   }

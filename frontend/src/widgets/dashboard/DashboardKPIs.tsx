@@ -35,7 +35,7 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
 }) => {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6">
         {Array.from({ length: 5 }).map((_, i) => (
           <KPICardSkeleton key={i} />
         ))}
@@ -44,7 +44,7 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6">
       <KPICard
         title={`Receita`}
         value={formatCurrency(totalRevenue)}
@@ -74,6 +74,7 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
         value={availableBikes}
         icon={<Bike size={18} />}
         variant="default"
+        className="col-span-2 md:col-span-1"
       />
     </div>
   );
