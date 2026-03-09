@@ -41,8 +41,6 @@ export class NotificationService {
     const evolutionUrl = process.env.EVOLUTION_API_URL;
     const evolutionKey = process.env.EVOLUTION_API_KEY;
     const evolutionInstance = process.env.EVOLUTION_INSTANCE;
-    const pixKey = process.env.PIX_KEY;
-
     if (!evolutionUrl || !evolutionKey || !evolutionInstance) {
       console.warn('[NotificationService] Evolution API não configurada, pulando WPP');
       return;
@@ -60,10 +58,9 @@ export class NotificationService {
       if (params.pixPaymentUrl) {
         parts.push(`\nOu acesse o link de pagamento:\n${params.pixPaymentUrl}`);
       }
-      parts.push('\nApós o pagamento, envie o comprovante.');
       pixPaymentText = parts.join('');
     } else {
-      pixPaymentText = `Para pagar, use a chave PIX:\n${pixKey}\n\nApós o pagamento, envie o comprovante.`;
+      pixPaymentText = `Aguardando geração do PIX.`;
     }
 
     const messages: Array<{ text?: string; imageBase64?: string; caption?: string; delay: number }> = [
@@ -162,7 +159,6 @@ export class NotificationService {
     }
 
     const subject = `Cobrança MotoRent Pro - R$ ${params.paymentAmount.toFixed(2)} - Vence ${params.paymentDueDate}`;
-    const pixKey = process.env.PIX_KEY || '';
 
     const pixSection = params.pixBrCode
       ? `
@@ -172,11 +168,7 @@ export class NotificationService {
           <p style="margin: 0 0 4px 0; font-size: 13px; color: #64748b;">Código PIX copia-e-cola:</p>
           <p style="margin: 0; font-size: 13px; color: #1e293b; font-family: monospace; word-break: break-all; background: #f1f5f9; padding: 8px; border-radius: 4px;">${params.pixBrCode}</p>
         </div>`
-      : `
-        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0;">
-          <p style="margin: 0 0 8px 0; font-weight: bold; color: #1d4ed8;">Chave PIX para pagamento:</p>
-          <p style="margin: 0; font-size: 18px; color: #1e293b; font-family: monospace;">${pixKey}</p>
-        </div>`;
+      : ``;
 
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
@@ -198,7 +190,7 @@ export class NotificationService {
           </tr>
         </table>
         ${pixSection}
-        <p style="color: #64748b; font-size: 14px;">Após o pagamento, envie o comprovante para confirmar.</p>
+        <p style="color: #64748b; font-size: 14px;">O pagamento será confirmado automaticamente.</p>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <p style="color: #94a3b8; font-size: 12px;">MotoRent Pro — Sistema de Gestão de Motos</p>
       </div>

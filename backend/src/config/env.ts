@@ -12,7 +12,6 @@ interface EnvConfig {
   EVOLUTION_API_URL: string;
   EVOLUTION_API_KEY: string;
   EVOLUTION_INSTANCE: string;
-  PIX_KEY: string;
   RESEND_API_KEY: string;
   RESEND_FROM_EMAIL: string;
   WORKER_URL: string;
@@ -26,7 +25,6 @@ const validateEnv = (): EnvConfig => {
     'EVOLUTION_API_URL',
     'EVOLUTION_API_KEY',
     'EVOLUTION_INSTANCE',
-    'PIX_KEY',
     'RESEND_API_KEY',
     'RESEND_FROM_EMAIL',
   ];
@@ -48,7 +46,6 @@ const validateEnv = (): EnvConfig => {
     EVOLUTION_API_URL: process.env.EVOLUTION_API_URL!,
     EVOLUTION_API_KEY: process.env.EVOLUTION_API_KEY!,
     EVOLUTION_INSTANCE: process.env.EVOLUTION_INSTANCE!,
-    PIX_KEY: process.env.PIX_KEY!,
     RESEND_API_KEY: process.env.RESEND_API_KEY!,
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL!,
     WORKER_URL: process.env.WORKER_URL || 'http://localhost:3002',
