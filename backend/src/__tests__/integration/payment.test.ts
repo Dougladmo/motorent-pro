@@ -96,12 +96,51 @@ describe('PaymentService', () => {
   });
 
   describe('markAsPaid', () => {
-    it('marks pending payment as paid', async () => {
+    it('marks pending payment as paid when no verifiedAmount is provided', async () => {
       const updated = await service.markAsPaid(seedData.payment2Id);
 
       expect(updated.status).toBe('Pago');
       expect(updated.paid_at).toBeDefined();
       expect(updated.marked_as_paid_at).toBeDefined();
+    });
+
+    it('marks paid when verifiedAmount equals expected_amount', async () => {
+      // payment2 has expected_amount = 300
+      const updated = await service.markAsPaid(seedData.payment2Id, 300);
+
+      expect(updated.status).toBe('Pago');
+      expect(updated.amount).toBe(300);
+      expect(updated.is_amount_overridden).toBe(false);
+    });
+
+    it('marks paid when verifiedAmount is greater than expected_amount', async () => {
+      const updated = await service.markAsPaid(seedData.payment2Id, 350);
+
+      expect(updated.status).toBe('Pago');
+      expect(updated.amount).toBe(350);
+      expect(updated.is_amount_overridden).toBe(true);
+    });
+
+    it('does NOT mark as paid when verifiedAmount is less than expected_amount (pagamento parcial)', async () => {
+      // payment2 has expected_amount = 300; paying only 150
+      const updated = await service.markAsPaid(seedData.payment2Id, 150);
+
+      expect(updated.status).toBe('Pendente');
+      expect(updated.amount).toBe(150);
+      expect(updated.is_amount_overridden).toBe(true);
+      expect(updated.paid_at).toBeNull();
+      expect(updated.marked_as_paid_at).toBeNull();
+    });
+
+    it('does not update motorcycle revenue on partial payment', async () => {
+      await service.markAsPaid(seedData.payment2Id, 150);
+
+      const db = getDb();
+      const revenue = db.prepare('SELECT * FROM motorcycle_revenue WHERE rental_id = ?').all(seedData.rental1Id) as { amount: number }[];
+      expect(revenue).toHaveLength(0);
+
+      const moto = db.prepare('SELECT * FROM motorcycles WHERE id = ?').get(seedData.moto2Id) as { total_revenue: number };
+      expect(moto.total_revenue).toBe(0);
     });
 
     it('throws when payment is already paid', async () => {
@@ -112,14 +151,7 @@ describe('PaymentService', () => {
       await expect(service.markAsPaid('non-existent-id')).rejects.toThrow('não encontrado');
     });
 
-    it('stores overridden amount and sets is_amount_overridden flag', async () => {
-      const updated = await service.markAsPaid(seedData.payment2Id, 350);
-
-      expect(updated.amount).toBe(350);
-      expect(updated.is_amount_overridden).toBe(true);
-    });
-
-    it('updates motorcycle revenue on payment', async () => {
+    it('updates motorcycle revenue on full payment', async () => {
       await service.markAsPaid(seedData.payment2Id);
 
       const db = getDb();

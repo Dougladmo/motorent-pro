@@ -331,7 +331,7 @@ export class PaymentCronService {
             rental_id: rental.id,
             subscriber_name: subscriber.name,
             amount: totalAmount,
-            expected_amount: rental.weekly_value,
+            expected_amount: totalAmount,
             due_date: newDueDate,
             status: newStatus,
             reminder_sent_count: 0
@@ -532,7 +532,7 @@ export class PaymentCronService {
       rental_id: rental.id,
       subscriber_name: subscriber.name,
       amount: totalAmount,
-      expected_amount: rental.weekly_value,
+      expected_amount: totalAmount,
       due_date: newDueDate,
       status: newStatus,
       reminder_sent_count: 0

@@ -47,11 +47,16 @@ export class PaymentService {
       throw new Error('Pagamento já está marcado como pago');
     }
 
-    // VALIDAÇÃO 2: Verificar valor divergente
-    if (verifiedAmount && verifiedAmount !== payment.expected_amount) {
+    // VALIDAÇÃO 2: Pagamento parcial — atualiza amount mas não marca como pago
+    if (verifiedAmount !== undefined && verifiedAmount < payment.expected_amount) {
       console.warn(
-        `[PaymentService] Valor divergente: esperado ${payment.expected_amount}, recebido ${verifiedAmount}`
+        `[PaymentService] Pagamento parcial: esperado ${payment.expected_amount}, recebido ${verifiedAmount}. Cobrança não será quitada.`
       );
+      const updated = await this.paymentRepo.update(paymentId, {
+        amount: verifiedAmount,
+        is_amount_overridden: true
+      });
+      return updated;
     }
 
     const finalAmount = verifiedAmount || payment.amount;
