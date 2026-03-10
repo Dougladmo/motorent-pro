@@ -65,6 +65,8 @@ interface PaymentTableRowProps {
   onDelete: (id: string) => Promise<void>;
   isSending: boolean;
   isMobile?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
@@ -78,7 +80,9 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
   onUndo,
   onDelete,
   isSending,
-  isMobile = false
+  isMobile = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmMarkPaid, setConfirmMarkPaid] = useState(false);
@@ -265,7 +269,15 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
         {dialogs}
         <div className="p-4 space-y-2.5">
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
+            {onToggleSelect && (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onToggleSelect(payment.id)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 flex-shrink-0 cursor-pointer"
+              />
+            )}
+            <div className="min-w-0 flex-1">
               <p className="font-semibold text-slate-800 truncate capitalize">{payment.subscriberName}</p>
               {motorcycle && (
                 <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
@@ -310,6 +322,16 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     <>
     {dialogs}
     <tr className="hover:bg-slate-50 transition-colors">
+      {onToggleSelect && (
+        <td className="px-3 py-4 w-10">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(payment.id)}
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          />
+        </td>
+      )}
       <td className="px-6 py-4">
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-slate-800 capitalize">{payment.subscriberName}</span>
