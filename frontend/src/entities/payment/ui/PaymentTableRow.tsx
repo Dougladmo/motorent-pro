@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Check, Edit2, RotateCcw, AlertCircle, Trash2, QrCode, Copy, X, Bike } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Check, Edit2, RotateCcw, AlertCircle, Trash2, QrCode, Copy, X, Bike, ExternalLink, Info } from 'lucide-react';
 import { Payment, PaymentStatus, Motorcycle } from '../../../shared';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { formatCurrency, formatDate } from '../../../shared';
@@ -88,7 +88,18 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
   const [confirmMarkPaid, setConfirmMarkPaid] = useState(false);
   const [showPixModal, setShowPixModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showPaidInfo, setShowPaidInfo] = useState(false);
+  const infoBtnRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const { remaining, lock } = useCooldown(payment.id);
+
+  function handleTogglePaidInfo() {
+    if (!showPaidInfo && infoBtnRef.current) {
+      const rect = infoBtnRef.current.getBoundingClientRect();
+      setPopoverPos({ top: rect.bottom + 4, left: rect.right });
+    }
+    setShowPaidInfo(!showPaidInfo);
+  }
 
   const inCooldown = remaining > 0;
 
@@ -135,6 +146,42 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           <span className="font-semibold">{formatCurrency(payment.amount)}</span> foi recebido?
         </p>
       </ConfirmDialog>
+
+      {showPaidInfo && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowPaidInfo(false)} />
+          <div
+            className="fixed z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-3 min-w-[200px]"
+            style={{ top: popoverPos.top, left: popoverPos.left, transform: 'translateX(-100%)' }}
+          >
+            {payment.paidAt && (
+              <div className={payment.pixPaymentUrl ? 'mb-2' : ''}>
+                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Data do pagamento</p>
+                <p className="text-sm text-slate-700 font-medium mt-0.5">
+                  {new Date(payment.markedAsPaidAt || payment.paidAt!).toLocaleDateString('pt-BR', { timeZone: 'America/Belem', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  {payment.markedAsPaidAt && (
+                    <>
+                      {' às '}
+                      {new Date(payment.markedAsPaidAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Belem', hour: '2-digit', minute: '2-digit' })}
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+            {payment.pixPaymentUrl && (
+              <a
+                href={payment.pixPaymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 w-full py-1.5 px-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 rounded-md transition-colors font-medium"
+              >
+                <ExternalLink size={14} />
+                Ver recibo
+              </a>
+            )}
+          </div>
+        </>
+      )}
 
       {showPixModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowPixModal(false)}>
@@ -242,24 +289,33 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
       {payment.status === PaymentStatus.PAID && (
         <>
           <button
-            onClick={() => onUndo(payment.id)}
-            className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-            title="Reverter Pagamento"
+            ref={infoBtnRef}
+            onClick={handleTogglePaidInfo}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="Informações do Pagamento"
           >
-            <RotateCcw size={20} />
+            <Info size={18} />
           </button>
-          {!isMobile && payment.paidAt && (
-            <span className="text-xs text-slate-400">Pago em {formatDate(payment.paidAt)}</span>
+          {!payment.pixPaymentUrl && (
+            <button
+              onClick={() => onUndo(payment.id)}
+              className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+              title="Reverter Pagamento"
+            >
+              <RotateCcw size={20} />
+            </button>
           )}
         </>
       )}
-      <button
-        onClick={() => setConfirmDelete(true)}
-        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-        title="Deletar Cobrança"
-      >
-        <Trash2 size={18} />
-      </button>
+      {!(payment.status === PaymentStatus.PAID && payment.pixPaymentUrl) && (
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          title="Deletar Cobrança"
+        >
+          <Trash2 size={18} />
+        </button>
+      )}
     </>
   );
 
@@ -304,9 +360,6 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
                   <AlertCircle size={11} />
                   <span>Total: {formatCurrency(totalDebt)}</span>
                 </div>
-              )}
-              {payment.status === PaymentStatus.PAID && payment.paidAt && (
-                <p className="text-xs text-slate-400 mt-0.5">Pago em {formatDate(payment.paidAt)}</p>
               )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
