@@ -30,7 +30,8 @@ export const Motorcycles: React.FC = () => {
     subscriberId: '',
     startDate: new Date().toISOString().split('T')[0],
     weeklyValue: '',
-    dueDayOfWeek: new Date().getDay()
+    dueDayOfWeek: new Date().getDay(),
+    contractDurationMonths: 12
   });
   const [isCreatingRental, setIsCreatingRental] = useState(false);
   const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' | 'warning' | 'info' } | null>(null);
@@ -55,10 +56,16 @@ export const Motorcycles: React.FC = () => {
 
     setIsCreatingRental(true);
     try {
+      const startDate = new Date(rentalForm.startDate);
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + rentalForm.contractDurationMonths);
+      const endDateStr = endDate.toISOString().split('T')[0];
+
       await createRental({
         motorcycleId: rentalMoto.id,
         subscriberId: rentalForm.subscriberId,
         startDate: rentalForm.startDate,
+        endDate: endDateStr,
         weeklyValue: parseFloat(rentalForm.weeklyValue),
         dueDayOfWeek: rentalForm.dueDayOfWeek,
         isActive: true,
@@ -300,6 +307,21 @@ export const Motorcycles: React.FC = () => {
               {WEEK_DAYS.map((day, i) => (
                 <option key={i} value={i}>{day}</option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Duração do Contrato</label>
+            <select
+              value={rentalForm.contractDurationMonths}
+              onChange={e => setRentalForm(f => ({ ...f, contractDurationMonths: parseInt(e.target.value) }))}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={6}>6 meses</option>
+              <option value={12}>1 ano (12 meses)</option>
+              <option value={18}>18 meses</option>
+              <option value={24}>2 anos (24 meses)</option>
+              <option value={36}>3 anos (36 meses)</option>
             </select>
           </div>
 

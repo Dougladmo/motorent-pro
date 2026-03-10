@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Edit2, XCircle, TrendingUp, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { Subscriber, Rental, Motorcycle, Payment, formatPhone, formatPlate, formatCurrency, capitalizeName, PaymentStatus } from '../../../shared';
+import { Subscriber, Rental, Motorcycle, Payment, formatPhone, formatPlate, formatCurrency, capitalizeName } from '../../../shared';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 interface SubscriberCardProps {
@@ -17,7 +17,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
   subscriber,
   activeRentals,
   motorcycles,
-  payments,
+  payments: _payments,
   onEdit,
   onDelete,
   onTerminateRental
@@ -51,28 +51,29 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
     }
   };
 
-  // Calcular progresso de faturamento por contrato com base nos pagamentos reais
-  const getContractProgress = (rentalId: string) => {
-    const rentalPayments = payments.filter(p => p.rentalId === rentalId);
+  // Calcular progresso de faturamento por contrato
+  const getContractProgress = (rental: Rental) => {
+    let totalContractValue = rental.totalContractValue ?? 0;
 
-    // Total efetivamente pago
-    const totalPaid = rentalPayments
-      .filter(p => p.status === PaymentStatus.PAID)
-      .reduce((sum, p) => sum + p.amount, 0);
+    // Se total_contract_value não foi salvo no banco, calcula na hora
+    if (totalContractValue === 0 && rental.endDate) {
+      const [sy, sm, sd] = rental.startDate.split('-').map(Number);
+      const [ey, em, ed] = rental.endDate.split('-').map(Number);
+      const startDate = new Date(sy, sm - 1, sd);
+      const endDate = new Date(ey, em - 1, ed);
+      const totalWeeks = Math.round(
+        (endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+      );
+      totalContractValue = totalWeeks * rental.weeklyValue;
+    }
 
-    // Total pendente: cobranças emitidas ainda não pagas (pendentes + atrasadas)
-    const totalPending = rentalPayments
-      .filter(p => p.status === PaymentStatus.PENDING || p.status === PaymentStatus.OVERDUE)
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    // Total faturado até agora = pago + pendente
-    const totalExpected = totalPaid + totalPending;
-
-    const progress = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0;
+    const totalPaid = rental.totalPaid ?? 0;
+    const totalPending = Math.max(0, totalContractValue - totalPaid);
+    const progress = totalContractValue > 0 ? (totalPaid / totalContractValue) * 100 : 0;
 
     return {
       totalPaid,
-      totalExpected,
+      totalExpected: totalContractValue,
       totalPending,
       progress: Math.min(progress, 100)
     };
@@ -135,7 +136,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
               {activeRentals.map((rental) => {
                 const bike = motorcycles.find((m) => m.id === rental.motorcycleId);
                 const timeRemaining = rental.endDate ? getTimeRemaining(rental.endDate) : '';
-                const progress = getContractProgress(rental.id);
+                const progress = getContractProgress(rental);
 
                 return (
                   <li key={rental.id} className="text-sm bg-blue-50 border border-blue-100 px-3 py-3 rounded-lg">
