@@ -76,7 +76,6 @@ function initSchema(database: Database.Database): void {
       reminder_sent_count INTEGER NOT NULL DEFAULT 0,
       abacate_pix_id TEXT,
       pix_br_code TEXT,
-      pix_qr_code_base64 TEXT,
       pix_expires_at TEXT,
       pix_payment_url TEXT,
       created_at TEXT NOT NULL,

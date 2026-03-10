@@ -155,10 +155,8 @@ export interface Database {
           reminder_sent_count: number;
           abacate_pix_id: string | null;
           pix_br_code: string | null;
-          pix_qr_code_base64: string | null;
           pix_expires_at: string | null;
           pix_payment_url: string | null;
-          proof_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -177,10 +175,8 @@ export interface Database {
           reminder_sent_count?: number;
           abacate_pix_id?: string | null;
           pix_br_code?: string | null;
-          pix_qr_code_base64?: string | null;
           pix_expires_at?: string | null;
           pix_payment_url?: string | null;
-          proof_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -199,10 +195,8 @@ export interface Database {
           reminder_sent_count?: number;
           abacate_pix_id?: string | null;
           pix_br_code?: string | null;
-          pix_qr_code_base64?: string | null;
           pix_expires_at?: string | null;
           pix_payment_url?: string | null;
-          proof_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };

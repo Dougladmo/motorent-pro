@@ -112,7 +112,6 @@ export class PaymentCronService {
           status: newStatus,
           abacate_pix_id: null,
           pix_br_code: null,
-          pix_qr_code_base64: null,
           pix_expires_at: null,
           pix_payment_url: null
         });
@@ -141,12 +140,19 @@ export class PaymentCronService {
           });
 
           if (pixResult) {
+            let qrCodeUrl: string | null = null;
+            if (pixResult.pixQrCodeBase64) {
+              try {
+                qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, keep.id);
+              } catch (uploadErr) {
+                console.warn(`[CRON] Falha ao fazer upload do QR Code para ${keep.id}:`, uploadErr);
+              }
+            }
             await this.paymentRepo.update(keep.id, {
               abacate_pix_id: pixResult.abacatePixId,
               pix_br_code: pixResult.pixBrCode,
-              pix_qr_code_base64: pixResult.pixQrCodeBase64,
               pix_expires_at: pixResult.pixExpiresAt,
-              pix_payment_url: pixResult.pixPaymentUrl || null
+              pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
             });
           }
         }
@@ -276,7 +282,6 @@ export class PaymentCronService {
             status: newStatus,
             abacate_pix_id: null,
             pix_br_code: null,
-            pix_qr_code_base64: null,
             pix_expires_at: null,
             pix_payment_url: null
           });
@@ -300,12 +305,19 @@ export class PaymentCronService {
           });
 
           if (pixResult) {
+            let qrCodeUrl: string | null = null;
+            if (pixResult.pixQrCodeBase64) {
+              try {
+                qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, activePayment.id);
+              } catch (uploadErr) {
+                console.warn(`[CRON] Falha ao fazer upload do QR Code para ${activePayment.id}:`, uploadErr);
+              }
+            }
             await this.paymentRepo.update(activePayment.id, {
               abacate_pix_id: pixResult.abacatePixId,
               pix_br_code: pixResult.pixBrCode,
-              pix_qr_code_base64: pixResult.pixQrCodeBase64,
               pix_expires_at: pixResult.pixExpiresAt,
-              pix_payment_url: pixResult.pixPaymentUrl || null
+              pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
             });
           }
 
@@ -343,40 +355,37 @@ export class PaymentCronService {
           });
 
           if (pixResult) {
+            let qrCodeUrl: string | null = null;
+            if (pixResult.pixQrCodeBase64) {
+              try {
+                qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, created.id);
+              } catch (uploadErr) {
+                console.warn(`[CRON] Falha ao fazer upload do QR Code para ${created.id}:`, uploadErr);
+              }
+            }
             await this.paymentRepo.update(created.id, {
               abacate_pix_id: pixResult.abacatePixId,
               pix_br_code: pixResult.pixBrCode,
-              pix_qr_code_base64: pixResult.pixQrCodeBase64,
               pix_expires_at: pixResult.pixExpiresAt,
-              pix_payment_url: pixResult.pixPaymentUrl || null
+              pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
             });
-          }
 
-          if (newStatus === 'Pendente') {
-            try {
-              let pixQrCodeUrl: string | undefined;
-              if (pixResult?.pixQrCodeBase64) {
-                try {
-                  pixQrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, created.id);
-                } catch (uploadErr) {
-                  console.warn(`[CRON] Falha ao fazer upload do QR Code para ${created.id}:`, uploadErr);
-                }
+            if (newStatus === 'Pendente') {
+              try {
+                await this.notificationService.sendPaymentNotification({
+                  subscriberName: subscriber.name,
+                  subscriberPhone: subscriber.phone,
+                  subscriberEmail: subscriber.email,
+                  paymentAmount: totalAmount,
+                  paymentDueDate: newDueDate,
+                  totalDebt: totalAmount,
+                  pixBrCode: pixResult.pixBrCode,
+                  pixQrCodeUrl: qrCodeUrl ?? undefined,
+                  pixPaymentUrl: qrCodeUrl || pixResult.pixPaymentUrl || undefined
+                });
+              } catch (err) {
+                console.error(`[CRON] Erro ao notificar pagamento ${created.id}:`, err);
               }
-
-              await this.notificationService.sendPaymentNotification({
-                subscriberName: subscriber.name,
-                subscriberPhone: subscriber.phone,
-                subscriberEmail: subscriber.email,
-                paymentAmount: totalAmount,
-                paymentDueDate: newDueDate,
-                totalDebt: totalAmount,
-                pixBrCode: pixResult?.pixBrCode,
-                pixQrCodeBase64: pixResult?.pixQrCodeBase64,
-                pixQrCodeUrl,
-                pixPaymentUrl: pixResult?.pixPaymentUrl
-              });
-            } catch (err) {
-              console.error(`[CRON] Erro ao notificar pagamento ${created.id}:`, err);
             }
           }
 
@@ -434,12 +443,19 @@ export class PaymentCronService {
         });
 
         if (pixResult) {
+          let qrCodeUrl: string | null = null;
+          if (pixResult.pixQrCodeBase64) {
+            try {
+              qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, payment.id);
+            } catch (uploadErr) {
+              console.warn(`[CRON] Falha ao fazer upload do QR Code para ${payment.id}:`, uploadErr);
+            }
+          }
           await this.paymentRepo.update(payment.id, {
             abacate_pix_id: pixResult.abacatePixId,
             pix_br_code: pixResult.pixBrCode,
-            pix_qr_code_base64: pixResult.pixQrCodeBase64,
             pix_expires_at: pixResult.pixExpiresAt,
-            pix_payment_url: pixResult.pixPaymentUrl || null
+            pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
           });
           console.log(`[CRON] PIX regenerado para pagamento ${payment.id} (${payment.status})`);
         }
@@ -540,12 +556,19 @@ export class PaymentCronService {
     });
 
     if (pixResult) {
+      let qrCodeUrl: string | null = null;
+      if (pixResult.pixQrCodeBase64) {
+        try {
+          qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, created.id);
+        } catch (uploadErr) {
+          console.warn(`[PAYMENT GEN] Falha ao fazer upload do QR Code para ${created.id}:`, uploadErr);
+        }
+      }
       await this.paymentRepo.update(created.id, {
         abacate_pix_id: pixResult.abacatePixId,
         pix_br_code: pixResult.pixBrCode,
-        pix_qr_code_base64: pixResult.pixQrCodeBase64,
         pix_expires_at: pixResult.pixExpiresAt,
-        pix_payment_url: pixResult.pixPaymentUrl || null
+        pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
       });
     }
 
@@ -598,15 +621,6 @@ export class PaymentCronService {
           }
         }
 
-        let pixQrCodeUrl: string | undefined;
-        if (payment.pix_qr_code_base64) {
-          try {
-            pixQrCodeUrl = await uploadQrCodeToStorage(payment.pix_qr_code_base64, payment.id);
-          } catch (uploadErr) {
-            console.warn(`[CRON] Falha ao fazer upload do QR Code para ${payment.id}:`, uploadErr);
-          }
-        }
-
         await this.notificationService.sendReminder({
           subscriberName: subscriber.name,
           subscriberPhone: subscriber.phone,
@@ -615,8 +629,7 @@ export class PaymentCronService {
           paymentDueDate: payment.due_date,
           totalDebt,
           pixBrCode: payment.pix_br_code ?? undefined,
-          pixQrCodeBase64: payment.pix_qr_code_base64 ?? undefined,
-          pixQrCodeUrl,
+          pixQrCodeUrl: payment.pix_payment_url ?? undefined,
           pixPaymentUrl: payment.pix_payment_url ?? undefined
         });
 
@@ -668,12 +681,19 @@ export class PaymentCronService {
         });
 
         if (pixResult) {
+          let qrCodeUrl: string | null = null;
+          if (pixResult.pixQrCodeBase64) {
+            try {
+              qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, payment.id);
+            } catch (uploadErr) {
+              console.warn(`[CRON] Falha ao fazer upload do QR Code para ${payment.id}:`, uploadErr);
+            }
+          }
           await this.paymentRepo.update(payment.id, {
             abacate_pix_id: pixResult.abacatePixId,
             pix_br_code: pixResult.pixBrCode,
-            pix_qr_code_base64: pixResult.pixQrCodeBase64,
             pix_expires_at: pixResult.pixExpiresAt,
-            pix_payment_url: pixResult.pixPaymentUrl || null
+            pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
           });
           console.log(`[CRON] QR Code gerado para pagamento ${payment.id}`);
         }

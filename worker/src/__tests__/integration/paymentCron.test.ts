@@ -68,8 +68,8 @@ function insertExtraPayment(
   db.prepare(`
     INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
       paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
-      abacate_pix_id, pix_br_code, pix_qr_code_base64, pix_expires_at, pix_payment_url, created_at, updated_at)
-    VALUES (?, ?, 'João Silva', ?, 300, ?, ?, NULL, NULL, NULL, 0, 0, ?, ?, NULL, NULL, NULL, ?, ?)
+      abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
+    VALUES (?, ?, 'João Silva', ?, 300, ?, ?, NULL, NULL, NULL, 0, 0, ?, ?, NULL, NULL, ?, ?)
   `).run(
     id, rentalId,
     overrides.amount ?? 300,
@@ -832,9 +832,9 @@ describe('PaymentCronService', () => {
       db.prepare(`
         INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
           paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
-          abacate_pix_id, pix_br_code, pix_qr_code_base64, pix_expires_at, pix_payment_url, created_at, updated_at)
+          abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
         VALUES (?, ?, 'João Silva', 300, 300, '2030-01-01', 'Pendente', NULL, NULL, NULL, 0, 0,
-                'existing-pix-id', 'existing-br-code', 'existing-qr', '2030-12-31', NULL, ?, ?)
+                'existing-pix-id', 'existing-br-code', '2030-12-31', NULL, ?, ?)
       `).run(id, seedData.rental1Id, now, now);
 
       mockCreatePixQrCode.mockClear();
@@ -868,9 +868,9 @@ describe('PaymentCronService', () => {
       db.prepare(`
         INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
           paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
-          abacate_pix_id, pix_br_code, pix_qr_code_base64, pix_expires_at, pix_payment_url, created_at, updated_at)
+          abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
         VALUES (?, ?, 'João Silva', 600, 300, '2025-01-01', 'Atrasado', NULL, NULL, NULL, 0, 0,
-                'existing-overdue-pix', 'existing-overdue-br-code', NULL, NULL, NULL, ?, ?)
+                'existing-overdue-pix', 'existing-overdue-br-code', NULL, NULL, ?, ?)
       `).run(id, seedData.rental1Id, now, now);
 
       mockCreatePixQrCode.mockClear();
@@ -894,9 +894,9 @@ describe('PaymentCronService', () => {
       db.prepare(`
         INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
           paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
-          abacate_pix_id, pix_br_code, pix_qr_code_base64, pix_expires_at, pix_payment_url, created_at, updated_at)
+          abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
         VALUES (?, ?, 'João Silva', 600, 300, '2025-01-01', 'Atrasado', NULL, NULL, NULL, 0, 0,
-                NULL, NULL, NULL, NULL, NULL, ?, ?)
+                NULL, NULL, NULL, NULL, ?, ?)
       `).run(id, seedData.rental1Id, now, now);
 
       mockCreatePixQrCode.mockClear();

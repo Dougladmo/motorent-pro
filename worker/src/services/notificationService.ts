@@ -18,7 +18,6 @@ interface NotificationParams {
   paymentDueDate: string;
   totalDebt: number;
   pixBrCode?: string;
-  pixQrCodeBase64?: string;
   pixQrCodeUrl?: string;
   pixPaymentUrl?: string;
 }
@@ -84,11 +83,7 @@ export class NotificationService {
       messages.push({ text: params.pixPaymentUrl, delay: 3000 });
     }
 
-    const imageMedia = params.pixQrCodeUrl ?? (
-      params.pixQrCodeBase64
-        ? (params.pixQrCodeBase64.startsWith('data:') ? params.pixQrCodeBase64 : `data:image/png;base64,${params.pixQrCodeBase64}`)
-        : null
-    );
+    const imageMedia = params.pixQrCodeUrl ?? null;
 
     if (imageMedia) {
       messages.push({

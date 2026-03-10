@@ -36,7 +36,7 @@ export class PaymentService {
     return this.paymentRepo.findByStatus(status);
   }
 
-  async markAsPaid(paymentId: string, verifiedAmount?: number, proofUrl?: string): Promise<Payment> {
+  async markAsPaid(paymentId: string, verifiedAmount?: number): Promise<Payment> {
     const payment = await this.paymentRepo.findById(paymentId);
     if (!payment) {
       throw new Error('Pagamento não encontrado');
@@ -63,8 +63,7 @@ export class PaymentService {
       paid_at: new Date().toISOString().split('T')[0],
       marked_as_paid_at: new Date().toISOString(),
       amount: finalAmount,
-      is_amount_overridden: verifiedAmount !== undefined && verifiedAmount !== payment.expected_amount,
-      proof_url: proofUrl ?? null
+      is_amount_overridden: verifiedAmount !== undefined && verifiedAmount !== payment.expected_amount
     });
 
     // Atualizar receita da moto e saldo devedor do aluguel
@@ -171,7 +170,7 @@ export class PaymentService {
 
     // Garantir QR Code PIX: reutilizar existente ou criar novo
     let pixBrCode = payment.pix_br_code ?? undefined;
-    let pixQrCodeBase64 = payment.pix_qr_code_base64 ?? undefined;
+    let pixQrCodeBase64: string | undefined;
     let pixPaymentUrl = payment.pix_payment_url ?? undefined;
 
     if (!pixBrCode) {
@@ -197,7 +196,6 @@ export class PaymentService {
         await this.paymentRepo.update(paymentId, {
           abacate_pix_id: pixResult.abacatePixId,
           pix_br_code: pixResult.pixBrCode,
-          pix_qr_code_base64: pixResult.pixQrCodeBase64,
           pix_expires_at: pixResult.pixExpiresAt,
           pix_payment_url: pixResult.pixPaymentUrl || null
         });
@@ -229,7 +227,6 @@ export class PaymentService {
       paymentDueDate: payment.due_date,
       totalDebt,
       pixBrCode,
-      pixQrCodeBase64,
       pixQrCodeUrl,
       pixPaymentUrl
     });

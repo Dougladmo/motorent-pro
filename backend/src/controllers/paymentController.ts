@@ -65,9 +65,9 @@ export class PaymentController {
   markAsPaid = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params as { id: string };
-      const { verifiedAmount, proofUrl } = req.body;
+      const { verifiedAmount } = req.body;
 
-      const payment = await this.service.markAsPaid(id, verifiedAmount, proofUrl);
+      const payment = await this.service.markAsPaid(id, verifiedAmount);
       res.json({ success: true, data: payment });
     } catch (error: any) {
       console.error('[PaymentController] Error marking payment as paid:', error);

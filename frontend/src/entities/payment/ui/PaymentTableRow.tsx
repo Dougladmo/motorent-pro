@@ -143,8 +143,8 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
             </div>
             <p className="text-sm text-slate-500 mb-1 capitalize">{payment.subscriberName}</p>
             <p className="text-lg font-bold text-slate-800 mb-4">{formatCurrency(payment.amount)} — Vence {formatDate(payment.dueDate)}</p>
-            {payment.pixQrCodeBase64 && (
-              <img src={payment.pixQrCodeBase64} alt="QR Code PIX" className="w-48 h-48 mx-auto mb-4 rounded-lg border border-slate-200" />
+            {payment.pixPaymentUrl && payment.status !== 'Pago' && (
+              <img src={payment.pixPaymentUrl} alt="QR Code PIX" className="w-48 h-48 mx-auto mb-4 rounded-lg border border-slate-200" />
             )}
             {payment.pixPaymentUrl && (
               <a
