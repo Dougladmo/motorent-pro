@@ -99,6 +99,8 @@ export interface Database {
           terminated_at: string | null;
           termination_reason: string | null;
           outstanding_balance: number;
+          total_contract_value: number;
+          total_paid: number;
           created_at: string;
           updated_at: string;
         };
@@ -114,6 +116,8 @@ export interface Database {
           terminated_at?: string | null;
           termination_reason?: string | null;
           outstanding_balance?: number;
+          total_contract_value?: number;
+          total_paid?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -129,6 +133,8 @@ export interface Database {
           terminated_at?: string | null;
           termination_reason?: string | null;
           outstanding_balance?: number;
+          total_contract_value?: number;
+          total_paid?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -149,7 +155,6 @@ export interface Database {
           reminder_sent_count: number;
           abacate_pix_id: string | null;
           pix_br_code: string | null;
-          pix_qr_code_base64: string | null;
           pix_expires_at: string | null;
           pix_payment_url: string | null;
           created_at: string;
@@ -170,7 +175,6 @@ export interface Database {
           reminder_sent_count?: number;
           abacate_pix_id?: string | null;
           pix_br_code?: string | null;
-          pix_qr_code_base64?: string | null;
           pix_expires_at?: string | null;
           pix_payment_url?: string | null;
           created_at?: string;
@@ -191,7 +195,6 @@ export interface Database {
           reminder_sent_count?: number;
           abacate_pix_id?: string | null;
           pix_br_code?: string | null;
-          pix_qr_code_base64?: string | null;
           pix_expires_at?: string | null;
           pix_payment_url?: string | null;
           created_at?: string;
@@ -254,6 +257,32 @@ export interface Database {
           date?: string;
           subscriber_name?: string;
           created_at?: string;
+        };
+      };
+      reminder_jobs: {
+        Row: {
+          id: string;
+          payment_id: string;
+          status: 'pending' | 'processing' | 'completed' | 'failed';
+          error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          payment_id: string;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          payment_id?: string;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
       };
     };

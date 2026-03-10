@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { PaymentStatus, Payment } from '../shared';
 import { Modal } from '../components/Modal';
@@ -9,6 +9,8 @@ import { PaymentWeekStats } from '../widgets/payment-filters/PaymentWeekStats';
 import { PaymentFiltersBar } from '../widgets/payment-filters/PaymentFiltersBar';
 import { PaymentTable } from '../entities/payment/ui/PaymentTable';
 import { PaymentEditForm } from '../features/payment-management/ui/PaymentEditForm';
+import { BulkActionBar } from '../features/payment-management/ui/BulkActionBar';
+import { useReminderQueue } from '../features/payment-management/hooks/useReminderQueue';
 
 type FilterType = PaymentStatus | 'ALL' | 'CURRENT_WEEK' | 'DATE_RANGE';
 
@@ -22,6 +24,13 @@ export const Payments: React.FC = () => {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [editForm, setEditForm] = useState({ amount: 0, dueDate: '' });
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const reminderQueue = useReminderQueue(sendReminder);
+
+  // Bulk action confirmations
+  const [bulkConfirm, setBulkConfirm] = useState<'reminder' | 'paid' | 'delete' | null>(null);
 
   // Dialogs
   const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' | 'warning' | 'info'; title?: string } | null>(null);
@@ -54,10 +63,8 @@ export const Payments: React.FC = () => {
     try {
       setSendingId(id);
       await sendReminder(id);
-      setAlertDialog({ message: 'Lembrete enviado com sucesso!', variant: 'success', title: 'Lembrete Enviado' });
     } catch (error) {
       console.error('Erro ao enviar lembrete:', error);
-      setAlertDialog({ message: 'Erro ao enviar lembrete. Tente novamente.', variant: 'error' });
     } finally {
       setSendingId(null);
     }
@@ -123,6 +130,89 @@ export const Payments: React.FC = () => {
     } catch (error: any) {
       setAlertDialog({ message: `Erro ao atualizar pagamento: ${error.message}`, variant: 'error' });
     }
+  };
+
+  // Selection helpers
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const filteredIds = sortedPayments.map(p => p.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredIds));
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // Clear selection when filter changes
+  useEffect(() => {
+    clearSelection();
+  }, [filter, searchTerm, dateRange.start, dateRange.end]);
+
+  // Bulk action handlers
+  const handleBulkReminder = () => {
+    const eligible = sortedPayments.filter(
+      p => selectedIds.has(p.id) && (p.status === PaymentStatus.PENDING || p.status === PaymentStatus.OVERDUE)
+    );
+    if (eligible.length === 0) {
+      setAlertDialog({ message: 'Nenhuma cobrança pendente ou atrasada selecionada.', variant: 'warning' });
+      return;
+    }
+    setBulkConfirm('reminder');
+  };
+
+  const handleConfirmBulkReminder = () => {
+    const eligible = sortedPayments.filter(
+      p => selectedIds.has(p.id) && (p.status === PaymentStatus.PENDING || p.status === PaymentStatus.OVERDUE)
+    );
+    reminderQueue.enqueue(eligible.map(p => p.id));
+    clearSelection();
+  };
+
+  const handleBulkMarkPaid = () => {
+    if (selectedIds.size === 0) return;
+    setBulkConfirm('paid');
+  };
+
+  const handleConfirmBulkMarkPaid = async () => {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try {
+        await markPaymentAsPaid(id);
+      } catch (error: any) {
+        console.error(`Erro ao marcar pagamento ${id}:`, error);
+      }
+    }
+    clearSelection();
+    setAlertDialog({ message: `${ids.length} pagamento(s) marcado(s) como pago.`, variant: 'success', title: 'Pagamentos Aprovados' });
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    setBulkConfirm('delete');
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try {
+        await deletePayment(id);
+      } catch (error: any) {
+        console.error(`Erro ao deletar pagamento ${id}:`, error);
+      }
+    }
+    clearSelection();
+    setAlertDialog({ message: `${ids.length} cobrança(s) deletada(s).`, variant: 'success', title: 'Cobranças Deletadas' });
   };
 
   const getSubscriberInfo = useMemo(() => {
@@ -230,7 +320,16 @@ export const Payments: React.FC = () => {
       >
         <div className="space-y-3">
           <p className="text-sm text-slate-600">
-            Este pagamento voltará ao status <span className="font-semibold">Pendente</span>.
+            Este pagamento voltará ao status{' '}
+            <span className="font-semibold">
+              {(() => {
+                const p = payments.find(p => p.id === undoPaymentId);
+                if (p?.previousStatus && p.previousStatus !== PaymentStatus.PAID) {
+                  return p.previousStatus;
+                }
+                return p && p.dueDate < new Date().toISOString().split('T')[0] ? 'Atrasado' : 'Pendente';
+              })()}
+            </span>.
           </p>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -284,6 +383,35 @@ export const Payments: React.FC = () => {
         }}
       />
 
+      {/* Bulk action confirm dialogs */}
+      <ConfirmDialog
+        isOpen={bulkConfirm === 'reminder'}
+        title="Disparar Lembretes"
+        message={`Disparar lembretes para ${sortedPayments.filter(p => selectedIds.has(p.id) && (p.status === PaymentStatus.PENDING || p.status === PaymentStatus.OVERDUE)).length} cobrança(s)? Serão enviados 1 por vez com intervalo de 5 segundos.`}
+        onConfirm={handleConfirmBulkReminder}
+        onClose={() => setBulkConfirm(null)}
+        confirmLabel="Disparar"
+        variant="default"
+      />
+      <ConfirmDialog
+        isOpen={bulkConfirm === 'paid'}
+        title="Aprovar Pagamentos"
+        message={`Confirma ${selectedIds.size} pagamento(s) como recebido(s)?`}
+        onConfirm={handleConfirmBulkMarkPaid}
+        onClose={() => setBulkConfirm(null)}
+        confirmLabel="Aprovar"
+        variant="default"
+      />
+      <ConfirmDialog
+        isOpen={bulkConfirm === 'delete'}
+        title="Deletar Cobranças"
+        message={`Tem certeza que deseja deletar ${selectedIds.size} cobrança(s)? Esta ação não pode ser desfeita.`}
+        onConfirm={handleConfirmBulkDelete}
+        onClose={() => setBulkConfirm(null)}
+        confirmLabel="Deletar"
+        variant="danger"
+      />
+
       {/* List */}
       <PaymentTable
         payments={sortedPayments}
@@ -296,6 +424,9 @@ export const Payments: React.FC = () => {
         onMarkUnpaid={handleUndoClick}
         onDelete={handleDelete}
         sendingId={sendingId}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+        onToggleSelectAll={toggleSelectAll}
       />
 
       {/* Modal de Edição */}
@@ -322,6 +453,17 @@ export const Payments: React.FC = () => {
           />
         </Modal>
       )}
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        onBulkReminder={handleBulkReminder}
+        onBulkMarkPaid={handleBulkMarkPaid}
+        onBulkDelete={handleBulkDelete}
+        onClearSelection={clearSelection}
+        reminderQueue={reminderQueue}
+        onCancelQueue={reminderQueue.cancel}
+      />
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -45,9 +46,9 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'max-w-xl',
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -77,6 +78,7 @@ export const Modal: React.FC<ModalProps> = ({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

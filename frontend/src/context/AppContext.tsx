@@ -34,7 +34,7 @@ interface AppContextType {
   createRental: (rental: Omit<Rental, 'id'>) => Promise<void>;
   updatePayment: (id: string, updates: { amount?: number; dueDate?: string }) => Promise<void>;
   markPaymentAsPaid: (id: string, verifiedAmount?: number) => Promise<void>;
-  sendReminder: (paymentId: string) => Promise<boolean>;
+  sendReminder: (paymentId: string) => Promise<string>;
   deleteMotorcycle: (id: string) => Promise<void>;
   deleteSubscriber: (id: string) => Promise<void>;
   deletePayment: (id: string) => Promise<void>;
@@ -61,6 +61,7 @@ const transformSubscriber = (data: any): Subscriber => ({
   id: data.id,
   name: data.name,
   phone: data.phone,
+  email: data.email ?? undefined,
   document: data.document,
   active: data.active,
   notes: data.notes
@@ -77,7 +78,9 @@ const transformRental = (data: any): Rental => ({
   isActive: data.is_active,
   terminatedAt: data.terminated_at,
   terminationReason: data.termination_reason,
-  outstandingBalance: data.outstanding_balance || 0
+  outstandingBalance: data.outstanding_balance || 0,
+  totalContractValue: data.total_contract_value ?? 0,
+  totalPaid: data.total_paid ?? 0
 });
 
 const transformPayment = (data: any): Payment => ({
@@ -95,7 +98,6 @@ const transformPayment = (data: any): Payment => ({
   isAmountOverridden: data.is_amount_overridden || false,
   abacatePixId: data.abacate_pix_id ?? undefined,
   pixBrCode: data.pix_br_code ?? undefined,
-  pixQrCodeBase64: data.pix_qr_code_base64 ?? undefined,
   pixExpiresAt: data.pix_expires_at ?? undefined,
   pixPaymentUrl: data.pix_payment_url ?? undefined
 });
@@ -366,16 +368,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const sendReminder = async (paymentId: string): Promise<boolean> => {
+  const sendReminder = async (paymentId: string): Promise<string> => {
     try {
-      await paymentApi.sendReminder(paymentId);
-
-      // Atualizar contador localmente
-      setPayments(prev => prev.map(p =>
-        p.id === paymentId ? { ...p, reminderSentCount: p.reminderSentCount + 1 } : p
-      ));
-
-      return true;
+      const result = await paymentApi.sendReminder(paymentId);
+      return result.jobId;
     } catch (error: any) {
       console.error('Erro ao enviar lembrete:', error);
       throw new Error(error.response?.data?.error || error.message);

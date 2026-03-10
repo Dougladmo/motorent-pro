@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Edit2, XCircle, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
-import { Subscriber, Rental, Motorcycle, Payment, formatPhone, formatPlate, formatCurrency, PaymentStatus } from '../../../shared';
+import { Edit2, XCircle, TrendingUp, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Subscriber, Rental, Motorcycle, Payment, formatPhone, formatPlate, formatCurrency, capitalizeName } from '../../../shared';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 interface SubscriberCardProps {
@@ -8,7 +8,7 @@ interface SubscriberCardProps {
   activeRentals: Rental[];
   motorcycles: Motorcycle[];
   payments: Payment[];
-  onEdit: (sub: Subscriber) => void;
+  onEdit: (sub: Subscriber) => Promise<void>;
   onDelete: (id: string) => void;
   onTerminateRental: (rentalId: string, subName: string, bikePlate: string) => void;
 }
@@ -17,13 +17,14 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
   subscriber,
   activeRentals,
   motorcycles,
-  payments,
+  payments: _payments,
   onEdit,
   onDelete,
   onTerminateRental
 }) => {
   const [expandedRentals, setExpandedRentals] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
 
   const toggleRental = (rentalId: string) => {
     setExpandedRentals(prev => {
@@ -51,34 +52,28 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
   };
 
   // Calcular progresso de faturamento por contrato
-  const getContractProgress = (rentalId: string) => {
-    const rental = activeRentals.find(r => r.id === rentalId);
-    if (!rental) {
-      return { totalPaid: 0, totalExpected: 0, totalPending: 0, progress: 0 };
+  const getContractProgress = (rental: Rental) => {
+    let totalContractValue = rental.totalContractValue ?? 0;
+
+    // Se total_contract_value não foi salvo no banco, calcula na hora
+    if (totalContractValue === 0 && rental.endDate) {
+      const [sy, sm, sd] = rental.startDate.split('-').map(Number);
+      const [ey, em, ed] = rental.endDate.split('-').map(Number);
+      const startDate = new Date(sy, sm - 1, sd);
+      const endDate = new Date(ey, em - 1, ed);
+      const totalWeeks = Math.round(
+        (endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+      );
+      totalContractValue = totalWeeks * rental.weeklyValue;
     }
 
-    const rentalPayments = payments.filter(p => p.rentalId === rentalId);
-
-    // Calcular total PAGO
-    const totalPaid = rentalPayments
-      .filter(p => p.status === PaymentStatus.PAID)
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    // Calcular total ESPERADO baseado na duração do contrato
-    const startDate = new Date(rental.startDate);
-    const endDate = new Date(rental.endDate);
-    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const totalWeeks = Math.ceil(totalDays / 7);
-    const totalExpected = totalWeeks * rental.weeklyValue;
-
-    // Calcular pendente: total do contrato - o que já foi pago
-    const totalPending = totalExpected - totalPaid;
-
-    const progress = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0;
+    const totalPaid = rental.totalPaid ?? 0;
+    const totalPending = Math.max(0, totalContractValue - totalPaid);
+    const progress = totalContractValue > 0 ? (totalPaid / totalContractValue) * 100 : 0;
 
     return {
       totalPaid,
-      totalExpected,
+      totalExpected: totalContractValue,
       totalPending,
       progress: Math.min(progress, 100)
     };
@@ -89,7 +84,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
     <ConfirmDialog
       isOpen={confirmDelete}
       title="Excluir Assinante"
-      message={`Tem certeza que deseja excluir ${subscriber.name}?`}
+      message={`Tem certeza que deseja excluir ${capitalizeName(subscriber.name)}?`}
       onConfirm={() => onDelete(subscriber.id)}
       onClose={() => setConfirmDelete(false)}
       confirmLabel="Excluir"
@@ -98,7 +93,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
       <div>
         <div className="flex items-start justify-between mb-2">
-          <h3 className="text-lg font-bold text-slate-800">{subscriber.name}</h3>
+          <h3 className="text-lg font-bold text-slate-800">{capitalizeName(subscriber.name)}</h3>
           <button
             onClick={() => setConfirmDelete(true)}
             className="text-slate-400 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -117,11 +112,19 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
 
         {/* Botão de editar */}
         <button
-          onClick={() => onEdit(subscriber)}
-          className="mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors text-sm flex items-center gap-1.5"
+          onClick={async () => {
+            setIsLoadingEdit(true);
+            try {
+              await onEdit(subscriber);
+            } finally {
+              setIsLoadingEdit(false);
+            }
+          }}
+          disabled={isLoadingEdit}
+          className="mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors text-sm flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <Edit2 size={14} />
-          Editar Dados
+          {isLoadingEdit ? <Loader2 size={14} className="animate-spin" /> : <Edit2 size={14} />}
+          {isLoadingEdit ? 'Carregando...' : 'Editar Dados'}
         </button>
 
         <div className="mt-4 pt-4 border-t border-slate-50">
@@ -133,7 +136,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
               {activeRentals.map((rental) => {
                 const bike = motorcycles.find((m) => m.id === rental.motorcycleId);
                 const timeRemaining = rental.endDate ? getTimeRemaining(rental.endDate) : '';
-                const progress = getContractProgress(rental.id);
+                const progress = getContractProgress(rental);
 
                 return (
                   <li key={rental.id} className="text-sm bg-blue-50 border border-blue-100 px-3 py-3 rounded-lg">

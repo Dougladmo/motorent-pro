@@ -39,7 +39,6 @@ export interface Payment {
   // Abacate Pay PIX
   abacatePixId?: string;
   pixBrCode?: string;
-  pixQrCodeBase64?: string;
   pixExpiresAt?: string;
   pixPaymentUrl?: string;
 }

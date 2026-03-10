@@ -65,6 +65,8 @@ interface PaymentTableRowProps {
   onDelete: (id: string) => Promise<void>;
   isSending: boolean;
   isMobile?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
@@ -78,9 +80,12 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
   onUndo,
   onDelete,
   isSending,
-  isMobile = false
+  isMobile = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmMarkPaid, setConfirmMarkPaid] = useState(false);
   const [showPixModal, setShowPixModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const { remaining, lock } = useCooldown(payment.id);
@@ -117,6 +122,20 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
         variant="danger"
       />
 
+      <ConfirmDialog
+        isOpen={confirmMarkPaid}
+        title="Confirmar Pagamento"
+        onConfirm={() => { setConfirmMarkPaid(false); onMarkPaid(payment.id); }}
+        onClose={() => setConfirmMarkPaid(false)}
+        confirmLabel="Confirmar Pagamento"
+        variant="default"
+      >
+        <p className="text-sm text-slate-600">
+          Confirma que o pagamento de <span className="font-semibold capitalize">{payment.subscriberName}</span> no valor de{' '}
+          <span className="font-semibold">{formatCurrency(payment.amount)}</span> foi recebido?
+        </p>
+      </ConfirmDialog>
+
       {showPixModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowPixModal(false)}>
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
@@ -126,10 +145,10 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
                 <X size={20} />
               </button>
             </div>
-            <p className="text-sm text-slate-500 mb-1">{payment.subscriberName}</p>
+            <p className="text-sm text-slate-500 mb-1 capitalize">{payment.subscriberName}</p>
             <p className="text-lg font-bold text-slate-800 mb-4">{formatCurrency(payment.amount)} — Vence {formatDate(payment.dueDate)}</p>
-            {payment.pixQrCodeBase64 && (
-              <img src={payment.pixQrCodeBase64} alt="QR Code PIX" className="w-48 h-48 mx-auto mb-4 rounded-lg border border-slate-200" />
+            {payment.pixPaymentUrl && payment.status !== 'Pago' && (
+              <img src={payment.pixPaymentUrl} alt="QR Code PIX" className="w-48 h-48 mx-auto mb-4 rounded-lg border border-slate-200" />
             )}
             {payment.pixPaymentUrl && (
               <a
@@ -212,7 +231,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
             )}
           </button>
           <button
-            onClick={() => onMarkPaid(payment.id)}
+            onClick={() => setConfirmMarkPaid(true)}
             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
             title="Marcar como Pago"
           >
@@ -250,8 +269,16 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
         {dialogs}
         <div className="p-4 space-y-2.5">
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="font-semibold text-slate-800 truncate">{payment.subscriberName}</p>
+            {onToggleSelect && (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onToggleSelect(payment.id)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 flex-shrink-0 cursor-pointer"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-slate-800 truncate capitalize">{payment.subscriberName}</p>
               {motorcycle && (
                 <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                   <Bike size={11} />
@@ -295,9 +322,19 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     <>
     {dialogs}
     <tr className="hover:bg-slate-50 transition-colors">
+      {onToggleSelect && (
+        <td className="px-3 py-4 w-10">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(payment.id)}
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          />
+        </td>
+      )}
       <td className="px-6 py-4">
         <div className="flex items-center gap-1.5">
-          <span className="font-medium text-slate-800">{payment.subscriberName}</span>
+          <span className="font-medium text-slate-800 capitalize">{payment.subscriberName}</span>
           {motorcycle && (
             <div className="group relative inline-flex items-center">
               <Bike size={14} className="text-slate-400 cursor-default hover:text-slate-600 transition-colors" />

@@ -34,11 +34,63 @@ export class RentalService {
   }
 
   async getAllRentals(): Promise<Rental[]> {
-    return this.rentalRepo.findAll();
+    const rentals = await this.rentalRepo.findAll();
+    return this.recalculateOutstandingBalances(rentals);
   }
 
   async getActiveRentals(): Promise<Rental[]> {
-    return this.rentalRepo.findAllActive();
+    const rentals = await this.rentalRepo.findAllActive();
+    return this.recalculateOutstandingBalances(rentals);
+  }
+
+  private async recalculateOutstandingBalances(rentals: Rental[]): Promise<Rental[]> {
+    const result: Rental[] = [];
+    const allPayments = await this.paymentRepo.findAll();
+
+    for (const rental of rentals) {
+      let totalContractValue = rental.total_contract_value ?? 0;
+      let needsUpdate = false;
+
+      // Calcular total_contract_value se não estiver salvo e houver end_date
+      if (totalContractValue === 0 && rental.end_date) {
+        const [sy, sm, sd] = rental.start_date.split('-').map(Number);
+        const [ey, em, ed] = rental.end_date.split('-').map(Number);
+        const startDate = new Date(sy, sm - 1, sd);
+        const endDate = new Date(ey, em - 1, ed);
+        const totalWeeks = Math.round(
+          (endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+        );
+        totalContractValue = totalWeeks * rental.weekly_value;
+        needsUpdate = true;
+        console.log(`[RentalService] rental ${rental.id}: calculated total_contract_value=${totalContractValue} (${totalWeeks} weeks)`);
+      }
+
+      const totalPaid = rental.total_paid ?? 0;
+      let computedOutstanding: number;
+
+      if (totalContractValue > 0) {
+        // Contrato com prazo definido: pendente = total do contrato - pago
+        computedOutstanding = Math.max(0, totalContractValue - totalPaid);
+      } else {
+        // Contrato sem prazo (end_date null): pendente = pagamentos PENDENTE/ATRASADO no BD
+        const rentalPayments = allPayments.filter(p => p.rental_id === rental.id);
+        computedOutstanding = rentalPayments
+          .filter(p => p.status === 'Pendente' || p.status === 'Atrasado')
+          .reduce((sum, p) => sum + p.amount, 0);
+      }
+
+      if (needsUpdate || computedOutstanding !== (rental.outstanding_balance ?? 0)) {
+        const updated = await this.rentalRepo.update(rental.id, {
+          total_contract_value: totalContractValue,
+          outstanding_balance: computedOutstanding
+        });
+        result.push(updated);
+      } else {
+        result.push(rental);
+      }
+    }
+
+    return result;
   }
 
   async getRentalById(id: string): Promise<Rental | null> {
@@ -76,8 +128,20 @@ export class RentalService {
       throw new Error('Assinante não encontrado');
     }
 
+    // Calcular valor total do contrato
+    const startDate = new Date(data.start_date);
+    const endDate = data.end_date ? new Date(data.end_date) : null;
+    const totalWeeks = endDate
+      ? Math.round((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000))
+      : 0;
+    const totalContractValue = totalWeeks * data.weekly_value;
+
     // Criar aluguel
-    const rental = await this.rentalRepo.create(data);
+    const rental = await this.rentalRepo.create({
+      ...data,
+      total_contract_value: totalContractValue,
+      total_paid: 0
+    });
 
     // Atualizar status da moto
     await this.motorcycleRepo.update(data.motorcycle_id, {

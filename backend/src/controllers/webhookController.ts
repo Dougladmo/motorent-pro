@@ -7,19 +7,43 @@ import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { NotificationService } from '../services/notificationService';
 
 const paymentRepo = new PaymentRepository();
+const rentalRepo = new RentalRepository();
 const paymentService = new PaymentService(
   paymentRepo,
-  new RentalRepository(),
+  rentalRepo,
   new MotorcycleRepository(),
   new SubscriberRepository(),
   new NotificationService()
 );
 
+// AbacatePay billing.paid payload
+interface BillingPaidData {
+  payment?: { amount: number; fee?: number; method?: string };
+  pixQrCode?: {
+    id: string;
+    amount: number;
+    kind?: string;
+    status?: string;
+    metadata?: { paymentId?: string; rentalId?: string; subscriberId?: string };
+    pixPaymentUrl?: string;
+    receiptUrl?: string;
+    e2eId?: string;
+  };
+  // legacy pix.paid fields (kept for backward compatibility)
+  id?: string;
+  amount?: number;
+  status?: string;
+  pixPaymentUrl?: string;
+  receiptUrl?: string;
+  e2eId?: string;
+  metadata?: { paymentId?: string };
+}
+
 export async function handleAbacateWebhook(req: Request, res: Response): Promise<void> {
   const secret = process.env.ABACATE_PAY_WEBHOOK_SECRET;
 
   // Validar secret
-  if (!secret || req.query.secret !== secret) {
+  if (!secret || req.query.webhookSecret !== secret) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
@@ -29,23 +53,20 @@ export async function handleAbacateWebhook(req: Request, res: Response): Promise
 
   // Processar evento de forma assíncrona
   try {
-    const { event, data } = req.body as {
-      event: string;
-      devMode?: boolean;
-      data: {
-        id: string;
-        amount: number;
-        status: string;
-        metadata?: { paymentId?: string };
-      };
-    };
+    const { event, data } = req.body as { event: string; devMode?: boolean; data: BillingPaidData };
 
-    console.log(`[Webhook] Evento recebido: ${event} | PIX ID: ${data?.id}`);
+    // Normalizar estrutura entre billing.paid (data.pixQrCode) e pix.paid legado (data diretamente)
+    const pixData = data?.pixQrCode ?? data;
+    const pixId = pixData?.id;
+    const paidAmountCents = data?.payment?.amount ?? pixData?.amount;
+    const metadata = data?.pixQrCode?.metadata ?? data?.metadata;
 
-    if (event === 'pix.paid') {
-      const paymentId = data?.metadata?.paymentId;
+    console.log(`[Webhook] Evento recebido: ${event} | PIX ID: ${pixId}`);
+
+    if (event === 'billing.paid' || event === 'pix.paid') {
+      const paymentId = metadata?.paymentId;
       if (!paymentId) {
-        console.warn('[Webhook] pix.paid sem paymentId no metadata, ignorando');
+        console.warn(`[Webhook] ${event} sem paymentId no metadata, ignorando`);
         return;
       }
 
@@ -61,19 +82,54 @@ export async function handleAbacateWebhook(req: Request, res: Response): Promise
         return;
       }
 
-      await paymentService.markAsPaid(paymentId, data.amount / 100);
-      console.log(`[Webhook] Pagamento ${paymentId} confirmado via Abacate Pay PIX ${data.id}`);
+      const paidAmountBRL = (paidAmountCents ?? 0) / 100;
+      const expectedAmount = payment.amount;
+
+      // Validação de valor: pago deve ser igual ao esperado (tolerância de R$ 0,01)
+      if (Math.abs(paidAmountBRL - expectedAmount) > 0.01) {
+        console.warn(
+          `[Webhook] Pagamento parcial detectado para ${paymentId}: ` +
+          `esperado R$ ${expectedAmount}, recebido R$ ${paidAmountBRL}. ` +
+          `Debitando do saldo devedor do aluguel sem marcar como pago.`
+        );
+
+        // Pagamento parcial: debitar do saldo devedor do aluguel sem marcar a cobrança como Pago
+        const rental = await rentalRepo.findById(payment.rental_id);
+        if (rental) {
+          const newOutstanding = Math.max(0, (rental.outstanding_balance || 0) - paidAmountBRL);
+          await rentalRepo.update(payment.rental_id, {
+            outstanding_balance: newOutstanding,
+            total_paid: (rental.total_paid || 0) + paidAmountBRL
+          });
+          console.log(
+            `[Webhook] Saldo devedor atualizado para aluguel ${payment.rental_id}: ` +
+            `R$ ${rental.outstanding_balance} → R$ ${newOutstanding}`
+          );
+        }
+        return;
+      }
+
+      // Pagamento completo: salvar URL do comprovante e marcar como pago
+      const proofUrl = pixData?.pixPaymentUrl
+        || pixData?.receiptUrl
+        || (pixId ? `https://app.abacatepay.com/receipt/${pixId}` : null)
+        || (pixData?.e2eId ? `e2e:${pixData.e2eId}` : null);
+
+      if (proofUrl) {
+        await paymentRepo.update(paymentId, { pix_payment_url: proofUrl });
+      }
+      await paymentService.markAsPaid(paymentId, paidAmountBRL);
+      console.log(`[Webhook] Pagamento ${paymentId} confirmado. Valor: R$ ${paidAmountBRL}. Comprovante: ${proofUrl}`);
     }
 
-    if (event === 'pix.expired') {
-      const paymentId = data?.metadata?.paymentId;
+    if (event === 'billing.expired' || event === 'pix.expired') {
+      const paymentId = metadata?.paymentId;
       if (!paymentId) return;
 
       // Limpar campos PIX (cron vai recriar QR Code no próximo ciclo)
       await paymentRepo.update(paymentId, {
         abacate_pix_id: null,
         pix_br_code: null,
-        pix_qr_code_base64: null,
         pix_expires_at: null
       });
       console.log(`[Webhook] QR Code PIX expirado para pagamento ${paymentId}, campos limpos`);

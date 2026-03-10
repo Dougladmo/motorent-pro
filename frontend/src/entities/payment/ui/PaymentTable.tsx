@@ -14,6 +14,9 @@ interface PaymentTableProps {
   onMarkUnpaid: (id: string) => void | Promise<void>;
   onDelete: (id: string) => Promise<void>;
   sendingId: string | null;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleSelectAll?: () => void;
 }
 
 function getWeeksOverdue(payment: Payment): number {
@@ -26,8 +29,9 @@ function getWeeksOverdue(payment: Payment): number {
   return payment.dueDate < todayStr ? totalWeeks : Math.max(0, totalWeeks - 1);
 }
 
-const PaymentRowSkeleton: React.FC = () => (
+const PaymentRowSkeleton: React.FC<{ hasCheckbox?: boolean }> = ({ hasCheckbox }) => (
   <tr>
+    {hasCheckbox && <td className="px-3 py-4 w-10"><Skeleton className="h-4 w-4" /></td>}
     <td className="px-6 py-4">
       <Skeleton className="h-4 w-36" />
       <Skeleton className="h-3 w-24 mt-1" />
@@ -55,7 +59,10 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
   onMarkPaid,
   onMarkUnpaid,
   onDelete,
-  sendingId
+  sendingId,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
 }) => {
   const getMotorcycle = (payment: Payment): Motorcycle | undefined => {
     const rental = rentals.find(r => r.id === payment.rentalId);
@@ -115,6 +122,8 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
             onDelete={onDelete}
             isSending={sendingId === payment.id}
             isMobile={true}
+            isSelected={selectedIds?.has(payment.id)}
+            onToggleSelect={onToggleSelect}
           />
         ))}
         {!loading && payments.length === 0 && (
@@ -126,6 +135,17 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
       <table className="hidden md:table w-full text-left border-collapse">
         <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
           <tr>
+            {onToggleSelectAll && (
+              <th className="px-3 py-4 w-10">
+                <input
+                  type="checkbox"
+                  checked={payments.length > 0 && selectedIds ? payments.every(p => selectedIds.has(p.id)) : false}
+                  onChange={onToggleSelectAll}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  title="Selecionar todos"
+                />
+              </th>
+            )}
             <th className="px-6 py-4">Assinante</th>
             <th className="px-6 py-4">Vencimento</th>
             <th className="px-6 py-4">Valor</th>
@@ -135,7 +155,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
         </thead>
         <tbody className="divide-y divide-slate-100">
           {loading && Array.from({ length: 5 }).map((_, i) => (
-            <PaymentRowSkeleton key={i} />
+            <PaymentRowSkeleton key={i} hasCheckbox={!!onToggleSelectAll} />
           ))}
           {!loading && payments.map((payment) => (
             <PaymentTableRow
@@ -150,11 +170,13 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
               onUndo={onMarkUnpaid}
               onDelete={onDelete}
               isSending={sendingId === payment.id}
+              isSelected={selectedIds?.has(payment.id)}
+              onToggleSelect={onToggleSelect}
             />
           ))}
           {!loading && payments.length === 0 && (
             <tr>
-              <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
+              <td colSpan={onToggleSelectAll ? 6 : 5} className="px-6 py-8 text-center text-slate-400">
                 Nenhum pagamento encontrado.
               </td>
             </tr>

@@ -1,8 +1,9 @@
-import { getSupabaseClient } from '../config/supabase';
+import { createStorage } from 'formdata-io/storage';
 import { randomUUID } from 'crypto';
 
 export class UploadService {
-  private supabase = getSupabaseClient();
+  private motorcycleStorage;
+  private qrStorage;
   private bucketName = 'motorcycle-images';
 
   // Tipos de imagem permitidos
@@ -10,6 +11,25 @@ export class UploadService {
 
   // Tamanho máximo: 5MB
   private maxFileSize = 5 * 1024 * 1024;
+
+  constructor() {
+    this.motorcycleStorage = createStorage({
+      provider: 'supabase',
+      bucket: 'motorcycle-images',
+      url: process.env.SUPABASE_URL!,
+      serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      keyPrefix: 'motorcycles',
+      publicBucket: true
+    });
+
+    this.qrStorage = createStorage({
+      provider: 'supabase',
+      bucket: 'qr-codes',
+      url: process.env.SUPABASE_URL!,
+      serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      publicBucket: true
+    });
+  }
 
   /**
    * Faz upload de imagem para o Supabase Storage
@@ -37,31 +57,12 @@ export class UploadService {
       );
     }
 
-    // Gerar nome único para o arquivo
     const fileExtension = this.getFileExtension(originalName, mimeType);
-    const fileName = `${randomUUID()}${fileExtension}`;
-    const filePath = `motorcycles/${fileName}`;
+    const filename = `${randomUUID()}${fileExtension}`;
 
     try {
-      // Upload para o Supabase Storage
-      const { data, error } = await this.supabase.storage
-        .from(this.bucketName)
-        .upload(filePath, file, {
-          contentType: mimeType,
-          upsert: false
-        });
-
-      if (error) {
-        console.error('[UploadService] Erro ao fazer upload:', error);
-        throw new Error(`Erro ao fazer upload: ${error.message}`);
-      }
-
-      // Obter URL pública
-      const { data: publicUrlData } = this.supabase.storage
-        .from(this.bucketName)
-        .getPublicUrl(filePath);
-
-      return publicUrlData.publicUrl;
+      const result = await this.motorcycleStorage.upload(file, { filename });
+      return result.url;
     } catch (error: any) {
       console.error('[UploadService] Erro inesperado:', error);
       throw new Error(`Erro ao processar upload: ${error.message}`);
@@ -74,21 +75,13 @@ export class UploadService {
    */
   async deleteMotorcycleImage(imageUrl: string): Promise<void> {
     try {
-      // Extrair caminho do arquivo da URL
-      const filePath = this.extractFilePathFromUrl(imageUrl);
+      const key = this.extractKeyFromUrl(imageUrl);
 
-      if (!filePath) {
+      if (!key) {
         throw new Error('URL de imagem inválida');
       }
 
-      const { error } = await this.supabase.storage
-        .from(this.bucketName)
-        .remove([filePath]);
-
-      if (error) {
-        console.error('[UploadService] Erro ao deletar imagem:', error);
-        throw new Error(`Erro ao deletar imagem: ${error.message}`);
-      }
+      await this.motorcycleStorage.delete(key);
     } catch (error: any) {
       console.error('[UploadService] Erro ao deletar:', error);
       // Não lançar erro - a deleção de imagem é secundária
@@ -97,11 +90,11 @@ export class UploadService {
   }
 
   /**
-   * Extrai o caminho do arquivo da URL pública do Supabase
+   * Extrai a storage key da URL pública do Supabase
    */
-  private extractFilePathFromUrl(url: string): string | null {
+  private extractKeyFromUrl(url: string): string | null {
     try {
-      // Formato: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+      // Formato: https://[project].supabase.co/storage/v1/object/public/[bucket]/[key]
       const urlObj = new URL(url);
       const pathParts = urlObj.pathname.split('/');
       const bucketIndex = pathParts.indexOf(this.bucketName);
@@ -120,13 +113,11 @@ export class UploadService {
    * Determina extensão do arquivo baseado no nome original e MIME type
    */
   private getFileExtension(originalName: string, mimeType: string): string {
-    // Tentar extrair extensão do nome original
     const nameParts = originalName.split('.');
     if (nameParts.length > 1) {
       return `.${nameParts[nameParts.length - 1].toLowerCase()}`;
     }
 
-    // Fallback para MIME type
     const extensionMap: Record<string, string> = {
       'image/jpeg': '.jpg',
       'image/jpg': '.jpg',
@@ -138,28 +129,14 @@ export class UploadService {
   }
 
   /**
-   * Verifica se o bucket existe, se não, cria
+   * Faz upload de QR Code PIX (base64) para o Supabase Storage bucket 'qr-codes'
+   * @param base64 String base64 do PNG (com ou sem prefixo data:image/png;base64,)
+   * @param paymentId ID do pagamento (usado no nome do arquivo)
+   * @returns URL pública da imagem
    */
-  async ensureBucketExists(): Promise<void> {
-    try {
-      const { data: buckets } = await this.supabase.storage.listBuckets();
-
-      const bucketExists = buckets?.some(b => b.name === this.bucketName);
-
-      if (!bucketExists) {
-        const { error } = await this.supabase.storage.createBucket(this.bucketName, {
-          public: true,
-          fileSizeLimit: this.maxFileSize
-        });
-
-        if (error) {
-          console.error('[UploadService] Erro ao criar bucket:', error);
-        } else {
-          console.log(`[UploadService] Bucket '${this.bucketName}' criado com sucesso`);
-        }
-      }
-    } catch (error) {
-      console.error('[UploadService] Erro ao verificar/criar bucket:', error);
-    }
+  async uploadQrCodeToStorage(base64: string, paymentId: string): Promise<string> {
+    const dataUri = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
+    const result = await this.qrStorage.upload(dataUri, { filename: `qrcode_${paymentId}.png` });
+    return result.url;
   }
 }

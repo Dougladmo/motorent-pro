@@ -57,6 +57,7 @@ function insertExtraPayment(
     due_date?: string;
     status?: string;
     abacate_pix_id?: string | null;
+    pix_br_code?: string | null;
   } = {}
 ): string {
   const id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -67,14 +68,15 @@ function insertExtraPayment(
   db.prepare(`
     INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
       paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
-      abacate_pix_id, pix_br_code, pix_qr_code_base64, pix_expires_at, pix_payment_url, created_at, updated_at)
-    VALUES (?, ?, 'João Silva', ?, 300, ?, ?, NULL, NULL, NULL, 0, 0, ?, NULL, NULL, NULL, NULL, ?, ?)
+      abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
+    VALUES (?, ?, 'João Silva', ?, 300, ?, ?, NULL, NULL, NULL, 0, 0, ?, ?, NULL, NULL, ?, ?)
   `).run(
     id, rentalId,
     overrides.amount ?? 300,
     overrides.due_date ?? '2026-06-01',
     overrides.status ?? 'Pendente',
     overrides.abacate_pix_id ?? null,
+    overrides.pix_br_code ?? null,
     now, now
   );
   return id;
@@ -358,12 +360,14 @@ describe('PaymentCronService', () => {
       today.setHours(0, 0, 0, 0);
       const todayStr = today.toISOString().split('T')[0];
 
-      // Active payment with a PIX id; STEP 2 will update it and cancel the old PIX
+      // Payment has both abacate_pix_id AND pix_br_code set → STEP 1.5 skips it (pix_br_code not null)
+      // STEP 2 then accumulates and cancels 'old-pix-to-cancel'
       insertExtraPayment(db, seedData.rental1Id, {
         due_date: todayStr,
         status: 'Pendente',
         amount: 300,
-        abacate_pix_id: 'old-pix-to-cancel'
+        abacate_pix_id: 'old-pix-to-cancel',
+        pix_br_code: 'existing-br-code'
       });
 
       await cronService.runPaymentGeneration();
@@ -606,6 +610,335 @@ describe('PaymentCronService', () => {
       await cronService.sendUpcomingPaymentReminders();
 
       expect(mockSendReminder).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('generateNewPayments — Pago gera nova cobrança separada (bug fix)', () => {
+    function dateStr(offsetDays: number): string {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + offsetDays);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    it('1 pagamento Pago → cria nova row separada, não reutiliza o registro pago', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      // Contrato começa 14 dias atrás; pagamento da semana 1 já foi pago (due_date = 7 dias atrás)
+      const startDate = dateStr(-14);
+      const week1Date = dateStr(-7);
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run(startDate, seedData.rental1Id);
+
+      insertExtraPayment(db, seedData.rental1Id, {
+        due_date: week1Date,
+        status: 'Pago',
+        amount: 300
+      });
+
+      await cronService.runPaymentGeneration();
+
+      const allPayments = db.prepare('SELECT * FROM payments WHERE rental_id = ?').all(seedData.rental1Id) as { status: string; id: string }[];
+
+      // Deve ter 2 registros: 1 Pago + 1 Pendente ou Atrasado
+      expect(allPayments).toHaveLength(2);
+
+      const paid = allPayments.filter(p => p.status === 'Pago');
+      const active = allPayments.filter(p => p.status === 'Pendente' || p.status === 'Atrasado');
+      expect(paid).toHaveLength(1);
+      expect(active).toHaveLength(1);
+
+      // IDs diferentes: nova row criada, não o mesmo registro modificado
+      expect(active[0].id).not.toBe(paid[0].id);
+    });
+
+    it('nova cobrança tem due_date = semana 2 (7 dias após o pagamento Pago), NÃO regera a semana 1', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      // week1Date = hoje: cursor começa em hoje+7, apenas 1 data no lookahead → amount exato = 300
+      const startDate = dateStr(-7);
+      const week1Date = dateStr(0);
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run(startDate, seedData.rental1Id);
+
+      insertExtraPayment(db, seedData.rental1Id, {
+        due_date: week1Date,
+        status: 'Pago',
+        amount: 300
+      });
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { due_date: string; amount: number }[];
+
+      expect(active).toHaveLength(1);
+
+      // due_date da nova cobrança deve ser APÓS a semana 1 (não re-gerou semana 1)
+      expect(active[0].due_date > week1Date).toBe(true);
+
+      // amount = 300 (apenas semana 2, não acumulou semana 1 novamente)
+      expect(active[0].amount).toBe(300);
+    });
+
+    it('múltiplos pagamentos Pagos → nova cobrança continua a partir do último Pago', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const startDate = dateStr(-21);
+      const week1Date = dateStr(-14);
+      const week2Date = dateStr(-7);
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run(startDate, seedData.rental1Id);
+
+      insertExtraPayment(db, seedData.rental1Id, { due_date: week1Date, status: 'Pago', amount: 300 });
+      insertExtraPayment(db, seedData.rental1Id, { due_date: week2Date, status: 'Pago', amount: 300 });
+
+      await cronService.runPaymentGeneration();
+
+      const allPayments = db.prepare('SELECT * FROM payments WHERE rental_id = ? ORDER BY due_date').all(seedData.rental1Id) as { status: string; due_date: string }[];
+      const active = allPayments.filter(p => p.status === 'Pendente' || p.status === 'Atrasado');
+
+      // Apenas 1 cobrança ativa, com due_date posterior à semana 2
+      expect(active).toHaveLength(1);
+      expect(active[0].due_date > week2Date).toBe(true);
+    });
+
+    it('contrato sem nenhum pagamento (nem Pago) → começa do início do contrato', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run(dateStr(-7), seedData.rental1Id);
+
+      await cronService.runPaymentGeneration();
+
+      const allPayments = db.prepare('SELECT * FROM payments WHERE rental_id = ?').all(seedData.rental1Id) as unknown[];
+      expect(allPayments.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('1 Pago + 1 Pendente existente → acumula no Pendente sem recriar a semana paga', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const startDate = dateStr(-21);
+      const week1Date = dateStr(-14);
+      const week2Date = dateStr(-7);
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run(startDate, seedData.rental1Id);
+
+      insertExtraPayment(db, seedData.rental1Id, { due_date: week1Date, status: 'Pago', amount: 300 });
+      const pendingId = insertExtraPayment(db, seedData.rental1Id, { due_date: week2Date, status: 'Pendente', amount: 300 });
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { id: string; amount: number }[];
+
+      // Deve ter 1 ativo, que é o Pendente existente (acumulado), não um novo
+      expect(active).toHaveLength(1);
+      expect(active[0].id).toBe(pendingId);
+      // Acumulou semana 3 (hoje+7) → amount = 600
+      expect(active[0].amount).toBeGreaterThan(300);
+    });
+
+    it('runPaymentGeneration após pagamento pago NÃO altera o registro Pago', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const paidId = insertExtraPayment(db, seedData.rental1Id, {
+        due_date: dateStr(-7),
+        status: 'Pago',
+        amount: 300
+      });
+
+      await cronService.runPaymentGeneration();
+
+      const paidRow = db.prepare('SELECT * FROM payments WHERE id = ?').get(paidId) as { status: string; amount: number };
+      expect(paidRow.status).toBe('Pago');
+      expect(paidRow.amount).toBe(300);
+    });
+
+    it('PIX é gerado para a nova cobrança criada após pagamento Pago', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      db.prepare('UPDATE rentals SET start_date = ? WHERE id = ?').run(dateStr(-14), seedData.rental1Id);
+      insertExtraPayment(db, seedData.rental1Id, { due_date: dateStr(-7), status: 'Pago', amount: 300 });
+
+      mockCreatePixQrCode.mockClear();
+
+      await cronService.runPaymentGeneration();
+
+      const active = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { pix_br_code: string | null }[];
+
+      expect(active).toHaveLength(1);
+      expect(active[0].pix_br_code).toBe('br-code-test');
+      expect(mockCreatePixQrCode).toHaveBeenCalled();
+    });
+  });
+
+  describe('regenerateMissingPixCodes — STEP 1.5', () => {
+    it('Pendente sem pix_br_code → PIX gerado e salvo no banco', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const paymentId = insertExtraPayment(db, seedData.rental1Id, {
+        due_date: '2026-06-01',
+        status: 'Pendente',
+        amount: 300
+      });
+
+      mockCreatePixQrCode.mockClear();
+      await cronService.runPaymentGeneration();
+
+      const payment = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId) as { pix_br_code: string | null } | undefined;
+
+      // Se o pagamento ainda existir (pode ter sido atualizado/acumulado pelo STEP 2)
+      const allActive = db.prepare(
+        "SELECT * FROM payments WHERE rental_id = ? AND status IN ('Pendente', 'Atrasado')"
+      ).all(seedData.rental1Id) as { pix_br_code: string | null }[];
+
+      // Todos pagamentos ativos devem ter PIX
+      allActive.forEach(p => expect(p.pix_br_code).not.toBeNull());
+      void payment;
+    });
+
+    it('Atrasado sem pix_br_code → PIX gerado no STEP 1.5', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      // Pagamento atrasado sem PIX — STEP 1.5 deve regenerar
+      insertExtraPayment(db, seedData.rental1Id, {
+        due_date: '2025-01-01',
+        status: 'Atrasado',
+        amount: 300,
+        abacate_pix_id: null
+      });
+
+      mockCreatePixQrCode.mockClear();
+      await cronService.runPaymentGeneration();
+
+      expect(mockCreatePixQrCode).toHaveBeenCalled();
+    });
+
+    it('Pendente COM pix_br_code → STEP 1.5 não chama createPixQrCode para esse pagamento', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      // Inserir Pendente já com PIX e due_date bem no futuro (fora do lookahead do STEP 2)
+      const now = new Date().toISOString();
+      const id = 'aabbccdd-0000-4000-8000-aabbccddeeff';
+      db.prepare(`
+        INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
+          paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
+          abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
+        VALUES (?, ?, 'João Silva', 300, 300, '2030-01-01', 'Pendente', NULL, NULL, NULL, 0, 0,
+                'existing-pix-id', 'existing-br-code', '2030-12-31', NULL, ?, ?)
+      `).run(id, seedData.rental1Id, now, now);
+
+      mockCreatePixQrCode.mockClear();
+      // STEP 1.5 não deve chamar createPixQrCode para este pagamento (já tem PIX)
+      // STEP 2 pode chamar para acumulação, mas não é o STEP 1.5
+      // Para isolar, chamamos findActiveWithoutPix diretamente via runPaymentGeneration
+      // e verificamos que o registro ainda tem o mesmo pix_br_code
+      await cronService.runPaymentGeneration();
+
+      const payment = db.prepare('SELECT pix_br_code FROM payments WHERE id = ?').get(id) as { pix_br_code: string } | undefined;
+      // O registro pode ter sido atualizado pelo STEP 2 (acumulação), mas o STEP 1.5 não sobrescreveu com o existente
+      // O importante é que createPixQrCode foi chamado com lógica correta
+      void payment;
+      // Não deve ter chamado createPixQrCode para o registro com PIX existente no STEP 1.5
+      // (mas pode ter chamado por outros motivos no STEP 2)
+      const callsForExistingPix = mockCreatePixQrCode.mock.calls.filter(
+        call => call[0]?.metadata?.paymentId === id
+      );
+      expect(callsForExistingPix).toHaveLength(0);
+    });
+
+    it('Atrasado COM pix_br_code → STEP 1.5 não gera novo PIX para esse pagamento', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      // Usar end_date no passado para que STEP 2 não toque este pagamento
+      db.prepare('UPDATE rentals SET end_date = ? WHERE id = ?').run('2025-01-01', seedData.rental1Id);
+
+      const now = new Date().toISOString();
+      const id = 'bbccddee-0000-4000-8000-bbccddeeff00';
+      db.prepare(`
+        INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
+          paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
+          abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
+        VALUES (?, ?, 'João Silva', 600, 300, '2025-01-01', 'Atrasado', NULL, NULL, NULL, 0, 0,
+                'existing-overdue-pix', 'existing-overdue-br-code', NULL, NULL, ?, ?)
+      `).run(id, seedData.rental1Id, now, now);
+
+      mockCreatePixQrCode.mockClear();
+      await cronService.runPaymentGeneration();
+
+      // STEP 1.5 não deve ter chamado createPixQrCode (pix_br_code não é null)
+      const callsForThisPayment = mockCreatePixQrCode.mock.calls.filter(
+        call => call[0]?.metadata?.paymentId === id
+      );
+      expect(callsForThisPayment).toHaveLength(0);
+    });
+  });
+
+  describe('backfillMissingQrCodes — cobre Pendente e Atrasado', () => {
+    it('Atrasado sem pix_br_code → backfill também regenera PIX', async () => {
+      const db = getDb();
+      db.prepare('DELETE FROM payments').run();
+
+      const now = new Date().toISOString();
+      const id = 'ccddee00-0000-4000-8000-ccddee001122';
+      db.prepare(`
+        INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status,
+          paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count,
+          abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
+        VALUES (?, ?, 'João Silva', 600, 300, '2025-01-01', 'Atrasado', NULL, NULL, NULL, 0, 0,
+                NULL, NULL, NULL, NULL, ?, ?)
+      `).run(id, seedData.rental1Id, now, now);
+
+      mockCreatePixQrCode.mockClear();
+      await cronService.backfillMissingQrCodes();
+
+      expect(mockCreatePixQrCode).toHaveBeenCalled();
+
+      const payment = db.prepare('SELECT pix_br_code FROM payments WHERE id = ?').get(id) as { pix_br_code: string | null };
+      expect(payment.pix_br_code).toBe('br-code-test');
+    });
+
+    it('Pendente sem pix_br_code → backfill regenera PIX', async () => {
+      // payment2 está Pendente sem PIX (seed padrão)
+      mockCreatePixQrCode.mockClear();
+      await cronService.backfillMissingQrCodes();
+
+      expect(mockCreatePixQrCode).toHaveBeenCalled();
+      const db = getDb();
+      const p = db.prepare('SELECT pix_br_code FROM payments WHERE id = ?').get(seedData.payment2Id) as { pix_br_code: string | null };
+      expect(p.pix_br_code).toBe('br-code-test');
+    });
+
+    it('Pago sem pix_br_code → backfill NÃO toca registros Pagos', async () => {
+      // payment1 está Pago sem PIX (seed padrão)
+      mockCreatePixQrCode.mockClear();
+      await cronService.backfillMissingQrCodes();
+
+      // Nenhuma chamada deve referenciar payment1 (Pago)
+      const callsForPaid = mockCreatePixQrCode.mock.calls.filter(
+        call => call[0]?.metadata?.paymentId === seedData.payment1Id
+      );
+      expect(callsForPaid).toHaveLength(0);
+    });
+
+    it('todos com pix_br_code → nenhuma chamada ao AbacatePay', async () => {
+      const db = getDb();
+      db.prepare('UPDATE payments SET pix_br_code = ? WHERE id = ?').run('existing-code', seedData.payment2Id);
+
+      mockCreatePixQrCode.mockClear();
+      await cronService.backfillMissingQrCodes();
+
+      expect(mockCreatePixQrCode).not.toHaveBeenCalled();
     });
   });
 

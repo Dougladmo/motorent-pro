@@ -4,12 +4,14 @@ import { MotorcycleRepository } from '../repositories/motorcycleRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { NotificationService } from './notificationService';
 import { AbacatePayService } from './abacatePayService';
+import { UploadService } from './uploadService';
 import { Database } from '../models/database.types';
 
 type Payment = Database['public']['Tables']['payments']['Row'];
 
 export class PaymentService {
   private abacatePayService: AbacatePayService;
+  private uploadService: UploadService;
 
   constructor(
     private paymentRepo: PaymentRepository,
@@ -19,6 +21,7 @@ export class PaymentService {
     private notificationService: NotificationService
   ) {
     this.abacatePayService = new AbacatePayService();
+    this.uploadService = new UploadService();
   }
 
   async getAllPayments(): Promise<Payment[]> {
@@ -44,11 +47,16 @@ export class PaymentService {
       throw new Error('Pagamento já está marcado como pago');
     }
 
-    // VALIDAÇÃO 2: Verificar valor divergente
-    if (verifiedAmount && verifiedAmount !== payment.expected_amount) {
+    // VALIDAÇÃO 2: Pagamento parcial — atualiza amount mas não marca como pago
+    if (verifiedAmount !== undefined && verifiedAmount < payment.expected_amount) {
       console.warn(
-        `[PaymentService] Valor divergente: esperado ${payment.expected_amount}, recebido ${verifiedAmount}`
+        `[PaymentService] Pagamento parcial: esperado ${payment.expected_amount}, recebido ${verifiedAmount}. Cobrança não será quitada.`
       );
+      const updated = await this.paymentRepo.update(paymentId, {
+        amount: verifiedAmount,
+        is_amount_overridden: true
+      });
+      return updated;
     }
 
     const finalAmount = verifiedAmount || payment.amount;
@@ -63,7 +71,7 @@ export class PaymentService {
       is_amount_overridden: verifiedAmount !== undefined && verifiedAmount !== payment.expected_amount
     });
 
-    // Atualizar receita da moto
+    // Atualizar receita da moto e saldo devedor do aluguel
     const rental = await this.rentalRepo.findById(payment.rental_id);
     if (rental) {
       await this.motorcycleRepo.incrementRevenue(rental.motorcycle_id, finalAmount, {
@@ -71,6 +79,16 @@ export class PaymentService {
         rental_id: payment.rental_id,
         subscriber_name: payment.subscriber_name,
         date: new Date().toISOString().split('T')[0]
+      });
+
+      // Recalcular saldo devedor com base nos pagamentos restantes
+      const allPayments = await this.paymentRepo.findByRentalId(payment.rental_id);
+      const newOutstandingBalance = allPayments
+        .filter(p => p.id !== paymentId && (p.status === 'Pendente' || p.status === 'Atrasado'))
+        .reduce((sum, p) => sum + p.amount, 0);
+      await this.rentalRepo.update(payment.rental_id, {
+        outstanding_balance: newOutstandingBalance,
+        total_paid: (rental.total_paid || 0) + finalAmount
       });
     }
 
@@ -90,7 +108,9 @@ export class PaymentService {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const newStatus = payment.due_date < today ? 'Atrasado' : 'Pendente';
+    const newStatus = (payment.previous_status && payment.previous_status !== 'Pago')
+      ? payment.previous_status
+      : (payment.due_date < today ? 'Atrasado' : 'Pendente');
 
     const updated = await this.paymentRepo.update(paymentId, {
       status: newStatus,
@@ -99,10 +119,20 @@ export class PaymentService {
       marked_as_paid_at: null
     });
 
-    // Decrementar receita da moto
+    // Decrementar receita da moto e recalcular saldo devedor
     const rental = await this.rentalRepo.findById(payment.rental_id);
     if (rental) {
       await this.motorcycleRepo.decrementRevenue(rental.motorcycle_id, payment.amount, paymentId);
+
+      // Recalcular saldo devedor incluindo o pagamento que acaba de ser revertido
+      const allPayments = await this.paymentRepo.findByRentalId(payment.rental_id);
+      const newOutstandingBalance = allPayments
+        .filter(p => p.id !== paymentId && (p.status === 'Pendente' || p.status === 'Atrasado'))
+        .reduce((sum, p) => sum + p.amount, 0) + payment.amount;
+      await this.rentalRepo.update(payment.rental_id, {
+        outstanding_balance: newOutstandingBalance,
+        total_paid: Math.max(0, (rental.total_paid || 0) - payment.amount)
+      });
     }
 
     console.log(`[PaymentService] Pagamento ${paymentId} revertido para ${newStatus}. Motivo: ${reason || 'N/A'}`);
@@ -145,7 +175,7 @@ export class PaymentService {
 
     // Garantir QR Code PIX: reutilizar existente ou criar novo
     let pixBrCode = payment.pix_br_code ?? undefined;
-    let pixQrCodeBase64 = payment.pix_qr_code_base64 ?? undefined;
+    let pixQrCodeBase64: string | undefined;
     let pixPaymentUrl = payment.pix_payment_url ?? undefined;
 
     if (!pixBrCode) {
@@ -171,7 +201,6 @@ export class PaymentService {
         await this.paymentRepo.update(paymentId, {
           abacate_pix_id: pixResult.abacatePixId,
           pix_br_code: pixResult.pixBrCode,
-          pix_qr_code_base64: pixResult.pixQrCodeBase64,
           pix_expires_at: pixResult.pixExpiresAt,
           pix_payment_url: pixResult.pixPaymentUrl || null
         });
@@ -184,6 +213,17 @@ export class PaymentService {
       console.log(`[PaymentService] Reutilizando QR Code PIX existente para pagamento ${paymentId}`);
     }
 
+    // Fazer upload do QR Code para URL pública (funciona em todos os clientes de email)
+    let pixQrCodeUrl: string | undefined;
+    if (pixQrCodeBase64) {
+      try {
+        pixQrCodeUrl = await this.uploadService.uploadQrCodeToStorage(pixQrCodeBase64, paymentId);
+        console.log(`[PaymentService] QR Code enviado para storage: ${pixQrCodeUrl}`);
+      } catch (err) {
+        console.warn(`[PaymentService] Falha ao fazer upload do QR Code, email será enviado sem imagem:`, err);
+      }
+    }
+
     await this.notificationService.sendReminder({
       subscriberName: subscriber.name,
       subscriberPhone: subscriber.phone,
@@ -192,7 +232,7 @@ export class PaymentService {
       paymentDueDate: payment.due_date,
       totalDebt,
       pixBrCode,
-      pixQrCodeBase64,
+      pixQrCodeUrl,
       pixPaymentUrl
     });
 
