@@ -88,7 +88,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
       {/* Mobile card view */}
       <div className="md:hidden divide-y divide-slate-100">
         {loading && Array.from({ length: 5 }).map((_, i) => (
