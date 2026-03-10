@@ -24,9 +24,11 @@ interface NotificationParams {
 
 export class NotificationService {
   private resend: Resend;
+  private appName: string;
 
   constructor() {
     this.resend = new Resend(process.env.RESEND_API_KEY);
+    this.appName = process.env.APP_NAME || 'MotoRent Pro';
   }
 
   async sendPaymentNotification(params: NotificationParams): Promise<void> {
@@ -64,72 +66,39 @@ export class NotificationService {
 
     const { dateBr, weekDay } = formatBrDate(params.paymentDueDate);
 
-    type MessageItem =
-      | { text: string; delay: number; imageMedia?: never }
-      | { imageMedia: string; caption: string; delay: number; text?: never };
+    const intro = [
+      `🏍️ *${this.appName}*`,
+      ``,
+      `Olá *${params.subscriberName}*! Você tem uma cobrança pendente.`,
+      ``,
+      `💰 *Valor:* R$ ${params.paymentAmount.toFixed(2)}`,
+      `📅 *Vencimento:* ${weekDay}, ${dateBr}`,
+      `📊 *Dívida total:* R$ ${params.totalDebt.toFixed(2)}`,
+      ``,
+      `Para pagar, copie o código PIX abaixo 👇`
+    ].join('\n');
 
-    const messages: MessageItem[] = [
-      {
-        text: `Olá ${params.subscriberName}! Você tem uma cobrança no MotoRent Pro.\nValor: R$ ${params.paymentAmount.toFixed(2)} | Vencimento: ${weekDay}, ${dateBr}\nDívida total: R$ ${params.totalDebt.toFixed(2)}\nPara pagar, use o PIX copia-e-cola abaixo:`,
-        delay: 0
-      },
-      {
-        text: params.pixBrCode ?? 'Aguardando geração do PIX.',
-        delay: 1500
-      }
+    const messages = [
+      { text: intro, delay: 0 },
+      { text: params.pixBrCode ?? 'Aguardando geração do PIX.', delay: 1500 }
     ];
-
-    if (params.pixPaymentUrl) {
-      messages.push({ text: params.pixPaymentUrl, delay: 3000 });
-    }
-
-    const imageMedia = params.pixQrCodeUrl ?? null;
-
-    if (imageMedia) {
-      messages.push({
-        imageMedia,
-        caption: 'QR Code PIX para pagamento',
-        delay: params.pixPaymentUrl ? 4500 : 3000
-      });
-    }
 
     let wppOk = 0;
     let wppFail = 0;
 
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
-      const isImage = 'imageMedia' in msg && !!msg.imageMedia;
-      const label = isImage ? `msg[${i + 1}] imagem (QR Code)` : `msg[${i + 1}] texto`;
+      const label = `msg[${i + 1}] texto`;
 
       try {
-        const endpoint = isImage
-          ? `${evolutionUrl}/message/sendMedia/${evolutionInstance}`
-          : `${evolutionUrl}/message/sendText/${evolutionInstance}`;
-
-        const body = isImage
-          ? {
-              number: phoneE164,
-              mediatype: 'image',
-              mimetype: 'image/png',
-              media: (msg as { imageMedia: string }).imageMedia,
-              caption: (msg as { caption: string }).caption,
-              fileName: 'qrcode.png',
-              delay: msg.delay
-            }
-          : {
-              number: phoneE164,
-              text: (msg as { text: string }).text,
-              delay: msg.delay
-            };
+        const endpoint = `${evolutionUrl}/message/sendText/${evolutionInstance}`;
+        const body = { number: phoneE164, text: msg.text, delay: msg.delay };
 
         console.log(`[WPP] → ${label} | endpoint: ${endpoint}`);
 
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: evolutionKey
-          },
+          headers: { 'Content-Type': 'application/json', apikey: evolutionKey },
           body: JSON.stringify(body)
         });
 
@@ -160,7 +129,7 @@ export class NotificationService {
     }
 
     const { dateBr, weekDay } = formatBrDate(params.paymentDueDate);
-    const subject = `Cobrança MotoRent Pro - R$ ${params.paymentAmount.toFixed(2)} - Vence ${dateBr}`;
+    const subject = `Cobrança ${this.appName} - R$ ${params.paymentAmount.toFixed(2)} - Vence ${dateBr}`;
 
     const pixSection = params.pixBrCode
       ? `
@@ -174,7 +143,7 @@ export class NotificationService {
 
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #1e293b;">MotoRent Pro — ${tipo === 'lembrete' ? 'Lembrete de Pagamento' : 'Nova Cobrança'}</h2>
+        <h2 style="color: #1e293b;">${this.appName} — ${tipo === 'lembrete' ? 'Lembrete de Pagamento' : 'Nova Cobrança'}</h2>
         <p>Olá <strong>${params.subscriberName}</strong>,</p>
         <p>${tipo === 'lembrete' ? 'Lembramos que você possui uma cobrança pendente.' : 'Uma nova cobrança foi gerada para você.'}</p>
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
@@ -194,7 +163,7 @@ export class NotificationService {
         ${pixSection}
         <p style="color: #64748b; font-size: 14px;">O pagamento será confirmado automaticamente.</p>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-        <p style="color: #94a3b8; font-size: 12px;">MotoRent Pro — Sistema de Gestão de Motos</p>
+        <p style="color: #94a3b8; font-size: 12px;">${this.appName}</p>
       </div>
     `;
 

@@ -456,7 +456,7 @@ export const Subscribers: React.FC = () => {
                             onChange={e => setRentalForm({...rentalForm, dueDayOfWeek: Number(e.target.value)})}
                             className="w-full border border-slate-300 rounded-lg p-3 bg-white"
                         >
-                            {WEEK_DAYS.map((day, idx) => <option key={idx} value={idx}>{day}</option>)}
+                            {WEEK_DAYS.map((day, idx) => <option key={idx} value={idx + 1}>{day}</option>)}
                         </select>
                     </div>
                 </div>

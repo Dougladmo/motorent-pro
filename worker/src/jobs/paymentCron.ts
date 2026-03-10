@@ -22,6 +22,22 @@ async function uploadQrCodeToStorage(base64: string, paymentId: string): Promise
   return result.url;
 }
 
+// Converte due_day_of_week do banco (ISO: 1=Seg..7=Dom) para JS getDay() (0=Dom..6=Sab)
+function isoToJsDay(isoDow: number): number {
+  return isoDow % 7; // 1→1(Seg), 2→2(Ter), ..., 6→6(Sab), 7→0(Dom)
+}
+
+function getFirstDueDate(startDateStr: string, dueDayOfWeek: number): Date {
+  const [year, month, day] = startDateStr.split('-').map(Number);
+  const start = new Date(year, month - 1, day);
+  const startDay = start.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+  const targetDay = isoToJsDay(dueDayOfWeek);
+  const daysToAdd = (targetDay - startDay + 7) % 7;
+  const firstDue = new Date(start);
+  firstDue.setDate(firstDue.getDate() + daysToAdd);
+  return firstDue;
+}
+
 export class PaymentCronService {
   private abacatePayService: AbacatePayService;
 
@@ -46,6 +62,9 @@ export class PaymentCronService {
     try {
       // STEP 0: Consolidar cobranças duplicadas (múltiplos ativos → 1 por rental)
       await this.consolidateExistingDuplicates(today, todayStr);
+
+      // STEP 0.5: Corrigir vencimentos desalinhados ao dia da semana do contrato
+      await this.correctMisalignedPayments(todayStr);
 
       // STEP 1: Atualizar PENDING → OVERDUE
       await this.updateOverduePayments(todayStr);
@@ -171,6 +190,59 @@ export class PaymentCronService {
     }
   }
 
+  private async correctMisalignedPayments(todayStr: string): Promise<void> {
+    console.log('[CRON] STEP 0.5: Corrigindo vencimentos desalinhados ao dia da semana...');
+
+    const activeRentals = await this.rentalRepo.findAllActive();
+    let corrected = 0;
+
+    for (const rental of activeRentals) {
+      try {
+        const activePayments = await this.paymentRepo.findActiveByRentalId(rental.id);
+        if (activePayments.length === 0) continue;
+
+        const payment = activePayments[0];
+        const [ay, am, ad] = payment.due_date.split('-').map(Number);
+        const paymentDate = new Date(ay, am - 1, ad);
+
+        const targetDay = isoToJsDay(rental.due_day_of_week);
+        if (paymentDate.getDay() === targetDay) continue; // já alinhado
+
+        // Mover para a próxima ocorrência correta do dia da semana
+        const daysToFix = (targetDay - paymentDate.getDay() + 7) % 7;
+        const correctedDate = new Date(paymentDate);
+        correctedDate.setDate(correctedDate.getDate() + daysToFix);
+        const correctedStr = `${correctedDate.getFullYear()}-${String(correctedDate.getMonth() + 1).padStart(2, '0')}-${String(correctedDate.getDate()).padStart(2, '0')}`;
+
+        // Cancelar PIX antigo
+        if (payment.abacate_pix_id) {
+          await this.abacatePayService.cancelPixQrCode(payment.abacate_pix_id);
+        }
+
+        // Corrigir due_date e limpar PIX (STEP 1.5 irá regenerar)
+        await this.paymentRepo.update(payment.id, {
+          due_date: correctedStr,
+          status: correctedStr < todayStr ? 'Atrasado' : 'Pendente',
+          abacate_pix_id: null,
+          pix_br_code: null,
+          pix_expires_at: null,
+          pix_payment_url: null
+        });
+
+        corrected++;
+        console.log(`[CRON] Rental ${rental.id}: due_date corrigido ${payment.due_date} → ${correctedStr}`);
+      } catch (err) {
+        console.error(`[CRON] Erro ao corrigir alignment do rental ${rental.id}:`, err);
+      }
+    }
+
+    if (corrected === 0) {
+      console.log('[CRON] Nenhum vencimento desalinhado encontrado');
+    } else {
+      console.log(`[CRON] ${corrected} pagamento(s) com data de vencimento corrigida`);
+    }
+  }
+
   private async updateOverduePayments(todayStr: string): Promise<void> {
     console.log('[CRON] STEP 1: Atualizando pagamentos atrasados...');
 
@@ -242,9 +314,9 @@ export class PaymentCronService {
             const [py, pm, pd] = latestPaid.due_date.split('-').map(Number);
             lastCoveredDate = new Date(py, pm - 1, pd);
           } else {
-            // Contrato sem nenhum pagamento: começa do início
-            const [sy, sm, sd] = rental.start_date.split('-').map(Number);
-            lastCoveredDate = new Date(sy, sm - 1, sd);
+            // Contrato sem nenhum pagamento: âncora no primeiro vencimento correto (dia da semana)
+            const firstDue = getFirstDueDate(rental.start_date, rental.due_day_of_week);
+            lastCoveredDate = new Date(firstDue);
             lastCoveredDate.setDate(lastCoveredDate.getDate() - 7);
           }
         }
@@ -501,10 +573,36 @@ export class PaymentCronService {
       }
     }
 
-    // Para novo contrato: começa do início do contrato menos 7 dias
-    const [sy, sm, sd] = rental.start_date.split('-').map(Number);
-    const startDate = new Date(sy, sm - 1, sd);
-    const lastCoveredDate = new Date(startDate);
+    // Verificar se já existe pagamento ativo com data desalinhada e corrigir
+    const existingActive = await this.paymentRepo.findActiveByRentalId(rental.id);
+    if (existingActive.length > 0) {
+      const payment = existingActive[0];
+      const [ey, em, ed] = payment.due_date.split('-').map(Number);
+      const paymentDate = new Date(ey, em - 1, ed);
+      const targetDay = isoToJsDay(rental.due_day_of_week);
+
+      if (paymentDate.getDay() !== targetDay) {
+        const daysToFix = (targetDay - paymentDate.getDay() + 7) % 7;
+        const correctedDate = new Date(paymentDate);
+        correctedDate.setDate(correctedDate.getDate() + daysToFix);
+        const correctedStr = `${correctedDate.getFullYear()}-${String(correctedDate.getMonth() + 1).padStart(2, '0')}-${String(correctedDate.getDate()).padStart(2, '0')}`;
+
+        await this.paymentRepo.update(payment.id, {
+          due_date: correctedStr,
+          status: correctedStr < todayStr ? 'Atrasado' : 'Pendente'
+        });
+        console.log(`[PAYMENT GEN] Corrigido due_date existente: ${payment.due_date} → ${correctedStr}`);
+        return 1;
+      }
+
+      console.log(`[PAYMENT GEN] Rental ${rentalId} já possui pagamento ativo alinhado (${payment.due_date})`);
+      return 0;
+    }
+
+    // Para novo contrato: âncora no primeiro vencimento correto (dia da semana)
+    const firstDue = getFirstDueDate(rental.start_date, rental.due_day_of_week);
+    console.log(`[PAYMENT GEN] start_date=${rental.start_date} | due_day_of_week=${rental.due_day_of_week} | isoToJsDay=${isoToJsDay(rental.due_day_of_week)} | firstDue=${firstDue.toISOString().split('T')[0]}`);
+    const lastCoveredDate = new Date(firstDue);
     lastCoveredDate.setDate(lastCoveredDate.getDate() - 7);
 
     // Calcular datas não cobertas

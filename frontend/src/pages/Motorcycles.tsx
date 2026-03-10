@@ -30,7 +30,7 @@ export const Motorcycles: React.FC = () => {
     subscriberId: '',
     startDate: new Date().toISOString().split('T')[0],
     weeklyValue: '',
-    dueDayOfWeek: new Date().getDay(),
+    dueDayOfWeek: new Date().getDay() || 7,
     contractDurationMonths: 12
   });
   const [isCreatingRental, setIsCreatingRental] = useState(false);
@@ -42,7 +42,7 @@ export const Motorcycles: React.FC = () => {
       subscriberId: '',
       startDate: new Date().toISOString().split('T')[0],
       weeklyValue: '',
-      dueDayOfWeek: new Date().getDay()
+      dueDayOfWeek: new Date().getDay() || 7
     });
   };
 
@@ -305,7 +305,7 @@ export const Motorcycles: React.FC = () => {
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {WEEK_DAYS.map((day, i) => (
-                <option key={i} value={i}>{day}</option>
+                <option key={i} value={i + 1}>{day}</option>
               ))}
             </select>
           </div>
