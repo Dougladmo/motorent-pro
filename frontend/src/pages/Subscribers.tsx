@@ -825,7 +825,8 @@ export const Subscribers: React.FC = () => {
     getSubscriberDocuments, addSubscriberDocument, deleteSubscriberDocument
   } = useApp();
 
-  const [view, setView] = useState<'LIST' | 'NEW_SUB' | 'NEW_RENTAL'>('LIST');
+  const [view, setView] = useState<'LIST' | 'NEW_RENTAL'>('LIST');
+  const [isNewSubModalOpen, setIsNewSubModalOpen] = useState(false);
   const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -932,7 +933,7 @@ export const Subscribers: React.FC = () => {
         handleCloseModal();
       } else {
         await addSubscriber(payload as any);
-        setView('LIST');
+        setIsNewSubModalOpen(false);
         setSubForm(emptySubForm());
       }
     } catch (error: any) {
@@ -1113,7 +1114,7 @@ export const Subscribers: React.FC = () => {
           <p className="text-slate-500">Gestão de clientes e contratos.</p>
         </div>
         <button
-          onClick={() => setView('NEW_SUB')}
+          onClick={() => setIsNewSubModalOpen(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-blue-900/20"
         >
           <Plus size={18} /> Novo Assinante
@@ -1133,22 +1134,24 @@ export const Subscribers: React.FC = () => {
         />
       )}
 
-      {view === 'NEW_SUB' && (
-        <div className="bg-white max-w-2xl mx-auto p-4 md:p-8 rounded-xl shadow-sm border border-slate-100 animate-fade-in">
-          <h3 className="text-xl font-bold text-slate-800 mb-6">Cadastrar Assinante</h3>
-          <form onSubmit={handleCreateSubscriber} className="space-y-3">
-            <SubscriberForm form={subForm} onChange={setSubForm} onCepBlur={handleCepBlur} onRealDriverCepBlur={handleRealDriverCepBlur} />
-            <div className="flex justify-end gap-3 pt-4">
-              <button type="button" onClick={() => { setView('LIST'); setSubForm(emptySubForm()); }} className="px-6 py-2 text-slate-600 font-medium">
-                Cancelar
-              </button>
-              <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">
-                Salvar
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      <Modal
+        isOpen={isNewSubModalOpen}
+        onClose={() => { setIsNewSubModalOpen(false); setSubForm(emptySubForm()); }}
+        title="Cadastrar Assinante"
+        maxWidth="2xl"
+      >
+        <form onSubmit={handleCreateSubscriber} className="space-y-3">
+          <SubscriberForm form={subForm} onChange={setSubForm} onCepBlur={handleCepBlur} onRealDriverCepBlur={handleRealDriverCepBlur} />
+          <div className="flex justify-end gap-3 pt-4">
+            <button type="button" onClick={() => { setIsNewSubModalOpen(false); setSubForm(emptySubForm()); }} className="px-6 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">
+              Cancelar
+            </button>
+            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+              Salvar
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         isOpen={isViewModalOpen}
