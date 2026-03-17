@@ -42,6 +42,16 @@ export class SubscriberDocumentController {
     }
   };
 
+  getSignedUrl = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const docId = req.params['docId'] as string;
+      const signedUrl = await this.documentService.getSignedUrl(docId);
+      res.json({ data: { signedUrl } });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
   deleteDocument = async (req: Request, res: Response): Promise<void> => {
     try {
       const docId = req.params['docId'] as string;

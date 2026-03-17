@@ -220,6 +220,29 @@ export class UploadService {
   }
 
   /**
+   * Gera URL assinada para acesso a documento privado do assinante
+   * @param fileUrl URL armazenada no banco (pública ou com path)
+   * @param expiresIn Segundos de validade (padrão: 3600)
+   * @returns URL assinada temporária
+   */
+  async getSubscriberDocumentSignedUrl(fileUrl: string, expiresIn = 3600): Promise<string> {
+    const urlObj = new URL(fileUrl);
+    const pathParts = urlObj.pathname.split('/');
+    const bucketIndex = pathParts.indexOf(this.documentBucketName);
+    if (bucketIndex === -1) throw new Error('URL de documento inválida');
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const { data, error } = await supabase.storage
+      .from(this.documentBucketName)
+      .createSignedUrl(filePath, expiresIn);
+
+    if (error || !data?.signedUrl) throw new Error(error?.message ?? 'Falha ao gerar URL assinada');
+    return data.signedUrl;
+  }
+
+  /**
    * Faz upload de QR Code PIX (base64) para o Supabase Storage bucket 'qr-codes'
    * @param base64 String base64 do PNG (com ou sem prefixo data:image/png;base64,)
    * @param paymentId ID do pagamento (usado no nome do arquivo)

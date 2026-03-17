@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
-import { subscriberApi } from '../services/api';
+import { subscriberApi, subscriberDocumentApi } from '../services/api';
 import { MotorcycleStatus, Subscriber, PaymentStatus } from '../shared';
-import { Plus, Check, AlertTriangle, ChevronDown, ChevronUp, FileText, Image, Trash2, Upload, X, Pencil } from 'lucide-react';
+import { Plus, Check, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Image, Trash2, Upload, X, Pencil, Eye, Loader2 } from 'lucide-react';
 import { WEEK_DAYS } from '../shared';
 import { validatePhone, validateCPF, validatePositiveNumber } from '../shared';
 import { formatPhone, formatCPF, formatCurrency, capitalizeName } from '../shared';
@@ -83,12 +84,23 @@ const FILE_TYPE_LABELS: Record<SubscriberDocument['fileType'], string> = {
   other: 'Outro'
 };
 
+// ─── Document helpers ─────────────────────────────────────────────────────────
+const getMimeType = (fileName: string): string => {
+  const name = fileName.toLowerCase();
+  if (name.endsWith('.pdf'))  return 'application/pdf';
+  if (name.endsWith('.png'))  return 'image/png';
+  if (name.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
+};
+
 // ─── Document row ─────────────────────────────────────────────────────────────
 const DocumentRow: React.FC<{
   doc: SubscriberDocument;
+  onView: () => void;
   onDelete: (id: string) => void;
-}> = ({ doc, onDelete }) => {
+}> = ({ doc, onView, onDelete }) => {
   const isPdf = doc.fileName.toLowerCase().endsWith('.pdf') || doc.fileUrl.includes('.pdf');
+
   return (
     <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
       {isPdf
@@ -96,19 +108,26 @@ const DocumentRow: React.FC<{
         : <Image size={20} className="text-blue-500 shrink-0" />
       }
       <div className="flex-1 min-w-0">
-        <a
-          href={doc.fileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-blue-600 hover:underline truncate block"
+        <button
+          type="button"
+          onClick={onView}
+          className="text-sm font-medium text-blue-600 hover:underline truncate block text-left w-full"
         >
           {doc.fileName}
-        </a>
+        </button>
         <p className="text-xs text-slate-500">
           {FILE_TYPE_LABELS[doc.fileType]}
           {doc.description && ` · ${doc.description}`}
         </p>
       </div>
+      <button
+        type="button"
+        onClick={onView}
+        className="text-slate-400 hover:text-blue-500 shrink-0"
+        title="Visualizar documento"
+      >
+        <Eye size={16} />
+      </button>
       <button
         type="button"
         onClick={() => onDelete(doc.id)}
@@ -118,6 +137,164 @@ const DocumentRow: React.FC<{
         <Trash2 size={16} />
       </button>
     </div>
+  );
+};
+
+// ─── Document carousel modal ──────────────────────────────────────────────────
+type BlobEntry = { blobUrl: string | null; loading: boolean; error: boolean };
+
+const DocumentCarouselModal: React.FC<{
+  documents: SubscriberDocument[];
+  initialIndex: number;
+  subscriberId: string;
+  onClose: () => void;
+}> = ({ documents, initialIndex, subscriberId, onClose }) => {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [blobCache, setBlobCache] = useState<Record<number, BlobEntry>>({});
+  const blobCacheRef = useRef<Record<number, BlobEntry>>({});
+
+  const goTo = (idx: number) =>
+    setCurrentIndex(Math.max(0, Math.min(documents.length - 1, idx)));
+
+  const isImage = (doc: SubscriberDocument) =>
+    /\.(jpg|jpeg|png|webp)$/i.test(doc.fileName);
+
+  // Keep ref in sync so the cleanup effect can revoke URLs after unmount
+  const setCacheEntry = (idx: number, entry: BlobEntry) => {
+    setBlobCache(prev => {
+      const next = { ...prev, [idx]: entry };
+      blobCacheRef.current = next;
+      return next;
+    });
+  };
+
+  // Fetch and cache the blob for the current document
+  useEffect(() => {
+    if (blobCache[currentIndex]) return;
+
+    setCacheEntry(currentIndex, { blobUrl: null, loading: true, error: false });
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const signedUrl = await subscriberDocumentApi.getSignedUrl(
+          subscriberId,
+          documents[currentIndex].id
+        );
+        const res = await fetch(signedUrl);
+        const arrayBuffer = await res.arrayBuffer();
+        if (cancelled) return;
+
+        // Supabase returns `application/octet-stream` regardless of file type.
+        // We must set the correct MIME type so the browser renders inline instead of downloading.
+        const mimeType = getMimeType(documents[currentIndex].fileName);
+        const blobUrl = URL.createObjectURL(new Blob([arrayBuffer], { type: mimeType }));
+
+        setCacheEntry(currentIndex, { blobUrl, loading: false, error: false });
+      } catch {
+        if (!cancelled) {
+          setCacheEntry(currentIndex, { blobUrl: null, loading: false, error: true });
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [currentIndex]);
+
+  // Revoke all blob URLs on unmount to avoid memory leaks
+  useEffect(() => () => {
+    Object.values(blobCacheRef.current).forEach(e => {
+      if (e.blobUrl) URL.revokeObjectURL(e.blobUrl);
+    });
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft')  goTo(currentIndex - 1);
+      if (e.key === 'ArrowRight') goTo(currentIndex + 1);
+      if (e.key === 'Escape')     onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [currentIndex]);
+
+  const doc = documents[currentIndex];
+  const entry = blobCache[currentIndex];
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] bg-black/90 flex flex-col">
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-black/60">
+        <span className="text-slate-400 text-sm tabular-nums">{currentIndex + 1} / {documents.length}</span>
+        <div className="flex items-center gap-2 min-w-0 flex-1 justify-center px-4">
+          {/\.pdf$/i.test(doc.fileName)
+            ? <FileText size={16} className="text-red-400 shrink-0" />
+            : <Image size={16} className="text-blue-400 shrink-0" />
+          }
+          <span className="text-sm font-medium text-white truncate">{doc.fileName}</span>
+          <span className="text-xs text-slate-400 shrink-0">{FILE_TYPE_LABELS[doc.fileType]}</span>
+        </div>
+        <button type="button" onClick={onClose} className="text-slate-400 hover:text-white shrink-0">
+          <X size={22} />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 relative flex items-center justify-center min-h-0 px-14">
+        {/* Left arrow */}
+        <button
+          type="button"
+          onClick={() => goTo(currentIndex - 1)}
+          disabled={currentIndex === 0}
+          className="absolute left-3 text-white disabled:opacity-20 hover:text-slate-300 p-2"
+        >
+          <ChevronLeft size={32} />
+        </button>
+
+        {/* Document content */}
+        <div key={currentIndex} className="w-full h-full flex items-center justify-center">
+          {!entry || entry.loading ? (
+            <Loader2 size={40} className="animate-spin text-slate-400" />
+          ) : entry.error ? (
+            <p className="text-red-400 text-sm">Erro ao carregar documento.</p>
+          ) : isImage(doc) ? (
+            <img src={entry.blobUrl!} alt={doc.fileName} className="max-w-full max-h-full object-contain" />
+          ) : (
+            <iframe
+              src={entry.blobUrl!}
+              title={doc.fileName}
+              className="w-full h-full border-0"
+            />
+          )}
+        </div>
+
+        {/* Right arrow */}
+        <button
+          type="button"
+          onClick={() => goTo(currentIndex + 1)}
+          disabled={currentIndex === documents.length - 1}
+          className="absolute right-3 text-white disabled:opacity-20 hover:text-slate-300 p-2"
+        >
+          <ChevronRight size={32} />
+        </button>
+      </div>
+
+      {/* Dot strip */}
+      {documents.length > 1 && (
+        <div className="shrink-0 flex items-center justify-center gap-2 py-3 bg-black/60">
+          {documents.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => goTo(i)}
+              className={`rounded-full transition-all ${i === currentIndex ? 'w-3 h-3 bg-white' : 'w-2 h-2 bg-slate-500 hover:bg-slate-300'}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>,
+    document.body
   );
 };
 
@@ -163,6 +340,7 @@ const SubscriberView: React.FC<{
     file: null, fileType: 'other', description: ''
   });
   const [showUploadRow, setShowUploadRow] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState<number | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -256,8 +434,8 @@ const SubscriberView: React.FC<{
         <ViewSection title={`Documentos${documents.length > 0 ? ` (${documents.length})` : ''}`} defaultOpen={false}>
           <div className="space-y-2">
             {documents.length > 0
-              ? documents.map(doc => (
-                  <DocumentRow key={doc.id} doc={doc} onDelete={onDocumentDelete} />
+              ? documents.map((doc, idx) => (
+                  <DocumentRow key={doc.id} doc={doc} onView={() => setCarouselIndex(idx)} onDelete={onDocumentDelete} />
                 ))
               : <p className="text-sm text-slate-400">Nenhum documento anexado.</p>
             }
@@ -321,6 +499,14 @@ const SubscriberView: React.FC<{
           )}
         </ViewSection>
       )}
+      {carouselIndex !== null && subscriberId && (
+        <DocumentCarouselModal
+          documents={documents}
+          initialIndex={carouselIndex}
+          subscriberId={subscriberId}
+          onClose={() => setCarouselIndex(null)}
+        />
+      )}
     </div>
   );
 };
@@ -342,6 +528,7 @@ const SubscriberForm: React.FC<{
     file: null, fileType: 'other', description: ''
   });
   const [showUploadRow, setShowUploadRow] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState<number | null>(null);
 
   const set = (partial: Partial<SubFormState>) => onChange({ ...form, ...partial });
 
@@ -552,8 +739,8 @@ const SubscriberForm: React.FC<{
         <Section title="Documentos" defaultOpen={false}>
           <div className="space-y-2">
             {documents && documents.length > 0
-              ? documents.map(doc => (
-                  <DocumentRow key={doc.id} doc={doc} onDelete={id => onDocumentDelete?.(id)} />
+              ? documents.map((doc, idx) => (
+                  <DocumentRow key={doc.id} doc={doc} onView={() => setCarouselIndex(idx)} onDelete={id => onDocumentDelete?.(id)} />
                 ))
               : <p className="text-sm text-slate-400">Nenhum documento anexado.</p>
             }
@@ -617,6 +804,14 @@ const SubscriberForm: React.FC<{
             </div>
           )}
         </Section>
+      )}
+      {carouselIndex !== null && subscriberId && documents && (
+        <DocumentCarouselModal
+          documents={documents}
+          initialIndex={carouselIndex}
+          subscriberId={subscriberId}
+          onClose={() => setCarouselIndex(null)}
+        />
       )}
     </div>
   );

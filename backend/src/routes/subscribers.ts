@@ -30,6 +30,7 @@ router.delete('/:id', controller.deleteSubscriber);
 // Document endpoints
 router.get('/:id/documents', documentController.getDocuments);
 router.post('/:id/documents', upload.single('file'), documentController.uploadDocument);
+router.get('/:id/documents/:docId/signed-url', documentController.getSignedUrl);
 router.delete('/:id/documents/:docId', documentController.deleteDocument);
 
 export default router;

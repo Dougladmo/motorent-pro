@@ -40,6 +40,12 @@ export class SubscriberDocumentService {
     await this.documentRepo.delete(documentId);
   }
 
+  async getSignedUrl(documentId: string, expiresIn = 3600): Promise<string> {
+    const doc = await this.documentRepo.findById(documentId);
+    if (!doc) throw new Error('Documento não encontrado');
+    return this.uploadService.getSubscriberDocumentSignedUrl(doc.file_url, expiresIn);
+  }
+
   async deleteDocumentsBySubscriberId(subscriberId: string): Promise<void> {
     const docs = await this.documentRepo.findBySubscriberId(subscriberId);
     for (const doc of docs) {

@@ -159,6 +159,11 @@ export const subscriberDocumentApi = {
   delete: async (subscriberId: string, docId: string): Promise<void> => {
     await api.delete(`/subscribers/${subscriberId}/documents/${docId}`);
   },
+
+  getSignedUrl: async (subscriberId: string, docId: string): Promise<string> => {
+    const { data } = await api.get(`/subscribers/${subscriberId}/documents/${docId}/signed-url`);
+    return data.data.signedUrl as string;
+  },
 };
 
 // ============================================
