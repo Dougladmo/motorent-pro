@@ -134,6 +134,39 @@ export async function handleAbacateWebhook(req: Request, res: Response): Promise
       });
       console.log(`[Webhook] QR Code PIX expirado para pagamento ${paymentId}, campos limpos`);
     }
+
+    if (event === 'billing.disputed') {
+      // Pagamento contestado/reembolsado — reverter para status devedor
+      let payment = null;
+      const paymentId = metadata?.paymentId;
+
+      if (paymentId) {
+        payment = await paymentRepo.findById(paymentId);
+      } else if (pixId) {
+        payment = await paymentRepo.findByAbacatePixId(pixId);
+      }
+
+      if (!payment) {
+        console.warn(`[Webhook] billing.disputed: pagamento não encontrado (paymentId=${paymentId}, pixId=${pixId}), ignorando`);
+        return;
+      }
+
+      if (payment.status !== 'Pago') {
+        console.log(`[Webhook] billing.disputed: pagamento ${payment.id} não está Pago (status atual: ${payment.status}), ignorando`);
+        return;
+      }
+
+      // Reverter para status anterior (Pendente ou Atrasado) e limpar campos PIX
+      await paymentService.markAsUnpaid(payment.id, 'Pagamento contestado/reembolsado via AbacatePay');
+      await paymentRepo.update(payment.id, {
+        abacate_pix_id: null,
+        pix_br_code: null,
+        pix_expires_at: null,
+        pix_payment_url: null
+      });
+
+      console.log(`[Webhook] Disputa processada para pagamento ${payment.id}. Status revertido para devedor.`);
+    }
   } catch (err) {
     console.error('[Webhook] Erro ao processar evento Abacate Pay:', err);
   }

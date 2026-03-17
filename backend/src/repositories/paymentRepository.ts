@@ -161,6 +161,17 @@ export class PaymentRepository {
     if (error) throw error;
   }
 
+  async findByAbacatePixId(abacatePixId: string): Promise<Payment | null> {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('abacate_pix_id', abacatePixId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
   async deleteByRentalId(rentalId: string): Promise<void> {
     const { error } = await this.supabase
       .from('payments')

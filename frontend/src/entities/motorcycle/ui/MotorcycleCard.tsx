@@ -80,18 +80,6 @@ export const MotorcycleCard: React.FC<MotorcycleCardProps> = ({
           <span>Ano: {motorcycle.year}</span>
         </div>
 
-        {/* Receita Total da Moto */}
-        {motorcycle.totalRevenue > 0 && (
-          <div className="mt-3 bg-green-50 border border-green-100 rounded-lg p-2.5">
-            <div className="flex items-center gap-2 text-green-700">
-              <DollarSign size={14} className="flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-xs text-green-600">Receita Total</p>
-                <p className="text-sm font-bold">{formatCurrency(motorcycle.totalRevenue)}</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between items-center gap-2">
           {motorcycle.status === MotorcycleStatus.AVAILABLE && onNewRental ? (

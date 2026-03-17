@@ -7,7 +7,8 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  headerAction?: React.ReactNode;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -15,7 +16,8 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   title,
   children,
-  maxWidth = 'md'
+  maxWidth = 'md',
+  headerAction,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +46,8 @@ export const Modal: React.FC<ModalProps> = ({
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
   };
 
   return createPortal(
@@ -60,21 +64,25 @@ export const Modal: React.FC<ModalProps> = ({
     >
       <div
         ref={modalRef}
-        className={`bg-white rounded-xl shadow-xl ${maxWidthClasses[maxWidth]} w-full animate-fade-in max-h-[90vh] flex flex-col`}
+        className={`bg-white rounded-xl shadow-xl ${maxWidthClasses[maxWidth]} w-full animate-fade-in flex flex-col`}
+        style={{ maxHeight: 'min(90vh, 100dvh - 32px)' }}
       >
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-100 flex-shrink-0">
           <h3 id="modal-title" className="text-lg md:text-xl font-bold text-slate-800">
             {title}
           </h3>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-            aria-label="Fechar modal"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {headerAction}
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Fechar modal"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
-        <div className="p-4 md:p-6 overflow-y-auto">
+        <div className="p-4 md:p-6 overflow-y-auto flex-1 min-h-0">
           {children}
         </div>
       </div>

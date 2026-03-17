@@ -12,9 +12,11 @@ import {
 import {
   motorcycleApi,
   subscriberApi,
+  subscriberDocumentApi,
   rentalApi,
   paymentApi
 } from '../services/api';
+import { SubscriberDocument } from '../shared/types/subscriber';
 import { useAuth } from './AuthContext';
 
 interface AppContextType {
@@ -41,6 +43,9 @@ interface AppContextType {
   markPaymentAsUnpaid: (id: string, reason?: string) => Promise<void>;
   terminateRental: (rentalId: string, reason?: string) => Promise<void>;
   validatePaymentIntegrity: () => Promise<PaymentValidationReport>;
+  getSubscriberDocuments: (subscriberId: string) => Promise<SubscriberDocument[]>;
+  addSubscriberDocument: (subscriberId: string, formData: FormData) => Promise<SubscriberDocument>;
+  deleteSubscriberDocument: (subscriberId: string, docId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -64,7 +69,27 @@ const transformSubscriber = (data: any): Subscriber => ({
   email: data.email ?? undefined,
   document: data.document,
   active: data.active,
-  notes: data.notes
+  notes: data.notes ?? undefined,
+  birthDate: data.birth_date ?? undefined,
+  addressZip: data.address_zip ?? undefined,
+  addressStreet: data.address_street ?? undefined,
+  addressNumber: data.address_number ?? undefined,
+  addressComplement: data.address_complement ?? undefined,
+  addressNeighborhood: data.address_neighborhood ?? undefined,
+  addressCity: data.address_city ?? undefined,
+  addressState: data.address_state ?? undefined,
+  isRealDriver: data.is_real_driver ?? true,
+  realDriverName: data.real_driver_name ?? undefined,
+  realDriverDocument: data.real_driver_document ?? undefined,
+  realDriverPhone: data.real_driver_phone ?? undefined,
+  realDriverRelationship: data.real_driver_relationship ?? undefined,
+  realDriverAddressZip: data.real_driver_address_zip ?? undefined,
+  realDriverAddressStreet: data.real_driver_address_street ?? undefined,
+  realDriverAddressNumber: data.real_driver_address_number ?? undefined,
+  realDriverAddressComplement: data.real_driver_address_complement ?? undefined,
+  realDriverAddressNeighborhood: data.real_driver_address_neighborhood ?? undefined,
+  realDriverAddressCity: data.real_driver_address_city ?? undefined,
+  realDriverAddressState: data.real_driver_address_state ?? undefined
 });
 
 const transformRental = (data: any): Rental => ({
@@ -391,6 +416,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const getSubscriberDocuments = async (subscriberId: string): Promise<SubscriberDocument[]> => {
+    try {
+      return await subscriberDocumentApi.getDocuments(subscriberId);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || error.message);
+    }
+  };
+
+  const addSubscriberDocument = async (subscriberId: string, formData: FormData): Promise<SubscriberDocument> => {
+    try {
+      return await subscriberDocumentApi.upload(subscriberId, formData);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || error.message);
+    }
+  };
+
+  const deleteSubscriberDocument = async (subscriberId: string, docId: string): Promise<void> => {
+    try {
+      await subscriberDocumentApi.delete(subscriberId, docId);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || error.message);
+    }
+  };
+
   const validatePaymentIntegrity = async (): Promise<PaymentValidationReport> => {
     try {
       const result = await paymentApi.validateIntegrity();
@@ -436,7 +485,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deletePayment,
       markPaymentAsUnpaid,
       terminateRental,
-      validatePaymentIntegrity
+      validatePaymentIntegrity,
+      getSubscriberDocuments,
+      addSubscriberDocument,
+      deleteSubscriberDocument
     }}>
       {children}
     </AppContext.Provider>

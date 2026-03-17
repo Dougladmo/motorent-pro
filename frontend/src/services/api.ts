@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Motorcycle, Subscriber, Rental, Payment } from '../shared';
+import { SubscriberDocument } from '../shared/types/subscriber';
 import { supabase } from '../lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -101,6 +102,43 @@ export const subscriberApi = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/subscribers/${id}`);
+  },
+};
+
+// ============================================
+// SUBSCRIBER DOCUMENTS
+// ============================================
+
+const transformDocument = (data: any): SubscriberDocument => ({
+  id: data.id,
+  subscriberId: data.subscriber_id,
+  fileName: data.file_name,
+  fileUrl: data.file_url,
+  fileType: data.file_type,
+  description: data.description ?? undefined,
+  createdAt: data.created_at
+});
+
+export const subscriberDocumentApi = {
+  getDocuments: async (subscriberId: string): Promise<SubscriberDocument[]> => {
+    const { data } = await api.get(`/subscribers/${subscriberId}/documents`);
+    return (data.data as any[]).map(transformDocument);
+  },
+
+  upload: async (subscriberId: string, formData: FormData): Promise<SubscriberDocument> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const { data } = await api.post(`/subscribers/${subscriberId}/documents`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    });
+    return transformDocument(data.data);
+  },
+
+  delete: async (subscriberId: string, docId: string): Promise<void> => {
+    await api.delete(`/subscribers/${subscriberId}/documents/${docId}`);
   },
 };
 

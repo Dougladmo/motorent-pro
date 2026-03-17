@@ -1,6 +1,8 @@
 import { SubscriberRepository } from '../repositories/subscriberRepository';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { PaymentRepository } from '../repositories/paymentRepository';
+import { SubscriberDocumentRepository } from '../repositories/subscriberDocumentRepository';
+import { UploadService } from './uploadService';
 import { Database } from '../models/database.types';
 
 type Subscriber = Database['public']['Tables']['subscribers']['Row'];
@@ -10,6 +12,8 @@ type SubscriberUpdate = Database['public']['Tables']['subscribers']['Update'];
 export class SubscriberService {
   private rentalRepo = new RentalRepository();
   private paymentRepo = new PaymentRepository();
+  private documentRepo = new SubscriberDocumentRepository();
+  private uploadService = new UploadService();
 
   constructor(private subscriberRepo: SubscriberRepository) {}
 
@@ -60,7 +64,12 @@ export class SubscriberService {
       throw new Error('Assinante não encontrado');
     }
 
-    // Deleção em cascata: pagamentos → aluguéis → assinante
+    // Deleção em cascata: documentos do storage → pagamentos → aluguéis → assinante
+    const documents = await this.documentRepo.findBySubscriberId(id);
+    for (const doc of documents) {
+      await this.uploadService.deleteSubscriberDocument(doc.file_url);
+    }
+
     const rentals = await this.rentalRepo.findBySubscriberId(id);
     for (const rental of rentals) {
       await this.paymentRepo.deleteByRentalId(rental.id);
