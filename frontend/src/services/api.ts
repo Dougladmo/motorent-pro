@@ -31,7 +31,26 @@ api.interceptors.request.use(
 api.interceptors.response.use(undefined, (error) => {
   if (error.response?.status === 401) {
     window.location.href = '/login';
+    return Promise.reject(new Error('Sessão expirada. Faça login novamente.'));
   }
+
+  // Extrai a mensagem de erro do backend para o frontend exibir diretamente
+  const backendMessage = error.response?.data?.error;
+  if (backendMessage) {
+    return Promise.reject(new Error(backendMessage));
+  }
+
+  // Fallbacks por status HTTP
+  const status = error.response?.status;
+  if (status === 400) return Promise.reject(new Error('Dados inválidos. Verifique as informações e tente novamente.'));
+  if (status === 403) return Promise.reject(new Error('Você não tem permissão para realizar esta ação.'));
+  if (status === 404) return Promise.reject(new Error('Registro não encontrado.'));
+  if (status === 409) return Promise.reject(new Error('Conflito: registro já existe.'));
+  if (status === 422) return Promise.reject(new Error('Dados inválidos. Verifique os campos obrigatórios.'));
+  if (status === 500) return Promise.reject(new Error('Erro interno do servidor. Tente novamente em instantes.'));
+  if (status === 503) return Promise.reject(new Error('Serviço temporariamente indisponível. Tente novamente em instantes.'));
+  if (!error.response) return Promise.reject(new Error('Sem conexão com o servidor. Verifique sua internet e tente novamente.'));
+
   return Promise.reject(error);
 });
 

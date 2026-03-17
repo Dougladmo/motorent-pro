@@ -740,9 +740,8 @@ export const Subscribers: React.FC = () => {
         setView('LIST');
         setSubForm(emptySubForm());
       }
-    } catch (error) {
-      console.error('Erro ao salvar assinante:', error);
-      setAlertDialog({ message: 'Erro ao salvar assinante. Tente novamente.', variant: 'error' });
+    } catch (error: any) {
+      setAlertDialog({ message: error.message ?? 'Erro ao salvar assinante. Tente novamente.', variant: 'error' });
     }
   };
 
@@ -838,9 +837,8 @@ export const Subscribers: React.FC = () => {
       await createRental({ ...rentalData, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], isActive: true, outstandingBalance: 0, totalContractValue: 0, totalPaid: 0 });
       setView('LIST');
       setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1, contractDurationMonths: 12 });
-    } catch (error) {
-      console.error('Erro ao criar aluguel:', error);
-      setAlertDialog({ message: 'Erro ao criar aluguel. Tente novamente.', variant: 'error' });
+    } catch (error: any) {
+      setAlertDialog({ message: error.message ?? 'Erro ao criar aluguel. Tente novamente.', variant: 'error' });
     }
   };
 

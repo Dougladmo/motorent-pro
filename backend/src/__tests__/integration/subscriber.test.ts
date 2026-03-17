@@ -5,6 +5,16 @@ jest.mock('../../config/supabase', () => ({
   }
 }));
 
+jest.mock('../../services/uploadService', () => ({
+  UploadService: jest.fn().mockImplementation(() => ({
+    uploadMotorcycleImage: jest.fn().mockResolvedValue('http://mock-url/image.jpg'),
+    deleteMotorcycleImage: jest.fn().mockResolvedValue(undefined),
+    uploadSubscriberDocument: jest.fn().mockResolvedValue('http://mock-url/doc.pdf'),
+    deleteSubscriberDocument: jest.fn().mockResolvedValue(undefined),
+    uploadQrCodeToStorage: jest.fn().mockResolvedValue('http://mock-url/qr.png'),
+  }))
+}));
+
 import { SubscriberRepository } from '../../repositories/subscriberRepository';
 import { SubscriberService } from '../../services/subscriberService';
 import { getDb, resetDb } from '../helpers/sqlite-client';

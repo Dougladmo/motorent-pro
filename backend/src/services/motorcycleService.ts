@@ -26,12 +26,12 @@ export class MotorcycleService {
   }
 
   async createMotorcycle(data: MotorcycleInsert): Promise<Motorcycle> {
-    // Validar se placa já existe
-    if (data.plate) {
-      const existing = await this.motorcycleRepo.findByPlate(data.plate);
-      if (existing) {
-        throw new Error(`Já existe uma moto com a placa ${data.plate}`);
-      }
+    if (!data.plate) throw new Error('Placa da moto é obrigatória.');
+    if (!data.model) throw new Error('Modelo da moto é obrigatório.');
+
+    const existing = await this.motorcycleRepo.findByPlate(data.plate);
+    if (existing) {
+      throw new Error(`Placa "${data.plate}" já está cadastrada para outra moto (${existing.model}).`);
     }
 
     return this.motorcycleRepo.create(data);
@@ -40,14 +40,13 @@ export class MotorcycleService {
   async updateMotorcycle(id: string, updates: MotorcycleUpdate): Promise<Motorcycle> {
     const motorcycle = await this.motorcycleRepo.findById(id);
     if (!motorcycle) {
-      throw new Error('Moto não encontrada');
+      throw new Error('Moto não encontrada.');
     }
 
-    // Validar se nova placa já está em uso
     if (updates.plate && updates.plate !== motorcycle.plate) {
       const existing = await this.motorcycleRepo.findByPlate(updates.plate);
       if (existing) {
-        throw new Error(`Já existe uma moto com a placa ${updates.plate}`);
+        throw new Error(`Placa "${updates.plate}" já está cadastrada para outra moto (${existing.model}).`);
       }
     }
 
@@ -57,7 +56,7 @@ export class MotorcycleService {
   async deleteMotorcycle(id: string): Promise<void> {
     const motorcycle = await this.motorcycleRepo.findById(id);
     if (!motorcycle) {
-      throw new Error('Moto não encontrada');
+      throw new Error('Moto não encontrada.');
     }
 
     // Deleção em cascata: pagamentos → aluguéis → moto

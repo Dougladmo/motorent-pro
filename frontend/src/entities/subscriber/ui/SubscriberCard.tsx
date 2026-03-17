@@ -124,7 +124,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
           className="mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors text-sm flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {isLoadingEdit ? <Loader2 size={14} className="animate-spin" /> : <Edit2 size={14} />}
-          {isLoadingEdit ? 'Carregando...' : 'Editar Dados'}
+          {isLoadingEdit ? 'Carregando...' : 'Ver Dados'}
         </button>
 
         <div className="mt-4 pt-4 border-t border-slate-50">

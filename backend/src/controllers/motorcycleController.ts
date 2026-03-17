@@ -82,14 +82,23 @@ export class MotorcycleController {
         return;
       }
 
-      // Validar dados da moto
       const { plate, model, year, status } = req.body;
 
-      if (!plate || !model || !year) {
-        res.status(400).json({
-          success: false,
-          error: 'Dados obrigatórios faltando: plate, model, year'
-        });
+      if (!plate) {
+        res.status(400).json({ success: false, error: 'Placa da moto é obrigatória.' });
+        return;
+      }
+      if (!model) {
+        res.status(400).json({ success: false, error: 'Modelo da moto é obrigatório.' });
+        return;
+      }
+      if (!year) {
+        res.status(400).json({ success: false, error: 'Ano da moto é obrigatório.' });
+        return;
+      }
+      const parsedYear = parseInt(year);
+      if (isNaN(parsedYear) || parsedYear < 1900 || parsedYear > new Date().getFullYear() + 1) {
+        res.status(400).json({ success: false, error: `Ano "${year}" é inválido.` });
         return;
       }
 
@@ -104,7 +113,7 @@ export class MotorcycleController {
       const motorcycleData = {
         plate,
         model,
-        year: parseInt(year),
+        year: parsedYear,
         status: status || 'Disponível',
         image_url: imageUrl
       };

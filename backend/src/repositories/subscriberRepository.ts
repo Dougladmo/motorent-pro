@@ -40,6 +40,28 @@ export class SubscriberRepository {
     return data;
   }
 
+  async findByEmail(email: string): Promise<Subscriber | null> {
+    const { data, error } = await this.supabase
+      .from('subscribers')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  async findByPhone(phone: string): Promise<Subscriber | null> {
+    const { data, error } = await this.supabase
+      .from('subscribers')
+      .select('*')
+      .eq('phone', phone)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
   async findActive(): Promise<Subscriber[]> {
     const { data, error } = await this.supabase
       .from('subscribers')

@@ -30,11 +30,24 @@ export class SubscriberService {
   }
 
   async createSubscriber(data: SubscriberInsert): Promise<Subscriber> {
-    // Validar se CPF/CNPJ já existe
     if (data.document) {
       const existing = await this.subscriberRepo.findByDocument(data.document);
       if (existing) {
-        throw new Error(`Já existe um assinante com o documento ${data.document}`);
+        throw new Error(`CPF ${data.document} já está cadastrado para outro assinante.`);
+      }
+    }
+
+    if (data.phone) {
+      const existing = await this.subscriberRepo.findByPhone(data.phone);
+      if (existing) {
+        throw new Error(`O número de WhatsApp informado já está cadastrado para "${existing.name}".`);
+      }
+    }
+
+    if (data.email) {
+      const existing = await this.subscriberRepo.findByEmail(data.email);
+      if (existing) {
+        throw new Error(`O e-mail "${data.email}" já está cadastrado para "${existing.name}".`);
       }
     }
 
@@ -44,14 +57,27 @@ export class SubscriberService {
   async updateSubscriber(id: string, updates: SubscriberUpdate): Promise<Subscriber> {
     const subscriber = await this.subscriberRepo.findById(id);
     if (!subscriber) {
-      throw new Error('Assinante não encontrado');
+      throw new Error('Assinante não encontrado.');
     }
 
-    // Validar se novo documento já está em uso
     if (updates.document && updates.document !== subscriber.document) {
       const existing = await this.subscriberRepo.findByDocument(updates.document);
       if (existing) {
-        throw new Error(`Já existe um assinante com o documento ${updates.document}`);
+        throw new Error(`CPF ${updates.document} já está cadastrado para "${existing.name}".`);
+      }
+    }
+
+    if (updates.phone && updates.phone !== subscriber.phone) {
+      const existing = await this.subscriberRepo.findByPhone(updates.phone);
+      if (existing) {
+        throw new Error(`O número de WhatsApp informado já está cadastrado para "${existing.name}".`);
+      }
+    }
+
+    if (updates.email && updates.email !== subscriber.email) {
+      const existing = await this.subscriberRepo.findByEmail(updates.email);
+      if (existing) {
+        throw new Error(`O e-mail "${updates.email}" já está cadastrado para "${existing.name}".`);
       }
     }
 

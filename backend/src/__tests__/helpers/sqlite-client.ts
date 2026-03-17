@@ -94,6 +94,17 @@ function initSchema(database: Database.Database): void {
       subscriber_name TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS subscriber_documents (
+      id TEXT PRIMARY KEY,
+      subscriber_id TEXT NOT NULL,
+      file_url TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      document_type TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 }
 
@@ -109,6 +120,7 @@ export function resetDb(): void {
   const database = getDb();
   database.exec(`
     DELETE FROM motorcycle_revenue;
+    DELETE FROM subscriber_documents;
     DELETE FROM payments;
     DELETE FROM rentals;
     DELETE FROM subscribers;
