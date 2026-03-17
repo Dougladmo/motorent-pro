@@ -90,10 +90,11 @@ export class SubscriberService {
       throw new Error('Assinante não encontrado');
     }
 
-    // Deleção em cascata: documentos do storage → pagamentos → aluguéis → assinante
+    // Deleção em cascata: documentos do storage e DB → pagamentos → aluguéis → assinante
     const documents = await this.documentRepo.findBySubscriberId(id);
     for (const doc of documents) {
       await this.uploadService.deleteSubscriberDocument(doc.file_url);
+      await this.documentRepo.delete(doc.id);
     }
 
     const rentals = await this.rentalRepo.findBySubscriberId(id);

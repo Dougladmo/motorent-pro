@@ -84,6 +84,26 @@ describe('MotorcycleService', () => {
         })
       ).rejects.toThrow('ABC1D23');
     });
+
+    it('throws when plate is not provided', async () => {
+      await expect(
+        service.createMotorcycle({
+          plate: '',
+          model: 'Honda Pop 110',
+          year: 2023
+        })
+      ).rejects.toThrow('obrigatória');
+    });
+
+    it('throws when model is not provided', async () => {
+      await expect(
+        service.createMotorcycle({
+          plate: 'ZZZ9Z99',
+          model: '',
+          year: 2023
+        })
+      ).rejects.toThrow('obrigatório');
+    });
   });
 
   describe('updateMotorcycle', () => {
@@ -108,6 +128,15 @@ describe('MotorcycleService', () => {
         service.updateMotorcycle(seedData.moto1Id, { plate: 'XYZ9E87' })
       ).rejects.toThrow('XYZ9E87');
     });
+
+    it('does not throw when updating with own plate', async () => {
+      const updated = await service.updateMotorcycle(seedData.moto1Id, {
+        plate: 'ABC1D23',
+        model: 'Honda CG 160 Atualizada'
+      });
+      expect(updated.plate).toBe('ABC1D23');
+      expect(updated.model).toBe('Honda CG 160 Atualizada');
+    });
   });
 
   describe('deleteMotorcycle', () => {
@@ -131,6 +160,17 @@ describe('MotorcycleService', () => {
 
     it('throws when motorcycle does not exist', async () => {
       await expect(service.deleteMotorcycle('non-existent-id')).rejects.toThrow('não encontrada');
+    });
+
+    it('does not delete subscribers when cascading', async () => {
+      // moto2 has rental1 linked to sub1; after deleting moto2, both sub1 and sub2 must still exist
+      await service.deleteMotorcycle(seedData.moto2Id);
+
+      const db = getDb();
+      const subs = db.prepare('SELECT id FROM subscribers').all() as { id: string }[];
+      const subIds = subs.map(s => s.id);
+      expect(subIds).toContain(seedData.sub1Id);
+      expect(subIds).toContain(seedData.sub2Id);
     });
   });
 });
