@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Motorcycle, Subscriber, Rental, Payment } from '../shared';
+import { SubscriberDocument } from '../shared/types/subscriber';
 import { supabase } from '../lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -30,7 +31,26 @@ api.interceptors.request.use(
 api.interceptors.response.use(undefined, (error) => {
   if (error.response?.status === 401) {
     window.location.href = '/login';
+    return Promise.reject(new Error('Sessão expirada. Faça login novamente.'));
   }
+
+  // Extrai a mensagem de erro do backend para o frontend exibir diretamente
+  const backendMessage = error.response?.data?.error;
+  if (backendMessage) {
+    return Promise.reject(new Error(backendMessage));
+  }
+
+  // Fallbacks por status HTTP
+  const status = error.response?.status;
+  if (status === 400) return Promise.reject(new Error('Dados inválidos. Verifique as informações e tente novamente.'));
+  if (status === 403) return Promise.reject(new Error('Você não tem permissão para realizar esta ação.'));
+  if (status === 404) return Promise.reject(new Error('Registro não encontrado.'));
+  if (status === 409) return Promise.reject(new Error('Conflito: registro já existe.'));
+  if (status === 422) return Promise.reject(new Error('Dados inválidos. Verifique os campos obrigatórios.'));
+  if (status === 500) return Promise.reject(new Error('Erro interno do servidor. Tente novamente em instantes.'));
+  if (status === 503) return Promise.reject(new Error('Serviço temporariamente indisponível. Tente novamente em instantes.'));
+  if (!error.response) return Promise.reject(new Error('Sem conexão com o servidor. Verifique sua internet e tente novamente.'));
+
   return Promise.reject(error);
 });
 
@@ -101,6 +121,48 @@ export const subscriberApi = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/subscribers/${id}`);
+  },
+};
+
+// ============================================
+// SUBSCRIBER DOCUMENTS
+// ============================================
+
+const transformDocument = (data: any): SubscriberDocument => ({
+  id: data.id,
+  subscriberId: data.subscriber_id,
+  fileName: data.file_name,
+  fileUrl: data.file_url,
+  fileType: data.file_type,
+  description: data.description ?? undefined,
+  createdAt: data.created_at
+});
+
+export const subscriberDocumentApi = {
+  getDocuments: async (subscriberId: string): Promise<SubscriberDocument[]> => {
+    const { data } = await api.get(`/subscribers/${subscriberId}/documents`);
+    return (data.data as any[]).map(transformDocument);
+  },
+
+  upload: async (subscriberId: string, formData: FormData): Promise<SubscriberDocument> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const { data } = await api.post(`/subscribers/${subscriberId}/documents`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    });
+    return transformDocument(data.data);
+  },
+
+  delete: async (subscriberId: string, docId: string): Promise<void> => {
+    await api.delete(`/subscribers/${subscriberId}/documents/${docId}`);
+  },
+
+  getSignedUrl: async (subscriberId: string, docId: string): Promise<string> => {
+    const { data } = await api.get(`/subscribers/${subscriberId}/documents/${docId}/signed-url`);
+    return data.data.signedUrl as string;
   },
 };
 

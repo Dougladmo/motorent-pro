@@ -161,20 +161,113 @@ describe('PaymentService', () => {
       const moto = db.prepare('SELECT * FROM motorcycles WHERE id = ?').get(seedData.moto2Id) as { total_revenue: number };
       expect(moto.total_revenue).toBe(300);
     });
+
+    it('updates total_paid of rental on full payment', async () => {
+      const db = getDb();
+      const rentalBefore = db.prepare('SELECT total_paid FROM rentals WHERE id = ?').get(seedData.rental1Id) as { total_paid: number };
+      expect(rentalBefore.total_paid).toBe(0);
+
+      await service.markAsPaid(seedData.payment2Id);
+
+      const rentalAfter = db.prepare('SELECT total_paid FROM rentals WHERE id = ?').get(seedData.rental1Id) as { total_paid: number };
+      expect(rentalAfter.total_paid).toBe(300);
+    });
+
+    it('recalculates outstanding_balance to 0 when all payments are paid', async () => {
+      // seed: payment1=Pago, payment2=Pendente (300). Paying payment2 leaves no Pendente/Atrasado.
+      await service.markAsPaid(seedData.payment2Id);
+
+      const db = getDb();
+      const rental = db.prepare('SELECT outstanding_balance FROM rentals WHERE id = ?').get(seedData.rental1Id) as { outstanding_balance: number };
+      expect(rental.outstanding_balance).toBe(0);
+    });
+  });
+
+  describe('deletePayment', () => {
+    it('deletes an existing payment successfully', async () => {
+      await service.deletePayment(seedData.payment2Id);
+
+      const payment = await service.getPaymentById(seedData.payment2Id);
+      expect(payment).toBeNull();
+    });
+
+    it('throws when payment does not exist', async () => {
+      await expect(service.deletePayment('non-existent-id')).rejects.toThrow('não encontrado');
+    });
+  });
+
+  describe('updatePayment', () => {
+    it('updates amount and due_date correctly', async () => {
+      const updated = await service.updatePayment(seedData.payment2Id, {
+        amount: 350,
+        due_date: '2026-07-01'
+      });
+
+      expect(updated.amount).toBe(350);
+      expect(updated.due_date).toBe('2026-07-01');
+    });
+
+    it('throws when payment does not exist', async () => {
+      await expect(
+        service.updatePayment('non-existent-id', { amount: 100 })
+      ).rejects.toThrow('não encontrado');
+    });
   });
 
   describe('markAsUnpaid', () => {
-    it('reverts paid payment status based on due_date', async () => {
-      // payment1 is Pago with due_date 2026-01-01 which is in the past relative to today 2026-03-08
+    it('reverts paid payment to previous_status when previous_status is set and not Pago', async () => {
+      // payment1 has previous_status='Pendente' in seed; service returns previous_status when it's not 'Pago'
       const updated = await service.markAsUnpaid(seedData.payment1Id);
-
-      // Due date 2026-01-01 is before today (2026-03-08), so should be Atrasado
-      expect(['Atrasado', 'Pendente']).toContain(updated.status);
+      expect(updated.status).toBe('Pendente');
     });
 
     it('throws when payment is not in Pago status', async () => {
       // payment2 is Pendente
       await expect(service.markAsUnpaid(seedData.payment2Id)).rejects.toThrow('Apenas pagamentos "Pago"');
+    });
+
+    it('decrements total_paid of rental', async () => {
+      // First mark payment2 as paid so rental has total_paid > 0
+      await service.markAsPaid(seedData.payment2Id);
+
+      const db = getDb();
+      const rentalAfterPay = db.prepare('SELECT total_paid FROM rentals WHERE id = ?').get(seedData.rental1Id) as { total_paid: number };
+      expect(rentalAfterPay.total_paid).toBeGreaterThan(0);
+
+      // Now mark payment2 as unpaid
+      await service.markAsUnpaid(seedData.payment2Id);
+
+      const rentalAfterUnpay = db.prepare('SELECT total_paid FROM rentals WHERE id = ?').get(seedData.rental1Id) as { total_paid: number };
+      expect(rentalAfterUnpay.total_paid).toBe(0);
+    });
+
+    it('decrements total_revenue of motorcycle', async () => {
+      // First mark payment2 as paid so motorcycle has revenue
+      await service.markAsPaid(seedData.payment2Id);
+
+      const db = getDb();
+      const motoAfterPay = db.prepare('SELECT total_revenue FROM motorcycles WHERE id = ?').get(seedData.moto2Id) as { total_revenue: number };
+      expect(motoAfterPay.total_revenue).toBeGreaterThan(0);
+
+      // Now revert payment1 (Pago) to test that motorcycle revenue is decremented
+      await service.markAsUnpaid(seedData.payment1Id);
+
+      const motoAfterUnpay = db.prepare('SELECT total_revenue FROM motorcycles WHERE id = ?').get(seedData.moto2Id) as { total_revenue: number };
+      // payment1 had amount 300, so after decrement from the markAsPaid(payment2) revenue, it should decrease
+      expect(motoAfterUnpay.total_revenue).toBeLessThan(motoAfterPay.total_revenue);
+    });
+
+    it('recalculates outstanding_balance to include the reverted payment amount', async () => {
+      // First: mark payment2 as paid so outstanding_balance = 0
+      await service.markAsPaid(seedData.payment2Id);
+      const db = getDb();
+      const rentalAfterPay = db.prepare('SELECT outstanding_balance FROM rentals WHERE id = ?').get(seedData.rental1Id) as { outstanding_balance: number };
+      expect(rentalAfterPay.outstanding_balance).toBe(0);
+
+      // Now: revert payment2 → outstanding_balance should be 300 again
+      await service.markAsUnpaid(seedData.payment2Id);
+      const rentalAfterUnpay = db.prepare('SELECT outstanding_balance FROM rentals WHERE id = ?').get(seedData.rental1Id) as { outstanding_balance: number };
+      expect(rentalAfterUnpay.outstanding_balance).toBe(300);
     });
   });
 

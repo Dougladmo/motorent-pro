@@ -4,13 +4,21 @@ import { randomUUID } from 'crypto';
 export class UploadService {
   private motorcycleStorage;
   private qrStorage;
+  private subscriberDocumentStorage;
   private bucketName = 'motorcycle-images';
+  private documentBucketName = 'subscriber-documents';
 
   // Tipos de imagem permitidos
   private allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
+  // Tipos permitidos para documentos (imagens + PDF)
+  private allowedDocumentMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+
   // Tamanho máximo: 5MB
   private maxFileSize = 5 * 1024 * 1024;
+
+  // Tamanho máximo para documentos: 10MB
+  private maxDocumentFileSize = 10 * 1024 * 1024;
 
   constructor() {
     this.motorcycleStorage = createStorage({
@@ -27,6 +35,15 @@ export class UploadService {
       bucket: 'qr-codes',
       url: process.env.SUPABASE_URL!,
       serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      publicBucket: true
+    });
+
+    this.subscriberDocumentStorage = createStorage({
+      provider: 'supabase',
+      bucket: 'subscriber-documents',
+      url: process.env.SUPABASE_URL!,
+      serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      keyPrefix: 'documents',
       publicBucket: true
     });
   }
@@ -126,6 +143,103 @@ export class UploadService {
     };
 
     return extensionMap[mimeType] || '.jpg';
+  }
+
+  /**
+   * Faz upload de documento do assinante para o Supabase Storage
+   * @param file Buffer do arquivo
+   * @param mimeType Tipo MIME do arquivo
+   * @param originalName Nome original do arquivo
+   * @returns URL pública do documento
+   */
+  async uploadSubscriberDocument(
+    file: Buffer,
+    mimeType: string,
+    originalName: string
+  ): Promise<string> {
+    if (!this.allowedDocumentMimeTypes.includes(mimeType)) {
+      throw new Error(
+        `Tipo de arquivo não permitido. Use: imagens (JPEG, PNG, WEBP) ou PDF`
+      );
+    }
+
+    if (file.length > this.maxDocumentFileSize) {
+      throw new Error(
+        `Arquivo muito grande. Tamanho máximo: ${this.maxDocumentFileSize / 1024 / 1024}MB`
+      );
+    }
+
+    const fileExtension = this.getDocumentFileExtension(originalName, mimeType);
+    const filename = `${randomUUID()}${fileExtension}`;
+
+    try {
+      const result = await this.subscriberDocumentStorage.upload(file, { filename });
+      return result.url;
+    } catch (error: any) {
+      console.error('[UploadService] Erro inesperado no upload de documento:', error);
+      throw new Error(`Erro ao processar upload: ${error.message}`);
+    }
+  }
+
+  /**
+   * Deleta documento do assinante do Supabase Storage
+   * @param fileUrl URL do arquivo a ser deletado
+   */
+  async deleteSubscriberDocument(fileUrl: string): Promise<void> {
+    try {
+      const urlObj = new URL(fileUrl);
+      const pathParts = urlObj.pathname.split('/');
+      const bucketIndex = pathParts.indexOf(this.documentBucketName);
+      if (bucketIndex === -1) return;
+      const key = pathParts.slice(bucketIndex + 1).join('/');
+      await this.subscriberDocumentStorage.delete(key);
+    } catch (error: any) {
+      console.error('[UploadService] Erro ao deletar documento:', error);
+      console.warn('Documento não foi deletado do storage, mas operação continua');
+    }
+  }
+
+  /**
+   * Determina extensão do arquivo para documentos (imagens + PDF)
+   */
+  private getDocumentFileExtension(originalName: string, mimeType: string): string {
+    const nameParts = originalName.split('.');
+    if (nameParts.length > 1) {
+      return `.${nameParts[nameParts.length - 1].toLowerCase()}`;
+    }
+
+    const extensionMap: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'application/pdf': '.pdf'
+    };
+
+    return extensionMap[mimeType] || '.bin';
+  }
+
+  /**
+   * Gera URL assinada para acesso a documento privado do assinante
+   * @param fileUrl URL armazenada no banco (pública ou com path)
+   * @param expiresIn Segundos de validade (padrão: 3600)
+   * @returns URL assinada temporária
+   */
+  async getSubscriberDocumentSignedUrl(fileUrl: string, expiresIn = 3600): Promise<string> {
+    const urlObj = new URL(fileUrl);
+    const pathParts = urlObj.pathname.split('/');
+    const bucketIndex = pathParts.indexOf(this.documentBucketName);
+    if (bucketIndex === -1) throw new Error('URL de documento inválida');
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const { data, error } = await supabase.storage
+      .from(this.documentBucketName)
+      .createSignedUrl(filePath, expiresIn);
+
+    if (error || !data?.signedUrl) throw new Error(error?.message ?? 'Falha ao gerar URL assinada');
+    return data.signedUrl;
   }
 
   /**

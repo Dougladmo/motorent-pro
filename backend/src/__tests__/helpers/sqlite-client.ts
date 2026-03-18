@@ -6,7 +6,7 @@ let mockClientInstance: MockSupabaseClient | null = null;
 
 // Tables whose boolean columns must be converted between SQLite integers and JS booleans
 const BOOLEAN_FIELDS: Record<string, string[]> = {
-  subscribers: ['active'],
+  subscribers: ['active', 'is_real_driver'],
   rentals: ['is_active'],
   payments: ['is_amount_overridden']
 };
@@ -41,6 +41,26 @@ function initSchema(database: Database.Database): void {
       document TEXT NOT NULL UNIQUE,
       active INTEGER NOT NULL DEFAULT 1,
       notes TEXT,
+      birth_date TEXT,
+      address_zip TEXT,
+      address_street TEXT,
+      address_number TEXT,
+      address_complement TEXT,
+      address_neighborhood TEXT,
+      address_city TEXT,
+      address_state TEXT,
+      is_real_driver INTEGER NOT NULL DEFAULT 1,
+      real_driver_name TEXT,
+      real_driver_document TEXT,
+      real_driver_phone TEXT,
+      real_driver_relationship TEXT,
+      real_driver_address_zip TEXT,
+      real_driver_address_street TEXT,
+      real_driver_address_number TEXT,
+      real_driver_address_complement TEXT,
+      real_driver_address_neighborhood TEXT,
+      real_driver_address_city TEXT,
+      real_driver_address_state TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -94,6 +114,16 @@ function initSchema(database: Database.Database): void {
       subscriber_name TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS subscriber_documents (
+      id TEXT PRIMARY KEY,
+      subscriber_id TEXT NOT NULL,
+      file_url TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_type TEXT NOT NULL DEFAULT 'other',
+      description TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
 }
 
@@ -109,6 +139,7 @@ export function resetDb(): void {
   const database = getDb();
   database.exec(`
     DELETE FROM motorcycle_revenue;
+    DELETE FROM subscriber_documents;
     DELETE FROM payments;
     DELETE FROM rentals;
     DELETE FROM subscribers;
@@ -303,7 +334,8 @@ class SupabaseQueryBuilder {
         if (!item.created_at) {
           item.created_at = now;
         }
-        if (this.table !== 'motorcycle_revenue' && !item.updated_at) {
+        const tablesWithoutUpdatedAt = ['motorcycle_revenue', 'subscriber_documents'];
+        if (!tablesWithoutUpdatedAt.includes(this.table) && !item.updated_at) {
           item.updated_at = now;
         }
 
@@ -346,7 +378,10 @@ class SupabaseQueryBuilder {
   private executeUpdate(): QueryResult {
     try {
       const now = new Date().toISOString();
-      const updates = { ...(this.updateData || {}), updated_at: now };
+      const tablesWithoutUpdatedAt = ['motorcycle_revenue', 'subscriber_documents'];
+      const updates = tablesWithoutUpdatedAt.includes(this.table)
+        ? { ...(this.updateData || {}) }
+        : { ...(this.updateData || {}), updated_at: now };
       const prepared = prepareBooleans(this.table, updates);
 
       const { clause, values: whereValues } = this.buildWhere();

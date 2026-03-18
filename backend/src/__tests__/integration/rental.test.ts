@@ -100,6 +100,33 @@ describe('RentalService', () => {
       );
     });
 
+    it('sets total_contract_value to 0 when no end_date is provided', async () => {
+      const rental = await service.createRental({
+        motorcycle_id: seedData.moto1Id,
+        subscriber_id: seedData.sub2Id,
+        start_date: '2026-03-01',
+        weekly_value: 250,
+        due_day_of_week: 3
+        // no end_date
+      });
+
+      expect(rental.total_contract_value).toBe(0);
+    });
+
+    it('sets total_contract_value correctly when end_date is provided', async () => {
+      // 4 weeks = 4 * 250 = 1000
+      const rental = await service.createRental({
+        motorcycle_id: seedData.moto1Id,
+        subscriber_id: seedData.sub2Id,
+        start_date: '2026-03-01',
+        end_date: '2026-03-29',
+        weekly_value: 250,
+        due_day_of_week: 3
+      });
+
+      expect(rental.total_contract_value).toBe(1000);
+    });
+
     it('throws when motorcycle does not exist', async () => {
       await expect(
         service.createRental({

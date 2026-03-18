@@ -9,6 +9,7 @@ export interface SeedData {
   rental1Id: string;
   payment1Id: string;
   payment2Id: string;
+  doc1Id: string;
 }
 
 function generateUUID(): string {
@@ -31,6 +32,7 @@ export function seedDb(db: Database.Database): SeedData {
   const rental1Id = generateUUID();
   const payment1Id = generateUUID();
   const payment2Id = generateUUID();
+  const doc1Id = generateUUID();
 
   // Insert motorcycles
   const insertMoto = db.prepare(`
@@ -42,14 +44,14 @@ export function seedDb(db: Database.Database): SeedData {
   insertMoto.run(moto2Id, 'XYZ9E87', 'Yamaha Factor 150', 2021, 'Alugada', null, 0, now, now);
   insertMoto.run(moto3Id, 'QQQ3F33', 'Honda Biz 125', 2020, 'Disponível', null, 0, now, now);
 
-  // Insert subscribers (active stored as 1/0)
+  // Insert subscribers (active and is_real_driver stored as 1/0)
   const insertSub = db.prepare(`
-    INSERT INTO subscribers (id, name, phone, email, document, active, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO subscribers (id, name, phone, email, document, active, notes, is_real_driver, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertSub.run(sub1Id, 'João Silva', '11999990001', 'joao@test.com', '11111111111', 1, null, now, now);
-  insertSub.run(sub2Id, 'Maria Souza', '11999990002', 'maria@test.com', '22222222222', 1, null, now, now);
+  insertSub.run(sub1Id, 'João Silva', '11999990001', 'joao@test.com', '11111111111', 1, null, 1, now, now);
+  insertSub.run(sub2Id, 'Maria Souza', '11999990002', 'maria@test.com', '22222222222', 1, null, 1, now, now);
 
   // Insert rental (is_active stored as 1)
   db.prepare(`
@@ -67,6 +69,12 @@ export function seedDb(db: Database.Database): SeedData {
   // payment2 uses a future date so terminateRental can cancel it
   insertPayment.run(payment2Id, rental1Id, 'João Silva', 300, 300, '2026-06-01', 'Pendente', null, null, null, 0, 0, null, null, null, null, now, now);
 
+  // Insert a document linked to sub1 for cascade/document tests
+  db.prepare(`
+    INSERT INTO subscriber_documents (id, subscriber_id, file_url, file_name, file_type, description, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(doc1Id, sub1Id, 'http://storage/doc1.pdf', 'contrato.pdf', 'contract', 'Contrato inicial', now);
+
   return {
     moto1Id,
     moto2Id,
@@ -75,6 +83,7 @@ export function seedDb(db: Database.Database): SeedData {
     sub2Id,
     rental1Id,
     payment1Id,
-    payment2Id
+    payment2Id,
+    doc1Id
   };
 }
