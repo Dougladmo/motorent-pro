@@ -156,6 +156,7 @@ export interface Database {
           abacate_pix_id: string | null;
           pix_br_code: string | null;
           pix_expires_at: string | null;
+          pix_qr_code_url: string | null;
           pix_payment_url: string | null;
           created_at: string;
           updated_at: string;
@@ -176,6 +177,7 @@ export interface Database {
           abacate_pix_id?: string | null;
           pix_br_code?: string | null;
           pix_expires_at?: string | null;
+          pix_qr_code_url?: string | null;
           pix_payment_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -196,6 +198,7 @@ export interface Database {
           abacate_pix_id?: string | null;
           pix_br_code?: string | null;
           pix_expires_at?: string | null;
+          pix_qr_code_url?: string | null;
           pix_payment_url?: string | null;
           created_at?: string;
           updated_at?: string;

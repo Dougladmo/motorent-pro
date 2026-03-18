@@ -176,6 +176,18 @@ export class PaymentRepository {
     return data || [];
   }
 
+  async findActiveWithoutQrUrl(): Promise<Payment[]> {
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .in('status', ['Pendente', 'Atrasado'])
+      .not('pix_br_code', 'is', null)
+      .is('pix_qr_code_url', null);
+
+    if (error) throw error;
+    return data || [];
+  }
+
   async findActiveByRentalId(rentalId: string): Promise<Payment[]> {
     const { data, error } = await this.supabase
       .from('payments')
