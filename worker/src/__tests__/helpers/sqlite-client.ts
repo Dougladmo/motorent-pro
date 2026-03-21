@@ -78,6 +78,7 @@ function initSchema(database: Database.Database): void {
       pix_br_code TEXT,
       pix_expires_at TEXT,
       pix_payment_url TEXT,
+      pix_qr_code_url TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -225,6 +226,14 @@ class SupabaseQueryBuilder {
 
   is(column: string, _value: null): this {
     this.isField = column;
+    return this;
+  }
+
+  not(column: string, operator: string, _value: unknown): this {
+    if (operator === 'is') {
+      // .not('col', 'is', null) → col IS NOT NULL
+      this.conditions.push(`${column} IS NOT NULL`);
+    }
     return this;
   }
 
