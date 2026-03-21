@@ -135,6 +135,17 @@ export class PaymentController {
     }
   };
 
+  sendConsolidatedReminder = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { subscriberId } = req.params as { subscriberId: string };
+      await this.service.sendConsolidatedReminder(subscriberId);
+      res.json({ success: true, message: 'Cobrança consolidada enviada com sucesso' });
+    } catch (error: any) {
+      console.error('[PaymentController] Error sending consolidated reminder:', error);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  };
+
   updatePayment = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;

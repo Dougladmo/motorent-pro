@@ -99,10 +99,10 @@ export class PaymentCronService {
   }
 
   private async migrateAccumulatedPayments(today: Date, todayStr: string): Promise<void> {
-    console.log('[CRON] STEP 0: Migrando cobranças acumuladas para registros individuais semanais...');
+    console.log('[CRON] STEP 0: Deduplicando e marcando acumulados como atrasados...');
 
     const activeRentals = await this.rentalRepo.findAllActive();
-    let migrated = 0;
+    let updated = 0;
 
     for (const rental of activeRentals) {
       try {
@@ -118,7 +118,6 @@ export class PaymentCronService {
 
         for (const [, payments] of byDate) {
           if (payments.length <= 1) continue;
-          // Ordenar por id (UUID v4 não tem ordem temporal, mas é consistente)
           const [, ...duplicates] = payments.sort((a, b) => a.id.localeCompare(b.id));
           for (const dup of duplicates) {
             if (dup.abacate_pix_id) {
@@ -129,11 +128,8 @@ export class PaymentCronService {
           }
         }
 
-        // Re-fetch após deduplicação
+        // 2. Para pagamentos acumulados (amount > weekly_value), apenas garantir status correto
         const remainingPayments = await this.paymentRepo.findActiveByRentalId(rental.id);
-
-        // 2. Para cada pagamento acumulado (amount > weekly_value), dividir em semanais
-        const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
 
         for (const payment of remainingPayments) {
           if (payment.amount <= rental.weekly_value) continue;
@@ -141,56 +137,28 @@ export class PaymentCronService {
           const weeks = Math.round(payment.amount / rental.weekly_value);
           if (weeks <= 1) continue;
 
-          // Gerar datas: de (due_date - (weeks-1)*7) até due_date, a cada 7 dias
+          // Pagamento acumulado: a semana mais antiga é due_date - (weeks-1)*7
+          // Se essa data já passou, o pagamento está atrasado
           const [dy, dm, dd] = payment.due_date.split('-').map(Number);
-          const baseDueDate = new Date(dy, dm - 1, dd);
+          const earliestDate = new Date(dy, dm - 1, dd);
+          earliestDate.setDate(earliestDate.getDate() - (weeks - 1) * 7);
+          const earliestStr = `${earliestDate.getFullYear()}-${String(earliestDate.getMonth() + 1).padStart(2, '0')}-${String(earliestDate.getDate()).padStart(2, '0')}`;
 
-          const generatedDates: string[] = [];
-          for (let i = weeks - 1; i >= 0; i--) {
-            const d = new Date(baseDueDate);
-            d.setDate(d.getDate() - i * 7);
-            generatedDates.push(toDateStr(d));
+          if (earliestStr < todayStr && payment.status !== 'Atrasado') {
+            await this.paymentRepo.update(payment.id, { status: 'Atrasado' });
+            console.log(`[CRON] Rental ${rental.id}: pagamento acumulado ${payment.id} (R$${payment.amount}, ${weeks} sem., 1ª sem. vence ${earliestStr}) marcado como Atrasado`);
+            updated++;
           }
-
-          console.log(`[CRON] Rental ${rental.id}: dividindo R$${payment.amount} em ${weeks} semanas: [${generatedDates.join(', ')}]`);
-
-          // Cancelar PIX do pagamento acumulado
-          if (payment.abacate_pix_id) {
-            await this.abacatePayService.cancelPixQrCode(payment.abacate_pix_id);
-          }
-
-          // Deletar pagamento acumulado
-          await this.paymentRepo.delete(payment.id);
-
-          // Criar pagamentos individuais (STEP 1.5 irá gerar PIX para eles)
-          for (const dateStr of generatedDates) {
-            const exists = await this.paymentRepo.existsByRentalAndDate(rental.id, dateStr);
-            if (!exists) {
-              const status = dateStr < todayStr ? 'Atrasado' : 'Pendente';
-              await this.paymentRepo.create({
-                rental_id: rental.id,
-                subscriber_name: subscriber?.name ?? '',
-                amount: rental.weekly_value,
-                expected_amount: rental.weekly_value,
-                due_date: dateStr,
-                status,
-                reminder_sent_count: 0
-              });
-              console.log(`[CRON] Rental ${rental.id}: criado R$${rental.weekly_value} (${status}), vence ${dateStr}`);
-            }
-          }
-
-          migrated++;
         }
       } catch (err) {
-        console.error(`[CRON] Erro ao migrar rental ${rental.id}:`, err);
+        console.error(`[CRON] Erro ao processar rental ${rental.id}:`, err);
       }
     }
 
-    if (migrated === 0) {
-      console.log('[CRON] Nenhuma cobrança acumulada encontrada');
+    if (updated === 0) {
+      console.log('[CRON] Nenhum pagamento acumulado necessitou atualização');
     } else {
-      console.log(`[CRON] ${migrated} cobrança(s) acumulada(s) migrada(s) para registros individuais semanais`);
+      console.log(`[CRON] ${updated} pagamento(s) acumulado(s) atualizado(s)`);
     }
   }
 

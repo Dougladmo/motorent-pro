@@ -23,6 +23,22 @@ interface NotificationParams {
   pixPaymentUrl?: string;
 }
 
+interface ConsolidatedPaymentItem {
+  amount: number;
+  dueDate: string;
+  pixBrCode?: string;
+  pixQrCodeUrl?: string;
+  pixQrCodeBase64?: string;
+}
+
+interface ConsolidatedNotificationParams {
+  subscriberName: string;
+  subscriberPhone: string;
+  subscriberEmail?: string | null;
+  payments: ConsolidatedPaymentItem[];
+  totalOverdue: number;
+}
+
 export class NotificationService {
   private resend: Resend;
   private appName: string;
@@ -225,6 +241,179 @@ export class NotificationService {
       console.log(`[EMAIL] ✓ Enviado para ${params.subscriberEmail} | id: ${result.data?.id ?? 'n/a'}`);
     } catch (err) {
       console.error(`[EMAIL] ✗ Falha ao enviar para ${params.subscriberEmail}:`, err);
+    }
+  }
+
+  // ─── Consolidated Reminder (multiple overdue payments in one notification) ───
+
+  async sendConsolidatedReminder(params: ConsolidatedNotificationParams): Promise<void> {
+    console.log(`[NotificationService] Enviando cobrança consolidada para ${params.subscriberName} | ${params.payments.length} pagamentos | total: R$ ${params.totalOverdue.toFixed(2)}`);
+    await this.sendConsolidatedWhatsApp(params);
+    if (params.subscriberEmail) {
+      await this.sendConsolidatedEmail(params);
+    } else {
+      console.log(`[NotificationService] Assinante ${params.subscriberName} sem email, enviando apenas WPP`);
+    }
+  }
+
+  private async sendConsolidatedWhatsApp(params: ConsolidatedNotificationParams): Promise<void> {
+    const evolutionUrl = process.env.EVOLUTION_API_URL;
+    const evolutionKey = process.env.EVOLUTION_API_KEY;
+    const evolutionInstance = process.env.EVOLUTION_INSTANCE;
+    if (!evolutionUrl || !evolutionKey || !evolutionInstance) {
+      console.warn('[NotificationService] Evolution API não configurada, pulando WPP consolidado');
+      return;
+    }
+
+    const phone = params.subscriberPhone.replace(/\D/g, '');
+    const phoneE164 = phone.startsWith('55') ? phone : `55${phone}`;
+
+    const count = params.payments.length;
+    const detailLines = params.payments.map((p, i) => {
+      const { dateBr, weekDay } = formatBrDate(p.dueDate);
+      const emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'][i] || `${i + 1}.`;
+      return `${emoji} R$ ${p.amount.toFixed(2)} — Venc. ${weekDay}, ${dateBr}`;
+    }).join('\n');
+
+    const intro = [
+      `🏍️ *${this.appName}*`,
+      ``,
+      `Olá *${params.subscriberName}*! Você tem *${count} ${count === 1 ? 'pagamento atrasado' : 'pagamentos atrasados'}*.`,
+      ``,
+      `💰 *Total em atraso:* R$ ${params.totalOverdue.toFixed(2)}`,
+      ``,
+      detailLines,
+      ``,
+      `Copie os códigos PIX abaixo para pagar cada cobrança 👇`
+    ].join('\n');
+
+    // Build messages: intro + one PIX code per payment
+    const messages: Array<{ text: string; delay: number }> = [
+      { text: intro, delay: 0 }
+    ];
+
+    params.payments.forEach((p, i) => {
+      const { dateBr } = formatBrDate(p.dueDate);
+      const pixText = p.pixBrCode
+        ? `📌 *Cobrança ${i + 1} — R$ ${p.amount.toFixed(2)} (Venc. ${dateBr})*\n\n${p.pixBrCode}`
+        : `📌 *Cobrança ${i + 1} — R$ ${p.amount.toFixed(2)} (Venc. ${dateBr})*\n\nAguardando geração do PIX.`;
+      messages.push({ text: pixText, delay: 1500 });
+    });
+
+    let wppOk = 0;
+    let wppFail = 0;
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const label = `msg[${i + 1}/${messages.length}]`;
+      try {
+        const endpoint = `${evolutionUrl}/message/sendText/${evolutionInstance}`;
+        const body = { number: phoneE164, text: msg.text, delay: msg.delay };
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: evolutionKey },
+          body: JSON.stringify(body)
+        });
+
+        if (response.ok) {
+          const respJson = await response.json().catch(() => ({}));
+          console.log(`[WPP-CONSOLIDADO] ✓ ${label} enviado | key: ${(respJson as { key?: { id?: string } }).key?.id ?? 'n/a'}`);
+          wppOk++;
+        } else {
+          const respBody = await response.text();
+          console.error(`[WPP-CONSOLIDADO] ✗ ${label} falhou | status: ${response.status} | body: ${respBody}`);
+          wppFail++;
+        }
+      } catch (err) {
+        console.error(`[WPP-CONSOLIDADO] ✗ ${label} exceção:`, err);
+        wppFail++;
+      }
+    }
+
+    console.log(`[WPP-CONSOLIDADO] Concluído para ${params.subscriberName} | ✓ ${wppOk} ok | ✗ ${wppFail} falhas`);
+  }
+
+  private async sendConsolidatedEmail(params: ConsolidatedNotificationParams): Promise<void> {
+    const fromEmail = process.env.RESEND_FROM_EMAIL;
+    if (!fromEmail) {
+      console.warn('[NotificationService] RESEND_FROM_EMAIL não configurado, pulando email consolidado');
+      return;
+    }
+
+    const count = params.payments.length;
+    const subject = `${this.appName} - ${count} ${count === 1 ? 'cobrança atrasada' : 'cobranças atrasadas'} - Total R$ ${params.totalOverdue.toFixed(2)}`;
+
+    // Resolve QR code buffers for all payments
+    const qrBuffers: Array<Buffer | null> = [];
+    for (const p of params.payments) {
+      if (p.pixBrCode) {
+        const buf = await this.resolveQrCodeBuffer({
+          subscriberName: params.subscriberName,
+          subscriberPhone: params.subscriberPhone,
+          paymentAmount: p.amount,
+          paymentDueDate: p.dueDate,
+          totalDebt: params.totalOverdue,
+          pixBrCode: p.pixBrCode,
+          pixQrCodeUrl: p.pixQrCodeUrl,
+          pixQrCodeBase64: p.pixQrCodeBase64
+        });
+        qrBuffers.push(buf);
+      } else {
+        qrBuffers.push(null);
+      }
+    }
+
+    // Build payment sections HTML
+    const paymentSectionsHtml = params.payments.map((p, i) => {
+      const { dateBr, weekDay } = formatBrDate(p.dueDate);
+      const qrBuf = qrBuffers[i];
+      const qrImg = qrBuf ? `<img src="cid:qr-code-${i}" alt="QR Code PIX" style="display: block; width: 200px; height: 200px; margin: 0 auto 16px auto;" />` : '';
+      const pixCode = p.pixBrCode
+        ? `<p style="margin: 0 0 4px 0; font-size: 13px; color: #64748b;">Código PIX copia-e-cola:</p>
+           <p style="margin: 0; font-size: 13px; color: #1e293b; font-family: monospace; word-break: break-all; background: #f1f5f9; padding: 8px; border-radius: 4px;">${p.pixBrCode}</p>`
+        : '<p style="margin: 0; font-size: 13px; color: #94a3b8;">Aguardando geração do PIX.</p>';
+
+      return `
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0;">
+          <p style="margin: 0 0 12px 0; font-weight: bold; color: #1d4ed8;">Cobrança ${i + 1} — R$ ${p.amount.toFixed(2)} — Venc. ${weekDay}, ${dateBr}</p>
+          ${qrImg}
+          ${pixCode}
+        </div>`;
+    }).join('');
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1e293b;">${this.appName} — Cobranças Atrasadas</h2>
+        <p>Olá <strong>${params.subscriberName}</strong>,</p>
+        <p>Você tem <strong>${count} ${count === 1 ? 'pagamento atrasado' : 'pagamentos atrasados'}</strong>.</p>
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin: 16px 0;">
+          <p style="margin: 0; font-size: 18px; font-weight: bold; color: #dc2626;">Total em atraso: R$ ${params.totalOverdue.toFixed(2)}</p>
+        </div>
+        ${paymentSectionsHtml}
+        <p style="color: #64748b; font-size: 14px;">O pagamento será confirmado automaticamente.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="color: #94a3b8; font-size: 12px;">${this.appName}</p>
+      </div>
+    `;
+
+    // Build attachments (one CID per QR code)
+    const attachments = qrBuffers
+      .map((buf, i) => buf ? { filename: `qrcode-${i}.png`, content: buf, contentId: `qr-code-${i}`, contentType: 'image/png' as const } : null)
+      .filter((a): a is NonNullable<typeof a> => a !== null);
+
+    console.log(`[EMAIL-CONSOLIDADO] Enviando para ${params.subscriberEmail} | ${count} cobranças | ${attachments.length} QR codes`);
+
+    try {
+      const result = await this.resend.emails.send({
+        from: fromEmail,
+        to: [params.subscriberEmail!],
+        subject,
+        html,
+        attachments: attachments.length > 0 ? attachments : undefined
+      });
+      console.log(`[EMAIL-CONSOLIDADO] ✓ Enviado para ${params.subscriberEmail} | id: ${result.data?.id ?? 'n/a'}`);
+    } catch (err) {
+      console.error(`[EMAIL-CONSOLIDADO] ✗ Falha ao enviar para ${params.subscriberEmail}:`, err);
     }
   }
 }

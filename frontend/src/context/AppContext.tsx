@@ -37,6 +37,7 @@ interface AppContextType {
   updatePayment: (id: string, updates: { amount?: number; dueDate?: string }) => Promise<void>;
   markPaymentAsPaid: (id: string, verifiedAmount?: number) => Promise<void>;
   sendReminder: (paymentId: string) => Promise<string>;
+  sendConsolidatedReminder: (subscriberId: string) => Promise<void>;
   deleteMotorcycle: (id: string) => Promise<void>;
   deleteSubscriber: (id: string) => Promise<void>;
   deletePayment: (id: string) => Promise<void>;
@@ -403,6 +404,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const sendConsolidatedReminder = async (subscriberId: string): Promise<void> => {
+    try {
+      await paymentApi.sendConsolidatedReminder(subscriberId);
+    } catch (error: any) {
+      console.error('Erro ao enviar cobrança consolidada:', error);
+      throw new Error(error.response?.data?.error || error.message);
+    }
+  };
+
   const deletePayment = async (id: string) => {
     try {
       const payment = payments.find(p => p.id === id);
@@ -480,6 +490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatePayment,
       markPaymentAsPaid,
       sendReminder,
+      sendConsolidatedReminder,
       deleteMotorcycle,
       deleteSubscriber,
       deletePayment,

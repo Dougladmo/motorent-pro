@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Check, Edit2, RotateCcw, AlertCircle, Trash2, QrCode, Copy, X, Bike, ExternalLink, Info } from 'lucide-react';
+import { Check, Edit2, RotateCcw, AlertCircle, Trash2, QrCode, Copy, X, Bike, ExternalLink, Info, Send } from 'lucide-react';
 import { Payment, PaymentStatus, Motorcycle } from '../../../shared';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { formatCurrency, formatDate } from '../../../shared';
@@ -55,7 +55,7 @@ function useCooldown(paymentId: string) {
 
 interface PaymentTableRowProps {
   payment: Payment;
-  subscriberInfo: { totalDebt: number; hasOverdue: boolean };
+  subscriberInfo: { totalDebt: number; totalOverdue: number; overdueCount: number; hasOverdue: boolean; subscriberId: string };
   motorcycle?: Motorcycle;
   weeksOverdue: number;
   onSendReminder: (id: string) => Promise<void>;
@@ -63,10 +63,12 @@ interface PaymentTableRowProps {
   onEdit: (payment: Payment) => void;
   onUndo: (id: string) => void | Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onSendConsolidatedReminder?: (subscriberId: string) => Promise<void>;
   isSending: boolean;
   isMobile?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
+  isFirstOverdueForSubscriber?: boolean;
 }
 
 export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
@@ -79,10 +81,12 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
   onEdit,
   onUndo,
   onDelete,
+  onSendConsolidatedReminder,
   isSending,
   isMobile = false,
   isSelected = false,
   onToggleSelect,
+  isFirstOverdueForSubscriber = false,
 }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmMarkPaid, setConfirmMarkPaid] = useState(false);
@@ -108,10 +112,25 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     await onSendReminder(payment.id);
     lock(payment.reminderSentCount); // bloqueia com base no envio atual
   }
-  const { totalDebt, hasOverdue } = subscriberInfo;
-  const showTotalDebt = hasOverdue && payment.status !== PaymentStatus.PAID;
+  const { totalDebt, totalOverdue, overdueCount, hasOverdue, subscriberId } = subscriberInfo;
+  const showTotalDebt = hasOverdue && effectiveStatus !== PaymentStatus.PAID;
 
-  const hasPix = !!payment.pixBrCode && (payment.status === PaymentStatus.PENDING || payment.status === PaymentStatus.OVERDUE);
+  // Pagamento acumulado: amount > expectedAmount (ex: R$500 com semanal R$250 = 2 semanas)
+  const isAccumulated = payment.amount > payment.expectedAmount && !payment.isAmountOverridden;
+  const accumulatedWeeks = isAccumulated ? Math.round(payment.amount / payment.expectedAmount) : 1;
+
+  // Para acumulados, a semana mais antiga pode já ter vencido mesmo que due_date seja futuro
+  const effectiveStatus = (() => {
+    if (!isAccumulated || payment.status === PaymentStatus.PAID) return payment.status;
+    const [y, m, d] = payment.dueDate.split('-').map(Number);
+    const earliest = new Date(y, m - 1, d);
+    earliest.setDate(earliest.getDate() - (accumulatedWeeks - 1) * 7);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return earliest < today ? PaymentStatus.OVERDUE : payment.status;
+  })();
+
+  const hasPix = !!payment.pixBrCode && (effectiveStatus === PaymentStatus.PENDING || effectiveStatus === PaymentStatus.OVERDUE);
 
   function handleCopyPix() {
     if (!payment.pixBrCode) return;
@@ -194,7 +213,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
             </div>
             <p className="text-sm text-slate-500 mb-1 capitalize">{payment.subscriberName}</p>
             <p className="text-lg font-bold text-slate-800 mb-4">{formatCurrency(payment.amount)} — Vence {formatDate(payment.dueDate)}</p>
-            {payment.pixPaymentUrl && payment.status !== 'Pago' && (
+            {payment.pixPaymentUrl && effectiveStatus !== 'Pago' && (
               <img src={payment.pixPaymentUrl} alt="QR Code PIX" className="w-48 h-48 mx-auto mb-4 rounded-lg border border-slate-200" />
             )}
 
@@ -222,8 +241,19 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
 
   const actionButtons = (
     <>
-      {payment.status !== PaymentStatus.PAID && payment.status !== PaymentStatus.CANCELLED && (
+      {effectiveStatus !== PaymentStatus.PAID && effectiveStatus !== PaymentStatus.CANCELLED && (
         <>
+          {isFirstOverdueForSubscriber && overdueCount > 1 && onSendConsolidatedReminder && (
+            <button
+              onClick={() => onSendConsolidatedReminder(subscriberId)}
+              disabled={isSending}
+              className="px-2 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
+              title={`Enviar cobrança consolidada (${overdueCount} atrasados)`}
+            >
+              <Send size={12} />
+              Cobrar tudo ({overdueCount})
+            </button>
+          )}
           {hasPix && (
             <button
               onClick={() => setShowPixModal(true)}
@@ -277,7 +307,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           </button>
         </>
       )}
-      {payment.status === PaymentStatus.PAID && (
+      {effectiveStatus === PaymentStatus.PAID && (
         <>
           <button
             ref={infoBtnRef}
@@ -298,7 +328,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           )}
         </>
       )}
-      {!(payment.status === PaymentStatus.PAID && payment.pixPaymentUrl) && (
+      {!(effectiveStatus === PaymentStatus.PAID && payment.pixPaymentUrl) && (
         <button
           onClick={() => setConfirmDelete(true)}
           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -335,7 +365,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
               <p className="text-sm text-slate-500 mt-0.5">{formatDate(payment.dueDate)}</p>
             </div>
             <div className="flex flex-col items-end gap-1">
-              <StatusBadge status={payment.status} className="flex-shrink-0" />
+              <StatusBadge status={effectiveStatus} className="flex-shrink-0" />
               {weeksOverdue > 0 && (
                 <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap">
                   {weeksOverdue} {weeksOverdue === 1 ? 'sem.' : 'sem.'} atraso
@@ -345,11 +375,21 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           </div>
           <div className="flex items-center justify-between gap-2">
             <div>
-              <span className="font-bold text-slate-800">{formatCurrency(payment.amount)}</span>
-              {showTotalDebt && (
-                <div className="flex items-center gap-1 text-xs text-red-600 font-bold mt-1 bg-red-50 px-2 py-0.5 rounded w-fit">
+              <span className="font-bold text-slate-800">{formatCurrency(isAccumulated ? payment.expectedAmount : payment.amount)}</span>
+              {isAccumulated && (
+                <span className="text-xs text-red-600 font-medium mt-0.5">
+                  {formatCurrency(payment.amount)} ({accumulatedWeeks} sem.)
+                </span>
+              )}
+              {!isAccumulated && showTotalDebt && totalOverdue > 0 && (
+                <div className="flex items-center gap-1 text-xs text-white font-bold mt-1 bg-red-600 px-2 py-0.5 rounded w-fit">
                   <AlertCircle size={11} />
-                  <span>Total: {formatCurrency(totalDebt)}</span>
+                  <span>Atrasado: {formatCurrency(totalOverdue)}</span>
+                </div>
+              )}
+              {!isAccumulated && showTotalDebt && totalDebt > totalOverdue && (
+                <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5 px-2 py-0.5 rounded w-fit">
+                  <span>Total pendente: {formatCurrency(totalDebt)}</span>
                 </div>
               )}
             </div>
@@ -394,20 +434,36 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
       </td>
       <td className="px-6 py-4 text-slate-600">{formatDate(payment.dueDate)}</td>
       <td className="px-6 py-4 text-slate-800 font-medium">
-        <div>{formatCurrency(payment.amount)}</div>
-        {showTotalDebt && (
+        <div>{formatCurrency(isAccumulated ? payment.expectedAmount : payment.amount)}</div>
+        {isAccumulated && (
+          <span
+            className="text-xs text-red-600 font-medium mt-0.5"
+            title={`${accumulatedWeeks} semanas acumuladas`}
+          >
+            {formatCurrency(payment.amount)} ({accumulatedWeeks} sem.)
+          </span>
+        )}
+        {!isAccumulated && showTotalDebt && totalOverdue > 0 && (
           <div
-            className="flex items-center gap-1 text-xs text-red-600 font-bold mt-1 bg-red-50 px-2 py-1 rounded w-fit"
-            title="Total Acumulado (Atrasado + Pendente)"
+            className="flex items-center gap-1 text-xs text-white font-bold mt-1 bg-red-600 px-2 py-1 rounded w-fit"
+            title="Total Atrasado"
           >
             <AlertCircle size={12} />
-            <span>Total: {formatCurrency(totalDebt)}</span>
+            <span>Atrasado: {formatCurrency(totalOverdue)}</span>
+          </div>
+        )}
+        {!isAccumulated && showTotalDebt && totalDebt > totalOverdue && (
+          <div
+            className="flex items-center gap-1 text-xs text-slate-500 mt-0.5 px-2 py-0.5 rounded w-fit"
+            title="Total Pendente (Atrasado + Pendente)"
+          >
+            <span>Total pendente: {formatCurrency(totalDebt)}</span>
           </div>
         )}
       </td>
       <td className="px-6 py-4">
         <div className="flex flex-col gap-1 items-start">
-          <StatusBadge status={payment.status} />
+          <StatusBadge status={effectiveStatus} />
           {weeksOverdue > 0 && (
             <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap">
               {weeksOverdue} {weeksOverdue === 1 ? 'semana' : 'semanas'} em atraso

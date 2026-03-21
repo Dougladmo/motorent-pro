@@ -34,6 +34,7 @@ const controller = new PaymentController(paymentService, reminderJobService);
 router.get('/', controller.getAllPayments);
 router.get('/validate', controller.validateIntegrity);
 router.get('/jobs/:jobId', controller.getReminderJobStatus);
+router.post('/consolidated-reminder/:subscriberId', controller.sendConsolidatedReminder);
 router.get('/:id', controller.getPaymentById);
 router.patch('/:id/mark-paid', controller.markAsPaid);
 router.patch('/:id/mark-unpaid', controller.markAsUnpaid);
