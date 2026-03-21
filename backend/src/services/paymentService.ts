@@ -213,15 +213,20 @@ export class PaymentService {
       console.log(`[PaymentService] Reutilizando QR Code PIX existente para pagamento ${paymentId}`);
     }
 
-    // Fazer upload do QR Code para URL pública (funciona em todos os clientes de email)
+    // Fazer upload do QR Code para URL pública
     let pixQrCodeUrl: string | undefined;
     if (pixQrCodeBase64) {
       try {
         pixQrCodeUrl = await this.uploadService.uploadQrCodeToStorage(pixQrCodeBase64, paymentId);
         console.log(`[PaymentService] QR Code enviado para storage: ${pixQrCodeUrl}`);
       } catch (err) {
-        console.warn(`[PaymentService] Falha ao fazer upload do QR Code, email será enviado sem imagem:`, err);
+        console.warn(`[PaymentService] Falha ao fazer upload do QR Code:`, err);
       }
+    }
+
+    // Fallback: ler URL do QR Code do banco quando não houve novo upload
+    if (!pixQrCodeUrl) {
+      pixQrCodeUrl = payment.pix_qr_code_url ?? undefined;
     }
 
     await this.notificationService.sendReminder({
@@ -233,6 +238,7 @@ export class PaymentService {
       totalDebt,
       pixBrCode,
       pixQrCodeUrl,
+      pixQrCodeBase64,
       pixPaymentUrl
     });
 

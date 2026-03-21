@@ -19,6 +19,7 @@ interface NotificationParams {
   totalDebt: number;
   pixBrCode?: string;
   pixQrCodeUrl?: string;
+  pixQrCodeBase64?: string;
   pixPaymentUrl?: string;
 }
 
@@ -120,6 +121,43 @@ export class NotificationService {
     console.log(`[WPP] Concluído para ${params.subscriberName} | ✓ ${wppOk} ok | ✗ ${wppFail} falhas`);
   }
 
+  private async fetchImageBuffer(url: string): Promise<Buffer | null> {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+      }
+      console.warn(`[EMAIL] Falha ao baixar imagem (status ${response.status}): ${url}`);
+    } catch (err) {
+      console.warn(`[EMAIL] Erro ao baixar imagem:`, err);
+    }
+    return null;
+  }
+
+  private async resolveQrCodeBuffer(params: NotificationParams): Promise<Buffer | null> {
+    // Prioridade 1: base64 direto da API (mais confiável)
+    if (params.pixQrCodeBase64) {
+      const raw = params.pixQrCodeBase64.replace(/^data:image\/png;base64,/, '');
+      return Buffer.from(raw, 'base64');
+    }
+
+    // Prioridade 2: fetch da URL pública (Supabase ou qrserver)
+    if (params.pixQrCodeUrl) {
+      const buf = await this.fetchImageBuffer(params.pixQrCodeUrl);
+      if (buf) return buf;
+    }
+
+    // Prioridade 3: gerar QR Code via qrserver.com a partir do código PIX
+    if (params.pixBrCode) {
+      const qrServerUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(params.pixBrCode)}&size=300x300&margin=10`;
+      console.log(`[EMAIL] Gerando QR Code via qrserver.com (fallback)`);
+      return this.fetchImageBuffer(qrServerUrl);
+    }
+
+    return null;
+  }
+
   private async sendEmail(params: NotificationParams, tipo: string): Promise<void> {
     const fromEmail = process.env.RESEND_FROM_EMAIL;
 
@@ -131,11 +169,14 @@ export class NotificationService {
     const { dateBr, weekDay } = formatBrDate(params.paymentDueDate);
     const subject = `Cobrança ${this.appName} - R$ ${params.paymentAmount.toFixed(2)} - Vence ${dateBr}`;
 
+    // Resolver QR Code como Buffer para CID inline attachment
+    const qrBuffer = params.pixBrCode ? await this.resolveQrCodeBuffer(params) : null;
+
     const pixSection = params.pixBrCode
       ? `
         <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0;">
           <p style="margin: 0 0 12px 0; font-weight: bold; color: #1d4ed8;">Pague via PIX:</p>
-          ${params.pixQrCodeUrl ? `<img src="${params.pixQrCodeUrl}" alt="QR Code PIX" style="display: block; width: 200px; height: 200px; margin: 0 auto 16px auto;" />` : ''}
+          ${qrBuffer ? `<img src="cid:qr-code" alt="QR Code PIX" style="display: block; width: 200px; height: 200px; margin: 0 auto 16px auto;" />` : ''}
           <p style="margin: 0 0 4px 0; font-size: 13px; color: #64748b;">Código PIX copia-e-cola:</p>
           <p style="margin: 0; font-size: 13px; color: #1e293b; font-family: monospace; word-break: break-all; background: #f1f5f9; padding: 8px; border-radius: 4px;">${params.pixBrCode}</p>
         </div>`
@@ -167,14 +208,19 @@ export class NotificationService {
       </div>
     `;
 
-    console.log(`[EMAIL] Enviando para ${params.subscriberEmail} | assunto: "${subject}" | de: ${fromEmail} | qrcode: ${params.pixQrCodeUrl ? 'sim (url)' : 'não'}`);
+    const attachments = qrBuffer
+      ? [{ filename: 'qrcode.png', content: qrBuffer, contentId: 'qr-code', contentType: 'image/png' }]
+      : undefined;
+
+    console.log(`[EMAIL] Enviando para ${params.subscriberEmail} | assunto: "${subject}" | de: ${fromEmail} | qrcode: ${qrBuffer ? 'sim (CID inline)' : 'não'}`);
 
     try {
       const result = await this.resend.emails.send({
         from: fromEmail,
         to: [params.subscriberEmail!],
         subject,
-        html
+        html,
+        attachments
       });
       console.log(`[EMAIL] ✓ Enviado para ${params.subscriberEmail} | id: ${result.data?.id ?? 'n/a'}`);
     } catch (err) {

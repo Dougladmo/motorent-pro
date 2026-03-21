@@ -61,13 +61,13 @@ export function seedDb(db: Database.Database): SeedData {
 
   // Insert payments (is_amount_overridden stored as 0)
   const insertPayment = db.prepare(`
-    INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status, paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count, abacate_pix_id, pix_br_code, pix_expires_at, pix_payment_url, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO payments (id, rental_id, subscriber_name, amount, expected_amount, due_date, status, paid_at, marked_as_paid_at, previous_status, is_amount_overridden, reminder_sent_count, abacate_pix_id, pix_br_code, pix_expires_at, pix_qr_code_url, pix_payment_url, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertPayment.run(payment1Id, rental1Id, 'João Silva', 300, 300, '2026-01-01', 'Pago', '2026-01-01', now, 'Pendente', 0, 0, null, null, null, null, now, now);
+  insertPayment.run(payment1Id, rental1Id, 'João Silva', 300, 300, '2026-01-01', 'Pago', '2026-01-01', now, 'Pendente', 0, 0, null, null, null, null, null, now, now);
   // payment2 uses a future date so terminateRental can cancel it
-  insertPayment.run(payment2Id, rental1Id, 'João Silva', 300, 300, '2026-06-01', 'Pendente', null, null, null, 0, 0, null, null, null, null, now, now);
+  insertPayment.run(payment2Id, rental1Id, 'João Silva', 300, 300, '2026-06-01', 'Pendente', null, null, null, 0, 0, null, null, null, null, null, now, now);
 
   // Insert a document linked to sub1 for cascade/document tests
   db.prepare(`

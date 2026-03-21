@@ -394,6 +394,7 @@ export class PaymentCronService {
                     totalDebt: rental.weekly_value,
                     pixBrCode: pixResult.pixBrCode,
                     pixQrCodeUrl: finalQrUrl,
+                    pixQrCodeBase64: pixResult.pixQrCodeBase64,
                     pixPaymentUrl: finalQrUrl
                   });
                 } catch (err) {
