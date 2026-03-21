@@ -284,6 +284,52 @@ describe('PaymentService', () => {
     it('throws when payment is already paid', async () => {
       await expect(service.sendReminder(seedData.payment1Id)).rejects.toThrow('já pago');
     });
+
+    it('passa pixQrCodeUrl do banco quando pagamento já tem pix_qr_code_url', async () => {
+      // Simular pagamento que já tem PIX gerado e URL salva no banco
+      const db = getDb();
+      const storedUrl = 'https://supabase.co/storage/qr-codes/qrcode_test.png';
+      db.prepare('UPDATE payments SET pix_br_code = ?, pix_qr_code_url = ? WHERE id = ?')
+        .run('00020101021126580014BR.GOV.BCB.PIX', storedUrl, seedData.payment2Id);
+
+      await service.sendReminder(seedData.payment2Id);
+
+      expect(mockSendReminder).toHaveBeenCalledTimes(1);
+      const params = mockSendReminder.mock.calls[0][0];
+      expect(params.pixBrCode).toBe('00020101021126580014BR.GOV.BCB.PIX');
+      expect(params.pixQrCodeUrl).toBe(storedUrl);
+    });
+
+    it('passa pixQrCodeUrl do banco mesmo sem pixQrCodeBase64', async () => {
+      // Cenário do bug original: pagamento tem pix_br_code e pix_qr_code_url no banco,
+      // mas sendReminder não passava a URL porque não gerava novo PIX
+      const db = getDb();
+      const storedUrl = 'https://supabase.co/storage/qr-codes/existing.png';
+      db.prepare('UPDATE payments SET pix_br_code = ?, pix_qr_code_url = ?, abacate_pix_id = ? WHERE id = ?')
+        .run('pix-br-code-existing', storedUrl, 'pix-id-existing', seedData.payment2Id);
+
+      await service.sendReminder(seedData.payment2Id);
+
+      const params = mockSendReminder.mock.calls[0][0];
+      // A URL do banco DEVE ser passada (este era o bug que causava QR ausente no email)
+      expect(params.pixQrCodeUrl).toBe(storedUrl);
+      // pixQrCodeBase64 não deve existir (PIX já existia, não foi criado agora)
+      expect(params.pixQrCodeBase64).toBeUndefined();
+    });
+
+    it('gera novo PIX e passa base64 quando pagamento não tem pix_br_code', async () => {
+      // Pagamento sem PIX → sendReminder deve criar um novo
+      const db = getDb();
+      db.prepare('UPDATE payments SET pix_br_code = NULL, abacate_pix_id = NULL WHERE id = ?')
+        .run(seedData.payment2Id);
+
+      await service.sendReminder(seedData.payment2Id);
+
+      const params = mockSendReminder.mock.calls[0][0];
+      // Deve ter gerado novo PIX via AbacatePayService mock
+      expect(params.pixBrCode).toBe('br-code-test');
+      expect(params.pixQrCodeBase64).toBe('base64-test');
+    });
   });
 
   describe('validateIntegrity', () => {

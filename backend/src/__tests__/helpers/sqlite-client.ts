@@ -99,6 +99,7 @@ function initSchema(database: Database.Database): void {
       abacate_pix_id TEXT,
       pix_br_code TEXT,
       pix_expires_at TEXT,
+      pix_qr_code_url TEXT,
       pix_payment_url TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL

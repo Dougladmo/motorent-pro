@@ -251,6 +251,10 @@ export const paymentApi = {
     return data;
   },
 
+  sendConsolidatedReminder: async (subscriberId: string): Promise<void> => {
+    await api.post(`/payments/consolidated-reminder/${subscriberId}`);
+  },
+
   getJobStatus: async (jobId: string): Promise<{
     id: string;
     payment_id: string;

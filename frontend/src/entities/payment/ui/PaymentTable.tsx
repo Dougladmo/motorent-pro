@@ -13,6 +13,7 @@ interface PaymentTableProps {
   onMarkPaid: (id: string) => Promise<void>;
   onMarkUnpaid: (id: string) => void | Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onSendConsolidatedReminder?: (subscriberId: string) => Promise<void>;
   sendingId: string | null;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
@@ -59,11 +60,25 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
   onMarkPaid,
   onMarkUnpaid,
   onDelete,
+  onSendConsolidatedReminder,
   sendingId,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
 }) => {
+  // Compute which payment IDs are the first overdue for each subscriber
+  const firstOverduePaymentIds = React.useMemo(() => {
+    const seen = new Set<string>();
+    const result = new Set<string>();
+    for (const payment of payments) {
+      if (payment.status !== PaymentStatus.OVERDUE) continue;
+      const rental = rentals.find(r => r.id === payment.rentalId);
+      if (!rental || seen.has(rental.subscriberId)) continue;
+      seen.add(rental.subscriberId);
+      result.add(payment.id);
+    }
+    return result;
+  }, [payments, rentals]);
   const getMotorcycle = (payment: Payment): Motorcycle | undefined => {
     const rental = rentals.find(r => r.id === payment.rentalId);
     if (!rental) return undefined;
@@ -72,19 +87,24 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
 
   const getSubscriberInfo = (payment: Payment) => {
     const rental = rentals.find(r => r.id === payment.rentalId);
-    if (!rental) return { totalDebt: payment.amount, hasOverdue: false };
+    if (!rental) return { totalDebt: payment.amount, totalOverdue: 0, overdueCount: 0, hasOverdue: false, subscriberId: '' };
 
     const allPaymentsForSubscriber = payments.filter(
       p => rentals.find(r => r.id === p.rentalId)?.subscriberId === rental.subscriberId
     );
 
-    const totalDebt = allPaymentsForSubscriber
-      .filter(p => p.status === PaymentStatus.OVERDUE || p.status === PaymentStatus.PENDING)
-      .reduce((acc, p) => acc + p.amount, 0);
+    const unpaidPayments = allPaymentsForSubscriber.filter(
+      p => p.status === PaymentStatus.OVERDUE || p.status === PaymentStatus.PENDING
+    );
 
-    const hasOverdue = allPaymentsForSubscriber.some(p => p.status === PaymentStatus.OVERDUE);
+    const totalDebt = unpaidPayments.reduce((acc, p) => acc + p.amount, 0);
 
-    return { totalDebt, hasOverdue };
+    const overduePayments = allPaymentsForSubscriber.filter(p => p.status === PaymentStatus.OVERDUE);
+    const totalOverdue = overduePayments.reduce((acc, p) => acc + p.amount, 0);
+    const overdueCount = overduePayments.length;
+    const hasOverdue = overdueCount > 0;
+
+    return { totalDebt, totalOverdue, overdueCount, hasOverdue, subscriberId: rental.subscriberId };
   };
 
   return (
@@ -120,10 +140,12 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
             onEdit={onEdit}
             onUndo={onMarkUnpaid}
             onDelete={onDelete}
+            onSendConsolidatedReminder={onSendConsolidatedReminder}
             isSending={sendingId === payment.id}
             isMobile={true}
             isSelected={selectedIds?.has(payment.id)}
             onToggleSelect={onToggleSelect}
+            isFirstOverdueForSubscriber={firstOverduePaymentIds.has(payment.id)}
           />
         ))}
         {!loading && payments.length === 0 && (
@@ -169,9 +191,11 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
               onEdit={onEdit}
               onUndo={onMarkUnpaid}
               onDelete={onDelete}
+              onSendConsolidatedReminder={onSendConsolidatedReminder}
               isSending={sendingId === payment.id}
               isSelected={selectedIds?.has(payment.id)}
               onToggleSelect={onToggleSelect}
+              isFirstOverdueForSubscriber={firstOverduePaymentIds.has(payment.id)}
             />
           ))}
           {!loading && payments.length === 0 && (

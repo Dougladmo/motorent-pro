@@ -54,6 +54,7 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
     abacate_pix_id: null,
     pix_br_code: null,
     pix_expires_at: null,
+    pix_qr_code_url: null,
     pix_payment_url: null,
     created_at: '2026-01-06T00:00:00Z',
     updated_at: '2026-01-06T00:00:00Z',

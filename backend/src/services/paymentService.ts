@@ -161,6 +161,85 @@ export class PaymentService {
       throw new Error('Assinante não encontrado');
     }
 
+    // Detectar pagamento acumulado (amount > expected_amount = múltiplas semanas)
+    const weeks = Math.round(payment.amount / payment.expected_amount);
+    const isAccumulated = weeks > 1 && !payment.is_amount_overridden;
+
+    if (isAccumulated) {
+      // Pagamento acumulado: gerar N PIX codes (um por semana) e enviar consolidado
+      console.log(`[PaymentService] Pagamento acumulado ${paymentId}: R$${payment.amount} = ${weeks}x R$${payment.expected_amount}`);
+
+      const consolidatedPayments: Array<{
+        amount: number;
+        dueDate: string;
+        pixBrCode?: string;
+        pixQrCodeUrl?: string;
+        pixQrCodeBase64?: string;
+      }> = [];
+
+      // Gerar datas retroativas para cada semana acumulada
+      const [dy, dm, dd] = payment.due_date.split('-').map(Number);
+      const baseDueDate = new Date(dy, dm - 1, dd);
+
+      for (let i = weeks - 1; i >= 0; i--) {
+        const d = new Date(baseDueDate);
+        d.setDate(d.getDate() - i * 7);
+        const dateStr = d.toISOString().split('T')[0];
+
+        // Gerar PIX individual para cada semana
+        const pixResult = await this.abacatePayService.createPixQrCode({
+          amount: payment.expected_amount,
+          description: `Aluguel - ${subscriber.name} - Semana ${weeks - i}/${weeks} - ${dateStr}`,
+          expiresIn: 604800,
+          customer: {
+            name: subscriber.name,
+            cellphone: subscriber.phone,
+            email: subscriber.email,
+            taxId: subscriber.document
+          },
+          metadata: {
+            paymentId: payment.id,
+            rentalId: payment.rental_id,
+            subscriberId: rental.subscriber_id
+          }
+        });
+
+        let pixQrCodeUrl: string | undefined;
+        if (pixResult?.pixQrCodeBase64) {
+          try {
+            pixQrCodeUrl = await this.uploadService.uploadQrCodeToStorage(pixResult.pixQrCodeBase64, `${paymentId}-week-${weeks - i}`);
+          } catch (err) {
+            console.warn(`[PaymentService] Falha ao fazer upload do QR Code semana ${weeks - i}:`, err);
+          }
+        }
+
+        consolidatedPayments.push({
+          amount: payment.expected_amount,
+          dueDate: dateStr,
+          pixBrCode: pixResult?.pixBrCode,
+          pixQrCodeUrl,
+          pixQrCodeBase64: pixResult?.pixQrCodeBase64
+        });
+      }
+
+      await this.notificationService.sendConsolidatedReminder({
+        subscriberName: subscriber.name,
+        subscriberPhone: subscriber.phone,
+        subscriberEmail: subscriber.email,
+        payments: consolidatedPayments,
+        totalOverdue: payment.amount
+      });
+
+      // Incrementar contador de lembretes
+      await this.paymentRepo.update(paymentId, {
+        reminder_sent_count: payment.reminder_sent_count + 1
+      });
+
+      console.log(`[PaymentService] Cobrança acumulada enviada para pagamento ${paymentId}: ${weeks} seções`);
+      return;
+    }
+
+    // Pagamento normal (não acumulado): fluxo padrão
     // Calcular dívida total do assinante
     const allRentals = await this.rentalRepo.findBySubscriberId(rental.subscriber_id);
     let totalDebt = 0;
@@ -213,15 +292,20 @@ export class PaymentService {
       console.log(`[PaymentService] Reutilizando QR Code PIX existente para pagamento ${paymentId}`);
     }
 
-    // Fazer upload do QR Code para URL pública (funciona em todos os clientes de email)
+    // Fazer upload do QR Code para URL pública
     let pixQrCodeUrl: string | undefined;
     if (pixQrCodeBase64) {
       try {
         pixQrCodeUrl = await this.uploadService.uploadQrCodeToStorage(pixQrCodeBase64, paymentId);
         console.log(`[PaymentService] QR Code enviado para storage: ${pixQrCodeUrl}`);
       } catch (err) {
-        console.warn(`[PaymentService] Falha ao fazer upload do QR Code, email será enviado sem imagem:`, err);
+        console.warn(`[PaymentService] Falha ao fazer upload do QR Code:`, err);
       }
+    }
+
+    // Fallback: ler URL do QR Code do banco quando não houve novo upload
+    if (!pixQrCodeUrl) {
+      pixQrCodeUrl = payment.pix_qr_code_url ?? undefined;
     }
 
     await this.notificationService.sendReminder({
@@ -233,6 +317,7 @@ export class PaymentService {
       totalDebt,
       pixBrCode,
       pixQrCodeUrl,
+      pixQrCodeBase64,
       pixPaymentUrl
     });
 
@@ -242,6 +327,120 @@ export class PaymentService {
     });
 
     console.log(`[PaymentService] Lembrete enviado para pagamento ${paymentId}`);
+  }
+
+  async sendConsolidatedReminder(subscriberId: string): Promise<void> {
+    const subscriber = await this.subscriberRepo.findById(subscriberId);
+    if (!subscriber) {
+      throw new Error('Assinante não encontrado');
+    }
+
+    // Buscar todos os aluguéis ativos do assinante
+    const allRentals = await this.rentalRepo.findBySubscriberId(subscriberId);
+    const activeRentals = allRentals.filter(r => r.is_active);
+
+    if (activeRentals.length === 0) {
+      throw new Error('Nenhum aluguel ativo encontrado para este assinante');
+    }
+
+    // Buscar todos os pagamentos atrasados
+    const overduePayments: Payment[] = [];
+    for (const rental of activeRentals) {
+      const payments = await this.paymentRepo.findByRentalId(rental.id);
+      const overdue = payments.filter(p => p.status === 'Atrasado');
+      overduePayments.push(...overdue);
+    }
+
+    if (overduePayments.length === 0) {
+      throw new Error('Nenhum pagamento atrasado encontrado para este assinante');
+    }
+
+    // Ordenar por data de vencimento (mais antigo primeiro)
+    overduePayments.sort((a, b) => a.due_date.localeCompare(b.due_date));
+
+    const totalOverdue = overduePayments.reduce((sum, p) => sum + p.amount, 0);
+
+    // Garantir QR Code PIX para cada pagamento
+    const consolidatedPayments: Array<{
+      amount: number;
+      dueDate: string;
+      pixBrCode?: string;
+      pixQrCodeUrl?: string;
+      pixQrCodeBase64?: string;
+    }> = [];
+
+    for (const payment of overduePayments) {
+      let pixBrCode = payment.pix_br_code ?? undefined;
+      let pixQrCodeBase64: string | undefined;
+      let pixQrCodeUrl = payment.pix_qr_code_url ?? undefined;
+
+      if (!pixBrCode) {
+        console.log(`[PaymentService] Pagamento ${payment.id} sem QR Code PIX, criando para cobrança consolidada...`);
+        const rental = activeRentals.find(r => r.id === payment.rental_id);
+        const pixResult = await this.abacatePayService.createPixQrCode({
+          amount: payment.amount,
+          description: `Aluguel - ${subscriber.name} - ${payment.due_date}`,
+          expiresIn: 604800,
+          customer: {
+            name: subscriber.name,
+            cellphone: subscriber.phone,
+            email: subscriber.email,
+            taxId: subscriber.document
+          },
+          metadata: {
+            paymentId: payment.id,
+            rentalId: payment.rental_id,
+            subscriberId
+          }
+        });
+
+        if (pixResult) {
+          await this.paymentRepo.update(payment.id, {
+            abacate_pix_id: pixResult.abacatePixId,
+            pix_br_code: pixResult.pixBrCode,
+            pix_expires_at: pixResult.pixExpiresAt,
+            pix_payment_url: pixResult.pixPaymentUrl || null
+          });
+          pixBrCode = pixResult.pixBrCode;
+          pixQrCodeBase64 = pixResult.pixQrCodeBase64;
+
+          // Upload QR Code
+          if (pixQrCodeBase64) {
+            try {
+              pixQrCodeUrl = await this.uploadService.uploadQrCodeToStorage(pixQrCodeBase64, payment.id);
+            } catch (err) {
+              console.warn(`[PaymentService] Falha ao fazer upload do QR Code para pagamento ${payment.id}:`, err);
+            }
+          }
+        }
+      }
+
+      consolidatedPayments.push({
+        amount: payment.amount,
+        dueDate: payment.due_date,
+        pixBrCode,
+        pixQrCodeUrl,
+        pixQrCodeBase64
+      });
+    }
+
+    // Enviar notificação consolidada
+    await this.notificationService.sendConsolidatedReminder({
+      subscriberName: subscriber.name,
+      subscriberPhone: subscriber.phone,
+      subscriberEmail: subscriber.email,
+      payments: consolidatedPayments,
+      totalOverdue
+    });
+
+    // Incrementar contador de lembretes de cada pagamento
+    for (const payment of overduePayments) {
+      await this.paymentRepo.update(payment.id, {
+        reminder_sent_count: payment.reminder_sent_count + 1
+      });
+    }
+
+    console.log(`[PaymentService] Cobrança consolidada enviada para ${subscriber.name} | ${overduePayments.length} pagamentos | total: R$ ${totalOverdue.toFixed(2)}`);
   }
 
   async updatePayment(id: string, updates: Partial<Payment>): Promise<Payment> {

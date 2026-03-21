@@ -38,6 +38,14 @@ function getFirstDueDate(startDateStr: string, dueDayOfWeek: number): Date {
   return firstDue;
 }
 
+function toDateStr(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function buildQrCodeUrl(brCode: string): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(brCode)}&size=300x300&margin=10`;
+}
+
 export class PaymentCronService {
   private abacatePayService: AbacatePayService;
 
@@ -57,11 +65,11 @@ export class PaymentCronService {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayStr = toDateStr(today);
 
     try {
-      // STEP 0: Consolidar cobranças duplicadas (múltiplos ativos → 1 por rental)
-      await this.consolidateExistingDuplicates(today, todayStr);
+      // STEP 0: Migrar cobranças acumuladas → registros individuais semanais
+      await this.migrateAccumulatedPayments(today, todayStr);
 
       // STEP 0.5: Corrigir vencimentos desalinhados ao dia da semana do contrato
       await this.correctMisalignedPayments(todayStr);
@@ -72,7 +80,10 @@ export class PaymentCronService {
       // STEP 1.5: Regenerar PIX ausentes (Pendente/Atrasado sem pix_br_code)
       await this.regenerateMissingPixCodes();
 
-      // STEP 2: Gerar/atualizar pagamentos (lógica consolidada)
+      // STEP 1.6: Preencher pix_payment_url ausentes (tem pix_br_code mas sem URL do QR)
+      await this.backfillMissingQrUrls();
+
+      // STEP 2: Gerar novos pagamentos individuais por semana
       await this.generateNewPayments(today, todayStr);
 
       // STEP 3: Enviar lembretes de vencimento próximo
@@ -87,106 +98,67 @@ export class PaymentCronService {
     console.log('[CRON] ========================================');
   }
 
-  private async consolidateExistingDuplicates(today: Date, todayStr: string): Promise<void> {
-    console.log('[CRON] STEP 0: Consolidando cobranças duplicadas...');
+  private async migrateAccumulatedPayments(today: Date, todayStr: string): Promise<void> {
+    console.log('[CRON] STEP 0: Deduplicando e marcando acumulados como atrasados...');
 
     const activeRentals = await this.rentalRepo.findAllActive();
-    let consolidated = 0;
+    let updated = 0;
 
     for (const rental of activeRentals) {
       try {
         const activePayments = await this.paymentRepo.findActiveByRentalId(rental.id);
+        if (activePayments.length === 0) continue;
 
-        if (activePayments.length <= 1) continue;
-
-        console.log(`[CRON] Rental ${rental.id}: ${activePayments.length} cobranças ativas → consolidando`);
-
-        const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
-
-        // Soma de todos os valores
-        const totalAmount = activePayments.reduce((sum, p) => sum + p.amount, 0);
-
-        // due_date = maior data entre todos
-        const latestDueDate = activePayments
-          .map(p => p.due_date)
-          .sort()
-          .at(-1)!;
-
-        // status = Atrasado se qualquer um for Atrasado OU se a maior data já passou
-        const hasOverdue = activePayments.some(p => p.status === 'Atrasado');
-        const newStatus = (hasOverdue || latestDueDate < todayStr) ? 'Atrasado' : 'Pendente';
-
-        // Cancelar PIX de todos
+        // 1. Deduplicar: se há 2+ pagamentos com o mesmo due_date, manter o mais antigo
+        const byDate = new Map<string, typeof activePayments[0][]>();
         for (const p of activePayments) {
-          if (p.abacate_pix_id) {
-            await this.abacatePayService.cancelPixQrCode(p.abacate_pix_id);
+          if (!byDate.has(p.due_date)) byDate.set(p.due_date, []);
+          byDate.get(p.due_date)!.push(p);
+        }
+
+        for (const [, payments] of byDate) {
+          if (payments.length <= 1) continue;
+          const [, ...duplicates] = payments.sort((a, b) => a.id.localeCompare(b.id));
+          for (const dup of duplicates) {
+            if (dup.abacate_pix_id) {
+              await this.abacatePayService.cancelPixQrCode(dup.abacate_pix_id);
+            }
+            await this.paymentRepo.delete(dup.id);
+            console.log(`[CRON] Rental ${rental.id}: removida duplicata ${dup.id} (due_date: ${dup.due_date})`);
           }
         }
 
-        // Manter primeiro registro (atualizar), deletar os demais
-        const [keep, ...rest] = activePayments;
-        await this.paymentRepo.update(keep.id, {
-          amount: totalAmount,
-          due_date: latestDueDate,
-          status: newStatus,
-          abacate_pix_id: null,
-          pix_br_code: null,
-          pix_expires_at: null,
-          pix_payment_url: null
-        });
+        // 2. Para pagamentos acumulados (amount > weekly_value), apenas garantir status correto
+        const remainingPayments = await this.paymentRepo.findActiveByRentalId(rental.id);
 
-        for (const p of rest) {
-          await this.paymentRepo.delete(p.id);
-        }
+        for (const payment of remainingPayments) {
+          if (payment.amount <= rental.weekly_value) continue;
 
-        // Criar novo PIX para o registro consolidado (apenas se tiver subscriber com CPF)
-        if (subscriber) {
-          const pixResult = await this.abacatePayService.createPixQrCode({
-            amount: totalAmount,
-            description: `Aluguel - ${subscriber.name} - ${latestDueDate}`,
-            expiresIn: 604800,
-            customer: {
-              name: subscriber.name,
-              cellphone: subscriber.phone,
-              email: subscriber.email,
-              taxId: subscriber.document
-            },
-            metadata: {
-              paymentId: keep.id,
-              rentalId: rental.id,
-              subscriberId: rental.subscriber_id
-            }
-          });
+          const weeks = Math.round(payment.amount / rental.weekly_value);
+          if (weeks <= 1) continue;
 
-          if (pixResult) {
-            let qrCodeUrl: string | null = null;
-            if (pixResult.pixQrCodeBase64) {
-              try {
-                qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, keep.id);
-              } catch (uploadErr) {
-                console.warn(`[CRON] Falha ao fazer upload do QR Code para ${keep.id}:`, uploadErr);
-              }
-            }
-            await this.paymentRepo.update(keep.id, {
-              abacate_pix_id: pixResult.abacatePixId,
-              pix_br_code: pixResult.pixBrCode,
-              pix_expires_at: pixResult.pixExpiresAt,
-              pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
-            });
+          // Pagamento acumulado: a semana mais antiga é due_date - (weeks-1)*7
+          // Se essa data já passou, o pagamento está atrasado
+          const [dy, dm, dd] = payment.due_date.split('-').map(Number);
+          const earliestDate = new Date(dy, dm - 1, dd);
+          earliestDate.setDate(earliestDate.getDate() - (weeks - 1) * 7);
+          const earliestStr = `${earliestDate.getFullYear()}-${String(earliestDate.getMonth() + 1).padStart(2, '0')}-${String(earliestDate.getDate()).padStart(2, '0')}`;
+
+          if (earliestStr < todayStr && payment.status !== 'Atrasado') {
+            await this.paymentRepo.update(payment.id, { status: 'Atrasado' });
+            console.log(`[CRON] Rental ${rental.id}: pagamento acumulado ${payment.id} (R$${payment.amount}, ${weeks} sem., 1ª sem. vence ${earliestStr}) marcado como Atrasado`);
+            updated++;
           }
         }
-
-        consolidated++;
-        console.log(`[CRON] Rental ${rental.id}: consolidado em R$${totalAmount} (${newStatus}), ${rest.length} registros removidos`);
       } catch (err) {
-        console.error(`[CRON] Erro ao consolidar rental ${rental.id}:`, err);
+        console.error(`[CRON] Erro ao processar rental ${rental.id}:`, err);
       }
     }
 
-    if (consolidated === 0) {
-      console.log('[CRON] Nenhuma duplicata encontrada');
+    if (updated === 0) {
+      console.log('[CRON] Nenhum pagamento acumulado necessitou atualização');
     } else {
-      console.log(`[CRON] ${consolidated} rental(s) consolidados`);
+      console.log(`[CRON] ${updated} pagamento(s) acumulado(s) atualizado(s)`);
     }
   }
 
@@ -201,36 +173,39 @@ export class PaymentCronService {
         const activePayments = await this.paymentRepo.findActiveByRentalId(rental.id);
         if (activePayments.length === 0) continue;
 
-        const payment = activePayments[0];
-        const [ay, am, ad] = payment.due_date.split('-').map(Number);
-        const paymentDate = new Date(ay, am - 1, ad);
-
         const targetDay = isoToJsDay(rental.due_day_of_week);
-        if (paymentDate.getDay() === targetDay) continue; // já alinhado
 
-        // Mover para a próxima ocorrência correta do dia da semana
-        const daysToFix = (targetDay - paymentDate.getDay() + 7) % 7;
-        const correctedDate = new Date(paymentDate);
-        correctedDate.setDate(correctedDate.getDate() + daysToFix);
-        const correctedStr = `${correctedDate.getFullYear()}-${String(correctedDate.getMonth() + 1).padStart(2, '0')}-${String(correctedDate.getDate()).padStart(2, '0')}`;
+        for (const payment of activePayments) {
+          const [ay, am, ad] = payment.due_date.split('-').map(Number);
+          const paymentDate = new Date(ay, am - 1, ad);
 
-        // Cancelar PIX antigo
-        if (payment.abacate_pix_id) {
-          await this.abacatePayService.cancelPixQrCode(payment.abacate_pix_id);
+          if (paymentDate.getDay() === targetDay) continue; // já alinhado
+
+          // Mover para a próxima ocorrência correta do dia da semana
+          const daysToFix = (targetDay - paymentDate.getDay() + 7) % 7;
+          const correctedDate = new Date(paymentDate);
+          correctedDate.setDate(correctedDate.getDate() + daysToFix);
+          const correctedStr = toDateStr(correctedDate);
+
+          // Cancelar PIX antigo
+          if (payment.abacate_pix_id) {
+            await this.abacatePayService.cancelPixQrCode(payment.abacate_pix_id);
+          }
+
+          // Corrigir due_date e limpar PIX (STEP 1.5 irá regenerar)
+          await this.paymentRepo.update(payment.id, {
+            due_date: correctedStr,
+            status: correctedStr < todayStr ? 'Atrasado' : 'Pendente',
+            abacate_pix_id: null,
+            pix_br_code: null,
+            pix_expires_at: null,
+            pix_qr_code_url: null,
+            pix_payment_url: null
+          });
+
+          corrected++;
+          console.log(`[CRON] Rental ${rental.id}: due_date corrigido ${payment.due_date} → ${correctedStr}`);
         }
-
-        // Corrigir due_date e limpar PIX (STEP 1.5 irá regenerar)
-        await this.paymentRepo.update(payment.id, {
-          due_date: correctedStr,
-          status: correctedStr < todayStr ? 'Atrasado' : 'Pendente',
-          abacate_pix_id: null,
-          pix_br_code: null,
-          pix_expires_at: null,
-          pix_payment_url: null
-        });
-
-        corrected++;
-        console.log(`[CRON] Rental ${rental.id}: due_date corrigido ${payment.due_date} → ${correctedStr}`);
       } catch (err) {
         console.error(`[CRON] Erro ao corrigir alignment do rental ${rental.id}:`, err);
       }
@@ -262,7 +237,7 @@ export class PaymentCronService {
   }
 
   private async generateNewPayments(today: Date, todayStr: string): Promise<void> {
-    console.log('[CRON] STEP 2: Gerando/atualizando pagamentos...');
+    console.log('[CRON] STEP 2: Gerando pagamentos individuais por semana...');
 
     const activeRentals = await this.rentalRepo.findAllActive();
 
@@ -273,7 +248,7 @@ export class PaymentCronService {
 
     console.log(`[CRON] ${activeRentals.length} aluguéis ativos encontrados`);
 
-    let totalProcessed = 0;
+    let totalCreated = 0;
 
     for (const rental of activeRentals) {
       try {
@@ -296,184 +271,121 @@ export class PaymentCronService {
           }
         }
 
-        // Buscar cobrança ativa existente (após STEP 0 deve ser no máximo 1)
-        const activePayments = await this.paymentRepo.findActiveByRentalId(rental.id);
-        const activePayment = activePayments[0] ?? null;
-
         // Calcular "última data cobrada"
+        const activePayments = await this.paymentRepo.findActiveByRentalId(rental.id);
         let lastCoveredDate: Date;
-        if (activePayment) {
-          const [ay, am, ad] = activePayment.due_date.split('-').map(Number);
+
+        if (activePayments.length > 0) {
+          // Maior due_date entre pagamentos ativos
+          const latestDateStr = activePayments.map(p => p.due_date).sort().at(-1)!;
+          const [ay, am, ad] = latestDateStr.split('-').map(Number);
           lastCoveredDate = new Date(ay, am - 1, ad);
         } else {
-          // Nenhuma cobrança ativa: verificar se há pagamentos já pagos
           const paidPayments = await this.paymentRepo.findPaidByRentalId(rental.id);
           if (paidPayments.length > 0) {
-            // Continuar a partir do último pagamento pago
             const latestPaid = paidPayments[0]; // já ordenado por due_date desc
             const [py, pm, pd] = latestPaid.due_date.split('-').map(Number);
             lastCoveredDate = new Date(py, pm - 1, pd);
           } else {
-            // Contrato sem nenhum pagamento: âncora no primeiro vencimento correto (dia da semana)
+            // Contrato sem nenhum pagamento: âncora no primeiro vencimento correto
             const firstDue = getFirstDueDate(rental.start_date, rental.due_day_of_week);
             lastCoveredDate = new Date(firstDue);
             lastCoveredDate.setDate(lastCoveredDate.getDate() - 7);
           }
         }
 
-        // Calcular datas não cobertas
-        const uncoveredDates: string[] = [];
+        // Iterar datas não cobertas, criando 1 pagamento por semana
         const cursor = new Date(lastCoveredDate);
         cursor.setDate(cursor.getDate() + 7);
 
         while (cursor <= maxDate) {
-          const dateStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
-          uncoveredDates.push(dateStr);
+          const dateStr = toDateStr(cursor);
+
+          const exists = await this.paymentRepo.existsByRentalAndDate(rental.id, dateStr);
+          if (!exists) {
+            const status = dateStr < todayStr ? 'Atrasado' : 'Pendente';
+
+            const created = await this.paymentRepo.create({
+              rental_id: rental.id,
+              subscriber_name: subscriber.name,
+              amount: rental.weekly_value,
+              expected_amount: rental.weekly_value,
+              due_date: dateStr,
+              status,
+              reminder_sent_count: 0
+            });
+
+            // Gerar PIX inline para o novo pagamento
+            const pixResult = await this.abacatePayService.createPixQrCode({
+              amount: rental.weekly_value,
+              description: `Aluguel - ${subscriber.name} - ${dateStr}`,
+              expiresIn: 604800,
+              customer: {
+                name: subscriber.name,
+                cellphone: subscriber.phone,
+                email: subscriber.email,
+                taxId: subscriber.document
+              },
+              metadata: {
+                paymentId: created.id,
+                rentalId: rental.id,
+                subscriberId: rental.subscriber_id
+              }
+            });
+
+            if (pixResult) {
+              let qrCodeUrl: string | null = null;
+              if (pixResult.pixQrCodeBase64) {
+                try {
+                  qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, created.id);
+                } catch (uploadErr) {
+                  console.warn(`[CRON] Falha ao fazer upload do QR Code para ${created.id}:`, uploadErr);
+                }
+              }
+              // Garantir URL do QR: upload do Supabase ou qrserver.com como fallback
+              const finalQrUrl = qrCodeUrl || buildQrCodeUrl(pixResult.pixBrCode);
+              await this.paymentRepo.update(created.id, {
+                abacate_pix_id: pixResult.abacatePixId,
+                pix_br_code: pixResult.pixBrCode,
+                pix_expires_at: pixResult.pixExpiresAt,
+                pix_qr_code_url: finalQrUrl
+              });
+
+              if (status === 'Pendente') {
+                try {
+                  await this.notificationService.sendPaymentNotification({
+                    subscriberName: subscriber.name,
+                    subscriberPhone: subscriber.phone,
+                    subscriberEmail: subscriber.email,
+                    paymentAmount: rental.weekly_value,
+                    paymentDueDate: dateStr,
+                    totalDebt: rental.weekly_value,
+                    pixBrCode: pixResult.pixBrCode,
+                    pixQrCodeUrl: finalQrUrl,
+                    pixQrCodeBase64: pixResult.pixQrCodeBase64,
+                    pixPaymentUrl: finalQrUrl
+                  });
+                } catch (err) {
+                  console.error(`[CRON] Erro ao notificar pagamento ${created.id}:`, err);
+                }
+              }
+            }
+
+            console.log(`[CRON] Rental ${rental.id}: nova cobrança R$${rental.weekly_value} (${status}), vence ${dateStr}`);
+            totalCreated++;
+          }
+
           cursor.setDate(cursor.getDate() + 7);
         }
-
-        if (uncoveredDates.length === 0) continue;
-
-        const newDueDate = uncoveredDates.at(-1)!;
-        const anyUncoveredPast = uncoveredDates.some(d => d < todayStr);
-
-        if (activePayment) {
-          // Acumular no pagamento existente
-          const newAmount = activePayment.amount + uncoveredDates.length * rental.weekly_value;
-          const currentOverdue = activePayment.status === 'Atrasado';
-          const newStatus = (currentOverdue || anyUncoveredPast || newDueDate < todayStr) ? 'Atrasado' : 'Pendente';
-
-          // Cancelar PIX antigo
-          if (activePayment.abacate_pix_id) {
-            await this.abacatePayService.cancelPixQrCode(activePayment.abacate_pix_id);
-          }
-
-          await this.paymentRepo.update(activePayment.id, {
-            amount: newAmount,
-            due_date: newDueDate,
-            status: newStatus,
-            abacate_pix_id: null,
-            pix_br_code: null,
-            pix_expires_at: null,
-            pix_payment_url: null
-          });
-
-          // Criar novo PIX com valor acumulado
-          const pixResult = await this.abacatePayService.createPixQrCode({
-            amount: newAmount,
-            description: `Aluguel - ${subscriber.name} - ${newDueDate}`,
-            expiresIn: 604800,
-            customer: {
-              name: subscriber.name,
-              cellphone: subscriber.phone,
-              email: subscriber.email,
-              taxId: subscriber.document
-            },
-            metadata: {
-              paymentId: activePayment.id,
-              rentalId: rental.id,
-              subscriberId: rental.subscriber_id
-            }
-          });
-
-          if (pixResult) {
-            let qrCodeUrl: string | null = null;
-            if (pixResult.pixQrCodeBase64) {
-              try {
-                qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, activePayment.id);
-              } catch (uploadErr) {
-                console.warn(`[CRON] Falha ao fazer upload do QR Code para ${activePayment.id}:`, uploadErr);
-              }
-            }
-            await this.paymentRepo.update(activePayment.id, {
-              abacate_pix_id: pixResult.abacatePixId,
-              pix_br_code: pixResult.pixBrCode,
-              pix_expires_at: pixResult.pixExpiresAt,
-              pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
-            });
-          }
-
-          console.log(`[CRON] Rental ${rental.id}: cobrança atualizada para R$${newAmount} (${newStatus}), vence ${newDueDate}`);
-        } else {
-          // Criar nova cobrança consolidada
-          const totalAmount = uncoveredDates.length * rental.weekly_value;
-          const newStatus = anyUncoveredPast ? 'Atrasado' : 'Pendente';
-
-          const created = await this.paymentRepo.create({
-            rental_id: rental.id,
-            subscriber_name: subscriber.name,
-            amount: totalAmount,
-            expected_amount: totalAmount,
-            due_date: newDueDate,
-            status: newStatus,
-            reminder_sent_count: 0
-          });
-
-          const pixResult = await this.abacatePayService.createPixQrCode({
-            amount: totalAmount,
-            description: `Aluguel - ${subscriber.name} - ${newDueDate}`,
-            expiresIn: 604800,
-            customer: {
-              name: subscriber.name,
-              cellphone: subscriber.phone,
-              email: subscriber.email,
-              taxId: subscriber.document
-            },
-            metadata: {
-              paymentId: created.id,
-              rentalId: rental.id,
-              subscriberId: rental.subscriber_id
-            }
-          });
-
-          if (pixResult) {
-            let qrCodeUrl: string | null = null;
-            if (pixResult.pixQrCodeBase64) {
-              try {
-                qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, created.id);
-              } catch (uploadErr) {
-                console.warn(`[CRON] Falha ao fazer upload do QR Code para ${created.id}:`, uploadErr);
-              }
-            }
-            await this.paymentRepo.update(created.id, {
-              abacate_pix_id: pixResult.abacatePixId,
-              pix_br_code: pixResult.pixBrCode,
-              pix_expires_at: pixResult.pixExpiresAt,
-              pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
-            });
-
-            if (newStatus === 'Pendente') {
-              try {
-                await this.notificationService.sendPaymentNotification({
-                  subscriberName: subscriber.name,
-                  subscriberPhone: subscriber.phone,
-                  subscriberEmail: subscriber.email,
-                  paymentAmount: totalAmount,
-                  paymentDueDate: newDueDate,
-                  totalDebt: totalAmount,
-                  pixBrCode: pixResult.pixBrCode,
-                  pixQrCodeUrl: qrCodeUrl ?? undefined,
-                  pixPaymentUrl: qrCodeUrl || pixResult.pixPaymentUrl || undefined
-                });
-              } catch (err) {
-                console.error(`[CRON] Erro ao notificar pagamento ${created.id}:`, err);
-              }
-            }
-          }
-
-          console.log(`[CRON] Rental ${rental.id}: nova cobrança R$${totalAmount} (${newStatus}), vence ${newDueDate}`);
-        }
-
-        totalProcessed++;
       } catch (err) {
         console.error(`[CRON] Erro ao processar rental ${rental.id}:`, err);
       }
     }
 
-    if (totalProcessed === 0) {
-      console.log('[CRON] Nenhum pagamento precisou ser gerado/atualizado');
+    if (totalCreated === 0) {
+      console.log('[CRON] Nenhum pagamento precisou ser gerado');
     } else {
-      console.log(`[CRON] Total de rentals processados: ${totalProcessed}`);
+      console.log(`[CRON] Total de novos pagamentos criados: ${totalCreated}`);
     }
   }
 
@@ -527,7 +439,7 @@ export class PaymentCronService {
             abacate_pix_id: pixResult.abacatePixId,
             pix_br_code: pixResult.pixBrCode,
             pix_expires_at: pixResult.pixExpiresAt,
-            pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
+            pix_qr_code_url: qrCodeUrl || buildQrCodeUrl(pixResult.pixBrCode)
           });
           console.log(`[CRON] PIX regenerado para pagamento ${payment.id} (${payment.status})`);
         }
@@ -537,10 +449,10 @@ export class PaymentCronService {
     }
   }
 
-  // Gerar pagamento para um rental específico (usado ao criar novo contrato)
-  // Lógica consolidada: no máximo 1 cobrança ativa por rental
+  // Gerar pagamentos para um rental específico (usado ao criar novo contrato)
+  // Modelo individual: 1 cobrança por semana
   async generatePaymentsForRental(rentalId: string): Promise<number> {
-    console.log(`[PAYMENT GEN] Gerando pagamento para rental ${rentalId}...`);
+    console.log(`[PAYMENT GEN] Gerando pagamentos para rental ${rentalId}...`);
 
     const rental = await this.rentalRepo.findById(rentalId);
     if (!rental) {
@@ -559,7 +471,7 @@ export class PaymentCronService {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayStr = toDateStr(today);
 
     // Lookahead: até 7 dias no futuro, respeitando end_date
     const lookaheadDate = new Date(today);
@@ -568,110 +480,106 @@ export class PaymentCronService {
     let maxDate = lookaheadDate;
     if (rental.end_date) {
       const endDate = new Date(rental.end_date);
-      if (endDate < lookaheadDate) {
-        maxDate = endDate;
-      }
+      if (endDate < lookaheadDate) maxDate = endDate;
     }
 
-    // Verificar se já existe pagamento ativo com data desalinhada e corrigir
-    const existingActive = await this.paymentRepo.findActiveByRentalId(rental.id);
-    if (existingActive.length > 0) {
-      const payment = existingActive[0];
-      const [ey, em, ed] = payment.due_date.split('-').map(Number);
-      const paymentDate = new Date(ey, em - 1, ed);
-      const targetDay = isoToJsDay(rental.due_day_of_week);
-
-      if (paymentDate.getDay() !== targetDay) {
-        const daysToFix = (targetDay - paymentDate.getDay() + 7) % 7;
-        const correctedDate = new Date(paymentDate);
-        correctedDate.setDate(correctedDate.getDate() + daysToFix);
-        const correctedStr = `${correctedDate.getFullYear()}-${String(correctedDate.getMonth() + 1).padStart(2, '0')}-${String(correctedDate.getDate()).padStart(2, '0')}`;
-
-        await this.paymentRepo.update(payment.id, {
-          due_date: correctedStr,
-          status: correctedStr < todayStr ? 'Atrasado' : 'Pendente'
-        });
-        console.log(`[PAYMENT GEN] Corrigido due_date existente: ${payment.due_date} → ${correctedStr}`);
-        return 1;
-      }
-
-      console.log(`[PAYMENT GEN] Rental ${rentalId} já possui pagamento ativo alinhado (${payment.due_date})`);
-      return 0;
-    }
-
-    // Para novo contrato: âncora no primeiro vencimento correto (dia da semana)
+    // Âncora no primeiro vencimento correto (dia da semana)
     const firstDue = getFirstDueDate(rental.start_date, rental.due_day_of_week);
     console.log(`[PAYMENT GEN] start_date=${rental.start_date} | due_day_of_week=${rental.due_day_of_week} | isoToJsDay=${isoToJsDay(rental.due_day_of_week)} | firstDue=${firstDue.toISOString().split('T')[0]}`);
+
     const lastCoveredDate = new Date(firstDue);
     lastCoveredDate.setDate(lastCoveredDate.getDate() - 7);
 
-    // Calcular datas não cobertas
-    const uncoveredDates: string[] = [];
+    let created = 0;
     const cursor = new Date(lastCoveredDate);
     cursor.setDate(cursor.getDate() + 7);
 
     while (cursor <= maxDate) {
-      const dateStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
-      uncoveredDates.push(dateStr);
+      const dateStr = toDateStr(cursor);
+
+      const exists = await this.paymentRepo.existsByRentalAndDate(rental.id, dateStr);
+      if (!exists) {
+        const status = dateStr < todayStr ? 'Atrasado' : 'Pendente';
+
+        const payment = await this.paymentRepo.create({
+          rental_id: rental.id,
+          subscriber_name: subscriber.name,
+          amount: rental.weekly_value,
+          expected_amount: rental.weekly_value,
+          due_date: dateStr,
+          status,
+          reminder_sent_count: 0
+        });
+
+        const pixResult = await this.abacatePayService.createPixQrCode({
+          amount: rental.weekly_value,
+          description: `Aluguel - ${subscriber.name} - ${dateStr}`,
+          expiresIn: 604800,
+          customer: {
+            name: subscriber.name,
+            cellphone: subscriber.phone,
+            email: subscriber.email,
+            taxId: subscriber.document
+          },
+          metadata: {
+            paymentId: payment.id,
+            rentalId: rental.id,
+            subscriberId: rental.subscriber_id
+          }
+        });
+
+        if (pixResult) {
+          let qrCodeUrl: string | null = null;
+          if (pixResult.pixQrCodeBase64) {
+            try {
+              qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, payment.id);
+            } catch (uploadErr) {
+              console.warn(`[PAYMENT GEN] Falha ao fazer upload do QR Code para ${payment.id}:`, uploadErr);
+            }
+          }
+          await this.paymentRepo.update(payment.id, {
+            abacate_pix_id: pixResult.abacatePixId,
+            pix_br_code: pixResult.pixBrCode,
+            pix_expires_at: pixResult.pixExpiresAt,
+            pix_qr_code_url: qrCodeUrl || buildQrCodeUrl(pixResult.pixBrCode)
+          });
+        }
+
+        console.log(`[PAYMENT GEN] Cobrança criada: R$${rental.weekly_value} (${status}), vence ${dateStr}`);
+        created++;
+      }
+
       cursor.setDate(cursor.getDate() + 7);
     }
 
-    if (uncoveredDates.length === 0) {
+    if (created === 0) {
       console.log(`[PAYMENT GEN] Nenhuma data a cobrar para rental ${rentalId}`);
-      return 0;
     }
 
-    const totalAmount = uncoveredDates.length * rental.weekly_value;
-    const newDueDate = uncoveredDates.at(-1)!;
-    const anyPast = uncoveredDates.some(d => d < todayStr);
-    const newStatus = anyPast ? 'Atrasado' : 'Pendente';
+    return created;
+  }
 
-    const created = await this.paymentRepo.create({
-      rental_id: rental.id,
-      subscriber_name: subscriber.name,
-      amount: totalAmount,
-      expected_amount: totalAmount,
-      due_date: newDueDate,
-      status: newStatus,
-      reminder_sent_count: 0
-    });
+  private async backfillMissingQrUrls(): Promise<void> {
+    console.log('[CRON] STEP 1.6: Preenchendo pix_payment_url ausentes...');
 
-    const pixResult = await this.abacatePayService.createPixQrCode({
-      amount: totalAmount,
-      description: `Aluguel - ${subscriber.name} - ${newDueDate}`,
-      expiresIn: 604800,
-      customer: {
-        name: subscriber.name,
-        cellphone: subscriber.phone,
-        email: subscriber.email,
-        taxId: subscriber.document
-      },
-      metadata: {
-        paymentId: created.id,
-        rentalId: rental.id,
-        subscriberId: rental.subscriber_id
-      }
-    });
+    const payments = await this.paymentRepo.findActiveWithoutQrUrl();
 
-    if (pixResult) {
-      let qrCodeUrl: string | null = null;
-      if (pixResult.pixQrCodeBase64) {
-        try {
-          qrCodeUrl = await uploadQrCodeToStorage(pixResult.pixQrCodeBase64, created.id);
-        } catch (uploadErr) {
-          console.warn(`[PAYMENT GEN] Falha ao fazer upload do QR Code para ${created.id}:`, uploadErr);
-        }
-      }
-      await this.paymentRepo.update(created.id, {
-        abacate_pix_id: pixResult.abacatePixId,
-        pix_br_code: pixResult.pixBrCode,
-        pix_expires_at: pixResult.pixExpiresAt,
-        pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
-      });
+    if (payments.length === 0) {
+      console.log('[CRON] Nenhum pagamento ativo sem URL do QR Code');
+      return;
     }
 
-    console.log(`[PAYMENT GEN] Cobrança criada: R$${totalAmount} (${newStatus}), vence ${newDueDate}`);
-    return 1;
+    console.log(`[CRON] ${payments.length} pagamento(s) com pix_br_code mas sem pix_payment_url`);
+
+    for (const payment of payments) {
+      try {
+        const qrUrl = buildQrCodeUrl(payment.pix_br_code!);
+        await this.paymentRepo.update(payment.id, { pix_qr_code_url: qrUrl });
+        console.log(`[CRON] pix_qr_code_url preenchida para pagamento ${payment.id}`);
+      } catch (err) {
+        console.error(`[CRON] Erro ao preencher QR URL para ${payment.id}:`, err);
+      }
+    }
   }
 
   async sendUpcomingPaymentReminders(): Promise<void> {
@@ -681,7 +589,7 @@ export class PaymentCronService {
     const target = new Date();
     target.setHours(0, 0, 0, 0);
     target.setDate(target.getDate() + reminderDaysBefore);
-    const targetDate = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+    const targetDate = toDateStr(target);
 
     const payments = await this.paymentRepo.findPendingByDueDateAndNoReminder(targetDate);
 
@@ -727,7 +635,7 @@ export class PaymentCronService {
           paymentDueDate: payment.due_date,
           totalDebt,
           pixBrCode: payment.pix_br_code ?? undefined,
-          pixQrCodeUrl: payment.pix_payment_url ?? undefined,
+          pixQrCodeUrl: payment.pix_qr_code_url ?? undefined,
           pixPaymentUrl: payment.pix_payment_url ?? undefined
         });
 
@@ -791,7 +699,7 @@ export class PaymentCronService {
             abacate_pix_id: pixResult.abacatePixId,
             pix_br_code: pixResult.pixBrCode,
             pix_expires_at: pixResult.pixExpiresAt,
-            pix_payment_url: qrCodeUrl || pixResult.pixPaymentUrl || null
+            pix_qr_code_url: qrCodeUrl || buildQrCodeUrl(pixResult.pixBrCode)
           });
           console.log(`[CRON] QR Code gerado para pagamento ${payment.id}`);
         }

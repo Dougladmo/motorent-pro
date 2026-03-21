@@ -15,7 +15,7 @@ import { useReminderQueue } from '../features/payment-management/hooks/useRemind
 type FilterType = PaymentStatus | 'ALL' | 'CURRENT_WEEK' | 'DATE_RANGE';
 
 export const Payments: React.FC = () => {
-  const { payments, rentals, motorcycles, loading, markPaymentAsPaid, sendReminder, markPaymentAsUnpaid, updatePayment, deletePayment } = useApp();
+  const { payments, rentals, motorcycles, loading, markPaymentAsPaid, sendReminder, sendConsolidatedReminder, markPaymentAsUnpaid, updatePayment, deletePayment } = useApp();
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -65,6 +65,18 @@ export const Payments: React.FC = () => {
       await sendReminder(id);
     } catch (error) {
       console.error('Erro ao enviar lembrete:', error);
+    } finally {
+      setSendingId(null);
+    }
+  };
+
+  const handleSendConsolidatedReminder = async (subscriberId: string) => {
+    try {
+      setSendingId('consolidated-' + subscriberId);
+      await sendConsolidatedReminder(subscriberId);
+      setAlertDialog({ message: 'Cobrança consolidada enviada com sucesso!', variant: 'success' });
+    } catch (error: any) {
+      setAlertDialog({ message: error.message || 'Erro ao enviar cobrança consolidada', variant: 'error' });
     } finally {
       setSendingId(null);
     }
@@ -423,6 +435,7 @@ export const Payments: React.FC = () => {
         onMarkPaid={markPaymentAsPaid}
         onMarkUnpaid={handleUndoClick}
         onDelete={handleDelete}
+        onSendConsolidatedReminder={handleSendConsolidatedReminder}
         sendingId={sendingId}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
