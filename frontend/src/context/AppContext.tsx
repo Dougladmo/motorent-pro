@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import {
   Motorcycle,
   Subscriber,
@@ -19,6 +19,7 @@ import {
 import { SubscriberDocument } from '../shared/types/subscriber';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface AppContextType {
   motorcycles: Motorcycle[];
@@ -185,8 +186,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [isAuthenticated]);
 
   // Supabase Realtime: escuta mudanças na tabela payments
-  useEffect(() => {
-    if (!isAuthenticated) return;
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
+  const setupRealtimeSubscription = useCallback(() => {
+    // Limpar subscription anterior se existir
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
 
     const channel = supabase
       .channel('payments-realtime')
@@ -219,12 +226,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Conectado à tabela payments');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Erro no canal payments:', err?.message);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime] Timeout na conexão payments, tentando reconectar...');
+        }
+      });
+
+    channelRef.current = channel;
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    setupRealtimeSubscription();
+
+    // Reconectar quando tab volta ao foco (browser throttle mata heartbeats em background)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isAuthenticated) {
+        setupRealtimeSubscription();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, setupRealtimeSubscription]);
 
   // Estatísticas derivadas
   const stats: DashboardStats = {
@@ -390,9 +426,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const result = await response.json();
       const transformed = transformPayment(result.data);
       setPayments(prev => prev.map(p => p.id === id ? transformed : p));
-
-      // Refresh para garantir sincronização
-      setTimeout(() => refreshData(), 500);
     } catch (error: any) {
       throw new Error(error.message || 'Erro ao atualizar pagamento');
     }
