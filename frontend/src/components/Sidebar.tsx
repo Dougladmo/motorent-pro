@@ -46,17 +46,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
         {/* Header: logo + collapse button */}
         <div className="flex items-center py-4 border-b border-slate-200 px-4 relative">
           <div className={`flex-1 flex items-center justify-center overflow-hidden transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-            <img src="/logo.png" alt="Norte Motos" className="h-16 w-auto object-contain" />
+            <img src="/logo.png" alt="AutoMoto Veículos" className="h-16 w-auto object-contain" />
           </div>
           {isCollapsed && (
             <div className="flex-1 flex items-center justify-center">
-              <img src="/logo.png" alt="Norte Motos" className="h-8 w-8 object-contain" />
+              <img src="/logo.png" alt="AutoMoto Veículos" className="h-8 w-8 object-contain" />
             </div>
           )}
           {/* Collapse toggle — desktop only */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white hover:bg-blue-600 border border-slate-200 rounded-full items-center justify-center text-slate-500 hover:text-white transition-colors z-10 shadow-sm"
+            className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white hover:bg-red-700 border border-slate-200 rounded-full items-center justify-center text-slate-500 hover:text-white transition-colors z-10 shadow-sm"
             title={isCollapsed ? 'Expandir menu' : 'Contrair menu'}
           >
             {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
 
         <nav className="flex-1 overflow-y-auto mt-6 px-3">
           {!isCollapsed && (
-            <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-widest text-orange-500">Menu</p>
+            <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-800">Menu</p>
           )}
           <ul className="space-y-1">
             {menuItems.map((item) => (
@@ -79,8 +79,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
                     w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
                     ${isCollapsed ? 'justify-center' : ''}
                     ${isActive
-                      ? 'bg-blue-500 text-white border-l-4 border-orange-500 shadow-sm'
-                      : 'text-slate-500 hover:bg-slate-100 hover:text-orange-500'}
+                      ? 'bg-red-700 text-white border-l-4 border-amber-400 shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-amber-500'}
                   `}
                 >
                   <span className="flex-shrink-0">{item.icon}</span>
@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
 
         <div className="p-4 border-t border-slate-200 flex-shrink-0">
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-red-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               {emailInitial}
             </div>
             {!isCollapsed && (
@@ -112,13 +112,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
             )}
           </div>
           {isCollapsed && (
-            <button
-              onClick={logout}
-              title="Sair"
-              className="mt-3 w-full flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors p-1 rounded"
-            >
-              <LogOut size={16} />
-            </button>
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <button
+                onClick={logout}
+                title="Sair"
+                className="w-full flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors p-1 rounded"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
           )}
         </div>
       </aside>

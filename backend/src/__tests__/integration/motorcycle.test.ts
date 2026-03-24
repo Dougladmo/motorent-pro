@@ -64,6 +64,8 @@ describe('MotorcycleService', () => {
     it('creates a new motorcycle successfully', async () => {
       const created = await service.createMotorcycle({
         plate: 'NEW1A11',
+        chassi: '9BWZZZ377VT999999',
+        renavam: '99999999999',
         model: 'Honda Pop 110',
         year: 2023,
         status: 'Disponível'
@@ -72,13 +74,14 @@ describe('MotorcycleService', () => {
       expect(created.id).toBeDefined();
       expect(created.plate).toBe('NEW1A11');
       expect(created.model).toBe('Honda Pop 110');
-      expect(created.total_revenue).toBe(0);
     });
 
     it('throws when plate already exists', async () => {
       await expect(
         service.createMotorcycle({
           plate: 'ABC1D23',
+          chassi: '9BWZZZ377VT888888',
+          renavam: '88888888888',
           model: 'Honda CG 160',
           year: 2022
         })
@@ -89,6 +92,8 @@ describe('MotorcycleService', () => {
       await expect(
         service.createMotorcycle({
           plate: '',
+          chassi: '9BWZZZ377VT777777',
+          renavam: '77777777777',
           model: 'Honda Pop 110',
           year: 2023
         })
@@ -99,6 +104,8 @@ describe('MotorcycleService', () => {
       await expect(
         service.createMotorcycle({
           plate: 'ZZZ9Z99',
+          chassi: '9BWZZZ377VT666666',
+          renavam: '66666666666',
           model: '',
           year: 2023
         })

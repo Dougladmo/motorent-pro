@@ -54,7 +54,7 @@ export const DashboardChart: React.FC<DashboardChartProps> = ({ chartData, range
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
       <div className="flex items-center gap-3 mb-6">
         <h3 className="text-lg font-bold text-slate-800">Balanço</h3>
-        <span className="bg-orange-50 text-orange-600 text-xs font-medium px-2 py-0.5 rounded-full">{rangeLabel}</span>
+        <span className="bg-amber-50 text-amber-600 text-xs font-medium px-2 py-0.5 rounded-full">{rangeLabel}</span>
       </div>
       <div className="h-48 md:h-64">
         <ResponsiveContainer width="100%" height="100%">

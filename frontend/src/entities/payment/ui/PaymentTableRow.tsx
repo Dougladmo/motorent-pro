@@ -113,7 +113,6 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     lock(payment.reminderSentCount); // bloqueia com base no envio atual
   }
   const { totalDebt, totalOverdue, overdueCount, hasOverdue, subscriberId } = subscriberInfo;
-  const showTotalDebt = hasOverdue && effectiveStatus !== PaymentStatus.PAID;
 
   // Pagamento acumulado: amount > expectedAmount (ex: R$500 com semanal R$250 = 2 semanas)
   const isAccumulated = payment.amount > payment.expectedAmount && !payment.isAmountOverridden;
@@ -130,6 +129,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     return earliest < today ? PaymentStatus.OVERDUE : payment.status;
   })();
 
+  const showTotalDebt = hasOverdue && effectiveStatus !== PaymentStatus.PAID;
   const hasPix = !!payment.pixBrCode && (effectiveStatus === PaymentStatus.PENDING || effectiveStatus === PaymentStatus.OVERDUE);
 
   function handleCopyPix() {
@@ -223,7 +223,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
             </div>
             <button
               onClick={handleCopyPix}
-              className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors text-sm font-medium"
             >
               <Copy size={16} />
               {copied ? 'Copiado!' : 'Copiar código PIX'}
@@ -265,7 +265,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           )}
           <button
             onClick={() => onEdit(payment)}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-2 text-red-700 hover:bg-red-50 rounded-lg transition-colors"
             title="Editar Pagamento"
           >
             <Edit2 size={18} />
@@ -274,12 +274,12 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
             onClick={handleSendReminder}
             disabled={isSending || inCooldown}
             className="p-2 rounded-lg transition-colors relative disabled:cursor-not-allowed
-              text-blue-600 hover:bg-blue-50
+              text-red-700 hover:bg-red-50
               disabled:text-slate-400 disabled:hover:bg-transparent"
             title={inCooldown ? `Aguarde ${formatCountdown(remaining)} para enviar novamente` : 'Enviar Lembrete WhatsApp'}
           >
             {isSending ? (
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-red-700 border-t-transparent rounded-full animate-spin" />
             ) : inCooldown ? (
               <span className="flex items-center gap-1 text-xs">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -312,7 +312,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           <button
             ref={infoBtnRef}
             onClick={handleTogglePaidInfo}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-2 text-red-700 hover:bg-red-50 rounded-lg transition-colors"
             title="Informações do Pagamento"
           >
             <Info size={18} />
@@ -320,7 +320,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
           {!payment.pixPaymentUrl && (
             <button
               onClick={() => onUndo(payment.id)}
-              className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+              className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
               title="Reverter Pagamento"
             >
               <RotateCcw size={20} />
@@ -351,7 +351,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => onToggleSelect(payment.id)}
-                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 flex-shrink-0 cursor-pointer"
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-red-700 focus:ring-red-600 flex-shrink-0 cursor-pointer"
               />
             )}
             <div className="min-w-0 flex-1">
@@ -412,7 +412,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
             type="checkbox"
             checked={isSelected}
             onChange={() => onToggleSelect(payment.id)}
-            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            className="h-4 w-4 rounded border-slate-300 text-red-700 focus:ring-red-600 cursor-pointer"
           />
         </td>
       )}

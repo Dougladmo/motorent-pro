@@ -121,7 +121,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
             }
           }}
           disabled={isLoadingEdit}
-          className="mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors text-sm flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="mt-3 text-red-700 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-sm flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {isLoadingEdit ? <Loader2 size={14} className="animate-spin" /> : <Edit2 size={14} />}
           {isLoadingEdit ? 'Carregando...' : 'Ver Dados'}
@@ -139,13 +139,13 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
                 const progress = getContractProgress(rental);
 
                 return (
-                  <li key={rental.id} className="text-sm bg-blue-50 border border-blue-100 px-3 py-3 rounded-lg">
+                  <li key={rental.id} className="text-sm bg-red-50 border border-red-100 px-3 py-3 rounded-lg">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
-                        <div className="font-semibold text-blue-900">
+                        <div className="font-semibold text-red-950">
                           {bike?.model} | {formatPlate(bike?.plate || '')}
                         </div>
-                        <div className="text-xs text-blue-600 mt-1">
+                        <div className="text-xs text-red-700 mt-1">
                           {formatCurrency(rental.weeklyValue)}/semana{timeRemaining}
                         </div>
                       </div>
@@ -161,16 +161,16 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
                     </div>
 
                     {/* Progresso de Faturamento */}
-                    <div className="mt-2 pt-2 border-t border-blue-200">
+                    <div className="mt-2 pt-2 border-t border-red-200">
                       <button
                         onClick={() => toggleRental(rental.id)}
                         className="w-full flex items-center justify-between text-xs mb-1 hover:opacity-80 transition-opacity"
                       >
-                        <span className="text-blue-600 flex items-center gap-1">
+                        <span className="text-red-700 flex items-center gap-1">
                           <TrendingUp size={12} />
                           Progresso
                         </span>
-                        <span className="flex items-center gap-1 font-semibold text-blue-700">
+                        <span className="flex items-center gap-1 font-semibold text-red-800">
                           {progress.progress.toFixed(0)}%
                           {expandedRentals.has(rental.id) ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </span>
@@ -179,7 +179,7 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
                       {expandedRentals.has(rental.id) && (
                         <>
                           {/* Barra de Progresso */}
-                          <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                          <div className="w-full bg-red-200 rounded-full h-2 mb-2">
                             <div
                               className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${progress.progress}%` }}
@@ -189,12 +189,12 @@ export const SubscriberCard: React.FC<SubscriberCardProps> = ({
                           {/* Valores */}
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
-                              <span className="text-blue-500">Faturado:</span>
+                              <span className="text-red-600">Faturado:</span>
                               <p className="font-bold text-green-700">{formatCurrency(progress.totalPaid)}</p>
                             </div>
                             <div>
-                              <span className="text-blue-500">Pendente:</span>
-                              <p className="font-bold text-orange-600">{formatCurrency(progress.totalPending)}</p>
+                              <span className="text-red-600">Pendente:</span>
+                              <p className="font-bold text-amber-600">{formatCurrency(progress.totalPending)}</p>
                             </div>
                           </div>
                         </>

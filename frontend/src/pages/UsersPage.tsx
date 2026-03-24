@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserPlus, Trash2, Shield, User } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { userApi, AdminUser } from '../services/api';
-import { AlertDialog } from '../components/AlertDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export const UsersPage: React.FC = () => {
@@ -12,7 +12,6 @@ export const UsersPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const loadUsers = async () => {
@@ -55,18 +54,12 @@ export const UsersPage: React.FC = () => {
       setUsers((prev) => prev.filter((u) => u.id !== id));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao remover usuário';
-      setAlertDialog({ message: msg, variant: 'error' });
+      toast.error(msg);
     }
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <AlertDialog
-        isOpen={!!alertDialog}
-        message={alertDialog?.message ?? ''}
-        variant={alertDialog?.variant}
-        onClose={() => setAlertDialog(null)}
-      />
       <ConfirmDialog
         isOpen={!!deletingUserId}
         title="Remover Usuário"
@@ -83,7 +76,7 @@ export const UsersPage: React.FC = () => {
         </div>
         <button
           onClick={() => { setShowModal(true); setError(null); }}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           <UserPlus size={16} />
           Novo Usuário
@@ -99,14 +92,14 @@ export const UsersPage: React.FC = () => {
             {users.map((u) => (
               <div key={u.id} className="p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <User size={14} className="text-blue-600" />
+                  <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                    <User size={14} className="text-red-700" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-800 truncate">{u.email}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {u.isSuperAdmin ? (
-                        <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                        <span className="flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
                           <Shield size={10} />
                           Admin
                         </span>
@@ -147,15 +140,15 @@ export const UsersPage: React.FC = () => {
                 <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                        <User size={14} className="text-blue-600" />
+                      <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
+                        <User size={14} className="text-red-700" />
                       </div>
                       <span className="text-slate-800 text-sm font-medium">{u.email}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     {u.isSuperAdmin ? (
-                      <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 px-2 py-1 rounded-full w-fit">
+                      <span className="flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 px-2 py-1 rounded-full w-fit">
                         <Shield size={11} />
                         Administrador
                       </span>
@@ -199,7 +192,7 @@ export const UsersPage: React.FC = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="admin@motorent.com"
-                  className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
+                  className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600 placeholder-slate-400"
                 />
               </div>
               <div>
@@ -211,7 +204,7 @@ export const UsersPage: React.FC = () => {
                   required
                   placeholder="••••••••"
                   minLength={6}
-                  className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
+                  className="w-full bg-white border border-slate-200 text-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-600 placeholder-slate-400"
                 />
               </div>
               {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -226,7 +219,7 @@ export const UsersPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg py-2 text-sm font-medium transition-colors"
+                  className="flex-1 bg-red-700 hover:bg-red-800 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg py-2 text-sm font-medium transition-colors"
                 >
                   {creating ? 'Criando...' : 'Criar'}
                 </button>

@@ -80,9 +80,9 @@ export const formatPlate = (plate: string): string => {
   const char5 = rest[1];
 
   if (/[A-Z]/.test(char5)) {
-    // Mercosul format: ABC1D + up to 2 digits (no hyphen)
+    // Mercosul format: ABC-1D23 (with hyphen)
     const remaining = rest.substring(2).replace(/[^0-9]/g, '').substring(0, 2);
-    return `${prefix}${char4}${char5}${remaining}`;
+    return `${prefix}-${char4}${char5}${remaining}`;
   } else if (/\d/.test(char5)) {
     // Old format: ABC-1234
     const digits = (char4 + rest.substring(1).replace(/[^0-9]/g, '')).substring(0, 4);

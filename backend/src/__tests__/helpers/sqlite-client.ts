@@ -24,11 +24,13 @@ function initSchema(database: Database.Database): void {
     CREATE TABLE IF NOT EXISTS motorcycles (
       id TEXT PRIMARY KEY,
       plate TEXT NOT NULL UNIQUE,
+      chassi TEXT NOT NULL DEFAULT '',
+      renavam TEXT NOT NULL DEFAULT '',
       model TEXT NOT NULL,
       year INTEGER NOT NULL,
+      mileage INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'Disponível',
       image_url TEXT,
-      total_revenue REAL NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -105,17 +107,6 @@ function initSchema(database: Database.Database): void {
       updated_at TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS motorcycle_revenue (
-      id TEXT PRIMARY KEY,
-      motorcycle_id TEXT NOT NULL,
-      payment_id TEXT NOT NULL,
-      rental_id TEXT NOT NULL,
-      amount REAL NOT NULL,
-      date TEXT NOT NULL,
-      subscriber_name TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS subscriber_documents (
       id TEXT PRIMARY KEY,
       subscriber_id TEXT NOT NULL,
@@ -139,7 +130,6 @@ export function getDb(): Database.Database {
 export function resetDb(): void {
   const database = getDb();
   database.exec(`
-    DELETE FROM motorcycle_revenue;
     DELETE FROM subscriber_documents;
     DELETE FROM payments;
     DELETE FROM rentals;
@@ -335,7 +325,7 @@ class SupabaseQueryBuilder {
         if (!item.created_at) {
           item.created_at = now;
         }
-        const tablesWithoutUpdatedAt = ['motorcycle_revenue', 'subscriber_documents'];
+        const tablesWithoutUpdatedAt = ['subscriber_documents'];
         if (!tablesWithoutUpdatedAt.includes(this.table) && !item.updated_at) {
           item.updated_at = now;
         }
@@ -379,7 +369,7 @@ class SupabaseQueryBuilder {
   private executeUpdate(): QueryResult {
     try {
       const now = new Date().toISOString();
-      const tablesWithoutUpdatedAt = ['motorcycle_revenue', 'subscriber_documents'];
+      const tablesWithoutUpdatedAt = ['subscriber_documents'];
       const updates = tablesWithoutUpdatedAt.includes(this.table)
         ? { ...(this.updateData || {}) }
         : { ...(this.updateData || {}), updated_at: now };
@@ -469,7 +459,6 @@ class MockSupabaseClient {
   }
 
   rpc(_name: string): Promise<{ data: null; error: { message: string } }> {
-    // Always return error so fallback in incrementRevenue is triggered
     return Promise.resolve({ data: null, error: { message: 'RPC not supported in tests' } });
   }
 }

@@ -34,13 +34,13 @@ export function seedDb(db: Database.Database): SeedData {
 
   // Insert motorcycles
   const insertMoto = db.prepare(`
-    INSERT INTO motorcycles (id, plate, model, year, status, image_url, total_revenue, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO motorcycles (id, plate, model, year, status, image_url, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertMoto.run(moto1Id, 'ABC1D23', 'Honda CG 160', 2022, 'Disponível', null, 0, now, now);
-  insertMoto.run(moto2Id, 'XYZ9E87', 'Yamaha Factor 150', 2021, 'Alugada', null, 0, now, now);
-  insertMoto.run(moto3Id, 'QQQ3F33', 'Honda Biz 125', 2020, 'Disponível', null, 0, now, now);
+  insertMoto.run(moto1Id, 'ABC1D23', 'Honda CG 160', 2022, 'Disponível', null, now, now);
+  insertMoto.run(moto2Id, 'XYZ9E87', 'Yamaha Factor 150', 2021, 'Alugada', null, now, now);
+  insertMoto.run(moto3Id, 'QQQ3F33', 'Honda Biz 125', 2020, 'Disponível', null, now, now);
 
   // Insert subscribers (active stored as 1/0)
   const insertSub = db.prepare(`

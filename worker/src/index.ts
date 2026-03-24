@@ -8,18 +8,21 @@ import { PaymentRepository } from './repositories/paymentRepository';
 import { RentalRepository } from './repositories/rentalRepository';
 import { SubscriberRepository } from './repositories/subscriberRepository';
 import { NotificationService } from './services/notificationService';
+import { NotificationLogRepository } from './repositories/notificationLogRepository';
 import logger from './utils/logger';
 
 const paymentRepo = new PaymentRepository();
 const rentalRepo = new RentalRepository();
 const subscriberRepo = new SubscriberRepository();
 const notificationService = new NotificationService();
+const notificationLog = new NotificationLogRepository();
 
 const cronService = new PaymentCronService(
   paymentRepo,
   rentalRepo,
   subscriberRepo,
-  notificationService
+  notificationService,
+  notificationLog
 );
 
 // Iniciar cron
@@ -44,6 +47,47 @@ const server = http.createServer(async (req, res) => {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro desconhecido';
       logger.error('[WORKER] Erro ao gerar pagamentos via trigger:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: message }));
+    }
+    return;
+  }
+
+  // GET /notifications/week - lista quem já foi notificado na semana atual
+  if (req.method === 'GET' && req.url?.startsWith('/notifications/week')) {
+    try {
+      const url = new URL(req.url, `http://localhost:${env.WORKER_PORT}`);
+      const weekKey = url.searchParams.get('week') ?? undefined;
+      const logs = await notificationLog.findByWeek(weekKey);
+
+      // Agrupar por assinante
+      const bySubscriber = new Map<string, { name: string; notifications: typeof logs }>();
+      for (const log of logs) {
+        if (!bySubscriber.has(log.subscriber_id)) {
+          bySubscriber.set(log.subscriber_id, { name: log.subscriber_name, notifications: [] });
+        }
+        bySubscriber.get(log.subscriber_id)!.notifications.push(log);
+      }
+
+      const result = {
+        week: weekKey ?? notificationLog.getWeekKey(),
+        total: logs.length,
+        subscribers: Array.from(bySubscriber.entries()).map(([id, data]) => ({
+          subscriber_id: id,
+          subscriber_name: data.name,
+          notifications: data.notifications.map(n => ({
+            payment_id: n.payment_id,
+            type: n.notification_type,
+            sent_at: n.sent_at
+          }))
+        }))
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: result }));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      logger.error('[WORKER] Erro ao buscar notification logs:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: message }));
     }

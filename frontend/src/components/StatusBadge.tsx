@@ -24,7 +24,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ''
       return 'bg-green-100 text-green-700';
     }
     if (status === MotorcycleStatus.RENTED) {
-      return 'bg-blue-100 text-blue-700';
+      return 'bg-amber-100 text-amber-700';
     }
     if (status === MotorcycleStatus.MAINTENANCE || status === MotorcycleStatus.INACTIVE) {
       return 'bg-slate-200 text-slate-600';

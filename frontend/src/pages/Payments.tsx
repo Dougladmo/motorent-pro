@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { PaymentStatus, Payment } from '../shared';
+import toast from 'react-hot-toast';
 import { Modal } from '../components/Modal';
-import { AlertDialog } from '../components/AlertDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatDate } from '../shared/utils/formatters';
 import { PaymentWeekStats } from '../widgets/payment-filters/PaymentWeekStats';
@@ -33,7 +33,6 @@ export const Payments: React.FC = () => {
   const [bulkConfirm, setBulkConfirm] = useState<'reminder' | 'paid' | 'delete' | null>(null);
 
   // Dialogs
-  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' | 'warning' | 'info'; title?: string } | null>(null);
   const [undoPaymentId, setUndoPaymentId] = useState<string | null>(null);
   const [undoReason, setUndoReason] = useState('');
   const [isUndoing, setIsUndoing] = useState(false);
@@ -74,9 +73,9 @@ export const Payments: React.FC = () => {
     try {
       setSendingId('consolidated-' + subscriberId);
       await sendConsolidatedReminder(subscriberId);
-      setAlertDialog({ message: 'Cobrança consolidada enviada com sucesso!', variant: 'success' });
+      toast.success('Cobrança consolidada enviada com sucesso!');
     } catch (error: any) {
-      setAlertDialog({ message: error.message || 'Erro ao enviar cobrança consolidada', variant: 'error' });
+      toast.error(error.message || 'Erro ao enviar cobrança consolidada');
     } finally {
       setSendingId(null);
     }
@@ -93,10 +92,10 @@ export const Payments: React.FC = () => {
     try {
       await markPaymentAsUnpaid(undoPaymentId, undoReason.trim() || undefined);
       setUndoPaymentId(null);
-      setAlertDialog({ message: 'Pagamento revertido com sucesso!', variant: 'success', title: 'Pagamento Revertido' });
+      toast.success('Pagamento revertido com sucesso!');
     } catch (error: any) {
       setUndoPaymentId(null);
-      setAlertDialog({ message: error.message, variant: 'error' });
+      toast.error(error.message);
     } finally {
       setIsUndoing(false);
     }
@@ -105,9 +104,9 @@ export const Payments: React.FC = () => {
   const handleDelete = async (paymentId: string) => {
     try {
       await deletePayment(paymentId);
-      setAlertDialog({ message: 'Cobrança deletada com sucesso!', variant: 'success', title: 'Cobrança Deletada' });
+      toast.success('Cobrança deletada com sucesso!');
     } catch (error: any) {
-      setAlertDialog({ message: error.message, variant: 'error' });
+      toast.error(error.message);
     }
   };
 
@@ -126,7 +125,7 @@ export const Payments: React.FC = () => {
     if (!editingPayment) return;
 
     if (editForm.amount <= 0) {
-      setAlertDialog({ message: 'Valor deve ser maior que zero.', variant: 'warning' });
+      toast.error('Valor deve ser maior que zero.');
       return;
     }
 
@@ -138,9 +137,9 @@ export const Payments: React.FC = () => {
 
       setIsModalOpen(false);
       setEditingPayment(null);
-      setAlertDialog({ message: 'Pagamento atualizado com sucesso!', variant: 'success', title: 'Pagamento Atualizado' });
+      toast.success('Pagamento atualizado com sucesso!');
     } catch (error: any) {
-      setAlertDialog({ message: `Erro ao atualizar pagamento: ${error.message}`, variant: 'error' });
+      toast.error(`Erro ao atualizar pagamento: ${error.message}`);
     }
   };
 
@@ -177,7 +176,7 @@ export const Payments: React.FC = () => {
       p => selectedIds.has(p.id) && (p.status === PaymentStatus.PENDING || p.status === PaymentStatus.OVERDUE)
     );
     if (eligible.length === 0) {
-      setAlertDialog({ message: 'Nenhuma cobrança pendente ou atrasada selecionada.', variant: 'warning' });
+      toast.error('Nenhuma cobrança pendente ou atrasada selecionada.');
       return;
     }
     setBulkConfirm('reminder');
@@ -206,7 +205,7 @@ export const Payments: React.FC = () => {
       }
     }
     clearSelection();
-    setAlertDialog({ message: `${ids.length} pagamento(s) marcado(s) como pago.`, variant: 'success', title: 'Pagamentos Aprovados' });
+    toast.success(`${ids.length} pagamento(s) marcado(s) como pago.`);
   };
 
   const handleBulkDelete = () => {
@@ -224,7 +223,7 @@ export const Payments: React.FC = () => {
       }
     }
     clearSelection();
-    setAlertDialog({ message: `${ids.length} cobrança(s) deletada(s).`, variant: 'success', title: 'Cobranças Deletadas' });
+    toast.success(`${ids.length} cobrança(s) deletada(s).`);
   };
 
   const getSubscriberInfo = useMemo(() => {
@@ -312,14 +311,6 @@ export const Payments: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <AlertDialog
-        isOpen={!!alertDialog}
-        message={alertDialog?.message ?? ''}
-        variant={alertDialog?.variant}
-        title={alertDialog?.title}
-        onClose={() => setAlertDialog(null)}
-      />
-
       <ConfirmDialog
         isOpen={!!undoPaymentId}
         title="Reverter Pagamento"
@@ -351,7 +342,7 @@ export const Payments: React.FC = () => {
               value={undoReason}
               onChange={e => setUndoReason(e.target.value)}
               rows={2}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600 resize-none"
               placeholder="Ex: Pagamento estornado..."
             />
           </div>

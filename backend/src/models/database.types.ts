@@ -20,33 +20,39 @@ export interface Database {
         Row: {
           id: string;
           plate: string;
+          chassi: string | null;
+          renavam: string | null;
           model: string;
           year: number;
+          mileage: number;
           status: MotorcycleStatus;
           image_url: string | null;
-          total_revenue: number;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           plate: string;
+          chassi?: string | null;
+          renavam?: string | null;
           model: string;
           year: number;
+          mileage?: number;
           status?: MotorcycleStatus;
           image_url?: string | null;
-          total_revenue?: number;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           plate?: string;
+          chassi?: string;
+          renavam?: string;
           model?: string;
           year?: number;
+          mileage?: number;
           status?: MotorcycleStatus;
           image_url?: string | null;
-          total_revenue?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -80,6 +86,7 @@ export interface Database {
           real_driver_address_neighborhood: string | null;
           real_driver_address_city: string | null;
           real_driver_address_state: string | null;
+          auto_reminders_enabled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -111,6 +118,7 @@ export interface Database {
           real_driver_address_neighborhood?: string | null;
           real_driver_address_city?: string | null;
           real_driver_address_state?: string | null;
+          auto_reminders_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -142,6 +150,7 @@ export interface Database {
           real_driver_address_neighborhood?: string | null;
           real_driver_address_city?: string | null;
           real_driver_address_state?: string | null;
+          auto_reminders_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -316,38 +325,6 @@ export interface Database {
           from_status?: PaymentStatus;
           to_status?: PaymentStatus;
           reason?: string | null;
-          created_at?: string;
-        };
-      };
-      motorcycle_revenue: {
-        Row: {
-          id: string;
-          motorcycle_id: string;
-          payment_id: string;
-          rental_id: string;
-          amount: number;
-          date: string;
-          subscriber_name: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          motorcycle_id: string;
-          payment_id: string;
-          rental_id: string;
-          amount: number;
-          date: string;
-          subscriber_name: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          motorcycle_id?: string;
-          payment_id?: string;
-          rental_id?: string;
-          amount?: number;
-          date?: string;
-          subscriber_name?: string;
           created_at?: string;
         };
       };

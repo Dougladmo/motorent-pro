@@ -74,7 +74,7 @@ export const PaymentEditForm: React.FC<PaymentEditFormProps> = ({
         </button>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+          className="px-4 py-2 bg-red-700 text-white rounded-lg font-medium hover:bg-red-800"
         >
           Atualizar
         </button>

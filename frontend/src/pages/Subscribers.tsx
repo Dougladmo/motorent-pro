@@ -8,7 +8,7 @@ import { WEEK_DAYS } from '../shared';
 import { validatePhone, validateCPF, validatePositiveNumber } from '../shared';
 import { formatPhone, formatCPF, formatCurrency, capitalizeName } from '../shared';
 import { SubscriberGrid } from '../entities/subscriber/ui/SubscriberGrid';
-import { AlertDialog } from '../components/AlertDialog';
+import toast from 'react-hot-toast';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Modal } from '../components/Modal';
 import { SubscriberDocument } from '../shared/types/subscriber';
@@ -59,7 +59,7 @@ const Field: React.FC<{ label: string; optional?: boolean; children: React.React
   </div>
 );
 
-const inputCls = "w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+const inputCls = "w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-600";
 
 // ─── Initial form states ──────────────────────────────────────────────────────
 const emptySubForm = () => ({
@@ -71,7 +71,8 @@ const emptySubForm = () => ({
   realDriverName: '', realDriverDocument: '', realDriverPhone: '', realDriverRelationship: '',
   realDriverAddressZip: '', realDriverAddressStreet: '', realDriverAddressNumber: '',
   realDriverAddressComplement: '', realDriverAddressNeighborhood: '',
-  realDriverAddressCity: '', realDriverAddressState: ''
+  realDriverAddressCity: '', realDriverAddressState: '',
+  autoRemindersEnabled: true
 });
 
 type SubFormState = ReturnType<typeof emptySubForm>;
@@ -105,13 +106,13 @@ const DocumentRow: React.FC<{
     <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
       {isPdf
         ? <FileText size={20} className="text-red-500 shrink-0" />
-        : <Image size={20} className="text-blue-500 shrink-0" />
+        : <Image size={20} className="text-red-600 shrink-0" />
       }
       <div className="flex-1 min-w-0">
         <button
           type="button"
           onClick={onView}
-          className="text-sm font-medium text-blue-600 hover:underline truncate block text-left w-full"
+          className="text-sm font-medium text-red-700 hover:underline truncate block text-left w-full"
         >
           {doc.fileName}
         </button>
@@ -123,7 +124,7 @@ const DocumentRow: React.FC<{
       <button
         type="button"
         onClick={onView}
-        className="text-slate-400 hover:text-blue-500 shrink-0"
+        className="text-slate-400 hover:text-red-600 shrink-0"
         title="Visualizar documento"
       >
         <Eye size={16} />
@@ -230,7 +231,7 @@ const DocumentCarouselModal: React.FC<{
         <div className="flex items-center gap-2 min-w-0 flex-1 justify-center px-4">
           {/\.pdf$/i.test(doc.fileName)
             ? <FileText size={16} className="text-red-400 shrink-0" />
-            : <Image size={16} className="text-blue-400 shrink-0" />
+            : <Image size={16} className="text-red-500 shrink-0" />
           }
           <span className="text-sm font-medium text-white truncate">{doc.fileName}</span>
           <span className="text-xs text-slate-400 shrink-0">{FILE_TYPE_LABELS[doc.fileType]}</span>
@@ -335,7 +336,8 @@ const SubscriberView: React.FC<{
   onDocumentUpload: (formData: FormData) => void;
   uploadLoading: boolean;
   subscriberId?: string;
-}> = ({ form, documents, onDocumentDelete, onDocumentUpload, uploadLoading, subscriberId }) => {
+  onToggleReminders?: (enabled: boolean) => void;
+}> = ({ form, documents, onDocumentDelete, onDocumentUpload, uploadLoading, subscriberId, onToggleReminders }) => {
   const [uploadForm, setUploadForm] = useState<{ file: File | null; fileType: SubscriberDocument['fileType']; description: string }>({
     file: null, fileType: 'other', description: ''
   });
@@ -376,6 +378,39 @@ const SubscriberView: React.FC<{
             </div>
           )}
         </div>
+      </ViewSection>
+
+      <ViewSection title="Notificações" defaultOpen={true}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-700">Lembretes automáticos de pagamento</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {form.autoRemindersEnabled !== false
+                ? 'O sistema envia lembretes automáticos via WhatsApp e email.'
+                : 'Lembretes automáticos estão desativados para este assinante.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onToggleReminders?.(!form.autoRemindersEnabled)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              form.autoRemindersEnabled !== false ? 'bg-green-500' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                form.autoRemindersEnabled !== false ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        {form.autoRemindersEnabled === false && (
+          <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs text-amber-700">
+              <strong>Atenção:</strong> Com os lembretes desativados, este assinante não receberá notificações automáticas de cobrança por WhatsApp ou email. Cobranças continuarão sendo geradas normalmente.
+            </p>
+          </div>
+        )}
       </ViewSection>
 
       {hasAddress && (
@@ -444,7 +479,7 @@ const SubscriberView: React.FC<{
             <button
               type="button"
               onClick={() => setShowUploadRow(true)}
-              className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:underline"
+              className="mt-3 flex items-center gap-2 text-sm text-red-700 hover:underline"
             >
               <Upload size={16} /> Adicionar documento
             </button>
@@ -460,7 +495,7 @@ const SubscriberView: React.FC<{
                 type="file"
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
-                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-red-50 file:text-red-800 hover:file:bg-red-100"
               />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -491,7 +526,7 @@ const SubscriberView: React.FC<{
                 type="button"
                 onClick={handleUploadSubmit}
                 disabled={!uploadForm.file || uploadLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {uploadLoading ? 'Enviando...' : 'Enviar arquivo'}
               </button>
@@ -647,7 +682,7 @@ const SubscriberForm: React.FC<{
               type="checkbox"
               checked={form.isRealDriver}
               onChange={e => set({ isRealDriver: e.target.checked })}
-              className="w-4 h-4 accent-blue-600"
+              className="w-4 h-4 accent-red-700"
             />
             <span className="text-sm font-medium text-slate-700">O assinante é o condutor real da moto</span>
           </label>
@@ -750,7 +785,7 @@ const SubscriberForm: React.FC<{
             <button
               type="button"
               onClick={() => setShowUploadRow(true)}
-              className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:underline"
+              className="mt-3 flex items-center gap-2 text-sm text-red-700 hover:underline"
             >
               <Upload size={16} /> Adicionar documento
             </button>
@@ -766,7 +801,7 @@ const SubscriberForm: React.FC<{
                 type="file"
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
-                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-red-50 file:text-red-800 hover:file:bg-red-100"
               />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -797,7 +832,7 @@ const SubscriberForm: React.FC<{
                 type="button"
                 onClick={handleUploadSubmit}
                 disabled={!uploadForm.file || uploadLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {uploadLoading ? 'Enviando...' : 'Enviar arquivo'}
               </button>
@@ -837,7 +872,8 @@ export const Subscribers: React.FC = () => {
     motorcycleId: '',
     weeklyValue: 250,
     dueDayOfWeek: 1,
-    contractDurationMonths: 12
+    contractDurationMonths: 12,
+    customDuration: false
   });
 
   // Documents state
@@ -845,7 +881,6 @@ export const Subscribers: React.FC = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
 
   // Dialogs
-  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' | 'warning' | 'info'; title?: string } | null>(null);
   const [terminatingRental, setTerminatingRental] = useState<{ rentalId: string; subscriberName: string; bikePlate: string; outstandingBalance: number } | null>(null);
   const [terminateReason, setTerminateReason] = useState('');
   const [isTerminating, setIsTerminating] = useState(false);
@@ -914,15 +949,15 @@ export const Subscribers: React.FC = () => {
     e.preventDefault();
 
     if (!subForm.name.trim()) {
-      setAlertDialog({ message: 'Nome é obrigatório.', variant: 'warning' });
+      toast.error('Nome é obrigatório.');
       return;
     }
     if (!validatePhone(subForm.phone)) {
-      setAlertDialog({ message: 'Telefone inválido. Use o formato (00) 00000-0000.', variant: 'warning' });
+      toast.error('Telefone inválido. Use o formato (00) 00000-0000.');
       return;
     }
     if (subForm.document && !validateCPF(subForm.document)) {
-      setAlertDialog({ message: 'CPF inválido.', variant: 'warning' });
+      toast.error('CPF inválido.');
       return;
     }
 
@@ -931,13 +966,15 @@ export const Subscribers: React.FC = () => {
       if (editingSubscriber) {
         await updateSubscriber(editingSubscriber.id, payload as any);
         handleCloseModal();
+        toast.success('Assinante atualizado com sucesso!');
       } else {
         await addSubscriber(payload as any);
         setIsNewSubModalOpen(false);
         setSubForm(emptySubForm());
+        toast.success('Assinante cadastrado com sucesso!');
       }
     } catch (error: any) {
-      setAlertDialog({ message: error.message ?? 'Erro ao salvar assinante. Tente novamente.', variant: 'error' });
+      toast.error(error.message ?? 'Erro ao salvar assinante. Tente novamente.');
     }
   };
 
@@ -971,7 +1008,8 @@ export const Subscribers: React.FC = () => {
         realDriverAddressComplement: fresh.real_driver_address_complement ?? subscriber.realDriverAddressComplement ?? '',
         realDriverAddressNeighborhood: fresh.real_driver_address_neighborhood ?? subscriber.realDriverAddressNeighborhood ?? '',
         realDriverAddressCity: fresh.real_driver_address_city ?? subscriber.realDriverAddressCity ?? '',
-        realDriverAddressState: fresh.real_driver_address_state ?? subscriber.realDriverAddressState ?? ''
+        realDriverAddressState: fresh.real_driver_address_state ?? subscriber.realDriverAddressState ?? '',
+        autoRemindersEnabled: fresh.auto_reminders_enabled ?? subscriber.autoRemindersEnabled ?? true
       });
 
       // Load documents
@@ -979,7 +1017,7 @@ export const Subscribers: React.FC = () => {
       setDocuments(docs);
     } catch {
       setEditingSubscriber(subscriber);
-      setSubForm({ ...emptySubForm(), name: subscriber.name, phone: subscriber.phone, document: subscriber.document, email: subscriber.email ?? '', isRealDriver: subscriber.isRealDriver ?? true });
+      setSubForm({ ...emptySubForm(), name: subscriber.name, phone: subscriber.phone, document: subscriber.document, email: subscriber.email ?? '', isRealDriver: subscriber.isRealDriver ?? true, autoRemindersEnabled: subscriber.autoRemindersEnabled ?? true });
       setDocuments([]);
     }
     setIsViewModalOpen(true);
@@ -1001,8 +1039,9 @@ export const Subscribers: React.FC = () => {
     try {
       const doc = await addSubscriberDocument(editingSubscriber.id, formData);
       setDocuments(prev => [doc, ...prev]);
+      toast.success('Documento adicionado com sucesso!');
     } catch (error: any) {
-      setAlertDialog({ message: `Erro ao enviar documento: ${error.message}`, variant: 'error' });
+      toast.error(`Erro ao enviar documento: ${error.message}`);
     } finally {
       setUploadLoading(false);
     }
@@ -1014,27 +1053,28 @@ export const Subscribers: React.FC = () => {
       await deleteSubscriberDocument(editingSubscriber.id, docId);
       setDocuments(prev => prev.filter(d => d.id !== docId));
     } catch (error: any) {
-      setAlertDialog({ message: `Erro ao remover documento: ${error.message}`, variant: 'error' });
+      toast.error(`Erro ao remover documento: ${error.message}`);
     }
   };
 
   // ─── Rental ────────────────────────────────────────────────────────────────
   const handleCreateRental = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rentalForm.subscriberId) { setAlertDialog({ message: 'Selecione um assinante.', variant: 'warning' }); return; }
-    if (!rentalForm.motorcycleId) { setAlertDialog({ message: 'Selecione uma moto.', variant: 'warning' }); return; }
-    if (!validatePositiveNumber(rentalForm.weeklyValue)) { setAlertDialog({ message: 'Valor semanal deve ser maior que zero.', variant: 'warning' }); return; }
+    if (!rentalForm.subscriberId) { toast.error('Selecione um assinante.'); return; }
+    if (!rentalForm.motorcycleId) { toast.error('Selecione uma moto.'); return; }
+    if (!validatePositiveNumber(rentalForm.weeklyValue)) { toast.error('Valor semanal deve ser maior que zero.'); return; }
 
     try {
       const startDate = new Date();
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + rentalForm.contractDurationMonths);
-      const { contractDurationMonths, ...rentalData } = rentalForm;
-      await createRental({ ...rentalData, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], isActive: true, outstandingBalance: 0, totalContractValue: 0, totalPaid: 0 });
+      const { contractDurationMonths, customDuration, ...rentalData } = rentalForm;
+      await createRental({ ...rentalData, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], isActive: true, outstandingBalance: 0 });
       setView('LIST');
-      setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1, contractDurationMonths: 12 });
+      setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1, contractDurationMonths: 12, customDuration: false });
+      toast.success('Aluguel criado com sucesso!');
     } catch (error: any) {
-      setAlertDialog({ message: error.message ?? 'Erro ao criar aluguel. Tente novamente.', variant: 'error' });
+      toast.error(error.message ?? 'Erro ao criar aluguel. Tente novamente.');
     }
   };
 
@@ -1044,7 +1084,7 @@ export const Subscribers: React.FC = () => {
     try {
       await deleteSubscriber(id);
     } catch (error: any) {
-      setAlertDialog({ message: `Erro ao excluir assinante: ${error.message}`, variant: 'error', title: 'Erro ao excluir' });
+      toast.error(`Erro ao excluir assinante: ${error.message}`);
     }
   };
 
@@ -1062,10 +1102,10 @@ export const Subscribers: React.FC = () => {
     try {
       await terminateRental(terminatingRental.rentalId, terminateReason.trim() || 'Rescisão de contrato');
       setTerminatingRental(null);
-      setAlertDialog({ message: 'Contrato rescindido com sucesso! A moto foi liberada e os pagamentos futuros foram cancelados.', variant: 'success', title: 'Contrato Rescindido' });
+      toast.success('Contrato rescindido com sucesso! A moto foi liberada e os pagamentos futuros foram cancelados.');
     } catch (error: any) {
       setTerminatingRental(null);
-      setAlertDialog({ message: `Erro ao rescindir contrato: ${error.message}`, variant: 'error' });
+      toast.error(`Erro ao rescindir contrato: ${error.message}`);
     } finally {
       setIsTerminating(false);
     }
@@ -1073,8 +1113,6 @@ export const Subscribers: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <AlertDialog isOpen={!!alertDialog} message={alertDialog?.message ?? ''} variant={alertDialog?.variant} title={alertDialog?.title} onClose={() => setAlertDialog(null)} />
-
       <ConfirmDialog
         isOpen={!!terminatingRental}
         title="Rescindir Contrato"
@@ -1115,7 +1153,7 @@ export const Subscribers: React.FC = () => {
         </div>
         <button
           onClick={() => setIsNewSubModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-blue-900/20"
+          className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-red-950/20"
         >
           <Plus size={18} /> Novo Assinante
         </button>
@@ -1146,7 +1184,7 @@ export const Subscribers: React.FC = () => {
             <button type="button" onClick={() => { setIsNewSubModalOpen(false); setSubForm(emptySubForm()); }} className="px-6 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">
               Cancelar
             </button>
-            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+            <button type="submit" className="px-6 py-2 bg-red-700 text-white rounded-lg font-medium hover:bg-red-800">
               Salvar
             </button>
           </div>
@@ -1163,7 +1201,7 @@ export const Subscribers: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
             >
               <Pencil size={14} /> Editar
             </button>
@@ -1192,7 +1230,7 @@ export const Subscribers: React.FC = () => {
               >
                 Cancelar
               </button>
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+              <button type="submit" className="px-4 py-2 bg-red-700 text-white rounded-lg font-medium hover:bg-red-800">
                 Atualizar
               </button>
             </div>
@@ -1206,6 +1244,16 @@ export const Subscribers: React.FC = () => {
               onDocumentUpload={handleDocumentUpload}
               uploadLoading={uploadLoading}
               subscriberId={editingSubscriber?.id}
+              onToggleReminders={async (enabled) => {
+                if (!editingSubscriber) return;
+                try {
+                  await subscriberApi.update(editingSubscriber.id, { auto_reminders_enabled: enabled } as any);
+                  setSubForm(f => ({ ...f, autoRemindersEnabled: enabled }));
+                  toast.success(enabled ? 'Lembretes automáticos ativados' : 'Lembretes automáticos desativados');
+                } catch {
+                  toast.error('Erro ao atualizar configuração de lembretes');
+                }
+              }}
             />
             <div className="flex justify-end pt-2">
               <button
@@ -1251,17 +1299,46 @@ export const Subscribers: React.FC = () => {
               </div>
             </div>
             <div>
-              <label htmlFor="duration" className="block text-sm font-medium text-slate-700 mb-1">Duração do Contrato</label>
-              <select id="duration" required value={rentalForm.contractDurationMonths} onChange={e => setRentalForm({ ...rentalForm, contractDurationMonths: Number(e.target.value) })} className="w-full border border-slate-300 rounded-lg p-3 bg-white">
-                <option value={6}>6 meses</option>
-                <option value={12}>1 ano (12 meses)</option>
-                <option value={18}>18 meses</option>
-                <option value={24}>2 anos (24 meses)</option>
-                <option value={36}>3 anos (36 meses)</option>
-              </select>
+              <label htmlFor="duration" className="block text-sm font-medium text-slate-700 mb-1">Duração do Contrato (em meses)</label>
+              {!rentalForm.customDuration ? (
+                <select id="duration" required value={rentalForm.contractDurationMonths} onChange={e => {
+                  const val = e.target.value;
+                  if (val === 'custom') {
+                    setRentalForm({ ...rentalForm, customDuration: true, contractDurationMonths: 1 });
+                  } else {
+                    setRentalForm({ ...rentalForm, contractDurationMonths: Number(val) });
+                  }
+                }} className="w-full border border-slate-300 rounded-lg p-3 bg-white">
+                  <option value={6}>6 meses</option>
+                  <option value={12}>1 ano (12 meses)</option>
+                  <option value={18}>18 meses</option>
+                  <option value={24}>2 anos (24 meses)</option>
+                  <option value={36}>3 anos (36 meses)</option>
+                  <option value="custom">Personalizado...</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={rentalForm.contractDurationMonths}
+                    onChange={e => setRentalForm({ ...rentalForm, contractDurationMonths: parseInt(e.target.value) || 1 })}
+                    className="flex-1 border border-slate-300 rounded-lg p-3 bg-white text-sm"
+                    placeholder="Ex: 8 meses"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRentalForm({ ...rentalForm, customDuration: false, contractDurationMonths: 12 })}
+                    className="px-3 py-2 text-xs text-slate-500 hover:bg-slate-100 rounded-lg border border-slate-300"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              )}
             </div>
             <div className="space-y-3">
-              <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-sm text-blue-800">
+              <div className="bg-red-50 p-4 rounded-lg flex gap-3 text-sm text-red-900">
                 <Check className="shrink-0" size={20} />
                 <p>Ao salvar, uma cobrança inicial será gerada automaticamente e o status da moto mudará para "Alugada".</p>
               </div>
@@ -1279,7 +1356,7 @@ export const Subscribers: React.FC = () => {
             </div>
             <div className="flex justify-end gap-3 pt-4">
               <button type="button" onClick={() => setView('LIST')} className="px-6 py-2 text-slate-600 font-medium">Cancelar</button>
-              <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">Criar Aluguel</button>
+              <button type="submit" className="px-6 py-2 bg-red-700 text-white rounded-lg font-medium">Criar Aluguel</button>
             </div>
           </form>
         </div>

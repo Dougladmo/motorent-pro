@@ -38,7 +38,7 @@ interface StepProps {
 
 const Step: React.FC<StepProps> = ({ number, text }) => (
   <div className="flex items-start gap-3">
-    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center mt-0.5">
+    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-red-700 text-white text-sm font-bold flex items-center justify-center mt-0.5">
       {number}
     </span>
     <p className="text-slate-600 text-sm leading-relaxed">{text}</p>
@@ -65,9 +65,9 @@ export const Architecture: React.FC = () => {
       </header>
 
       {/* Visao geral */}
-      <div className="bg-blue-600 text-white p-6 rounded-xl">
+      <div className="bg-red-700 text-white p-6 rounded-xl">
         <h3 className="font-bold text-lg mb-2">Bem-vindo ao MotoRent Pro</h3>
-        <p className="text-blue-100 text-sm leading-relaxed">
+        <p className="text-red-100 text-sm leading-relaxed">
           Este sistema foi feito para facilitar o dia a dia da sua locadora. Aqui você cadastra suas motos,
           registra seus clientes, cria aluguéis e acompanha todas as cobranças — tudo em um só lugar.
           Clique em cada seção abaixo para ver como funciona.
@@ -75,18 +75,18 @@ export const Architecture: React.FC = () => {
       </div>
 
       {/* Dashboard */}
-      <Accordion title="Dashboard — Visão geral do negócio" icon={<LayoutDashboard size={22} />} accentColor="text-blue-600">
+      <Accordion title="Dashboard — Visão geral do negócio" icon={<LayoutDashboard size={22} />} accentColor="text-red-700">
         <div className="space-y-4 mt-4">
           <p className="text-slate-600 text-sm leading-relaxed">
             O Dashboard é a primeira tela que você vê ao entrar no sistema. Ele mostra um resumo de tudo que está acontecendo na sua locadora.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
             <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-center">
-              <p className="text-2xl font-bold text-blue-600">Receita</p>
+              <p className="text-2xl font-bold text-red-700">Receita</p>
               <p className="text-xs text-slate-500 mt-1">Quanto você recebeu no período</p>
             </div>
             <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-center">
-              <p className="text-2xl font-bold text-orange-500">Pendente</p>
+              <p className="text-2xl font-bold text-amber-500">Pendente</p>
               <p className="text-xs text-slate-500 mt-1">Cobranças que ainda não foram pagas</p>
             </div>
             <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-center">
@@ -103,7 +103,7 @@ export const Architecture: React.FC = () => {
       </Accordion>
 
       {/* Motos */}
-      <Accordion title="Motos — Cadastro da sua frota" icon={<Bike size={22} />} accentColor="text-orange-500">
+      <Accordion title="Motos — Cadastro da sua frota" icon={<Bike size={22} />} accentColor="text-amber-500">
         <div className="space-y-4 mt-4">
           <p className="text-slate-600 text-sm leading-relaxed">
             Na página de <strong>Motos</strong> você gerencia toda a sua frota. Veja quais motos estão disponíveis, quais estão alugadas e adicione novas motos ao cadastro.
@@ -122,7 +122,7 @@ export const Architecture: React.FC = () => {
               <span className="text-sm text-slate-600"><strong>Disponível</strong> — a moto está livre para ser alugada.</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
+              <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
               <span className="text-sm text-slate-600"><strong>Alugada</strong> — a moto está com um cliente no momento.</span>
             </div>
           </div>

@@ -163,7 +163,7 @@ export const PaymentTable: React.FC<PaymentTableProps> = ({
                   type="checkbox"
                   checked={payments.length > 0 && selectedIds ? payments.every(p => selectedIds.has(p.id)) : false}
                   onChange={onToggleSelectAll}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  className="h-4 w-4 rounded border-slate-300 text-red-700 focus:ring-red-600 cursor-pointer"
                   title="Selecionar todos"
                 />
               </th>

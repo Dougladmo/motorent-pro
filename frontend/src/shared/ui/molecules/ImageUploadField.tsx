@@ -65,13 +65,13 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
             <X size={16} />
           </button>
           {editMode && hasNewImage && (
-            <div className="absolute bottom-2 left-2 bg-blue-500 text-white px-2 py-1 rounded text-xs">
+            <div className="absolute bottom-2 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs">
               Nova imagem selecionada
             </div>
           )}
         </div>
       ) : (
-        <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+        <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-red-500 hover:bg-red-50 transition-colors">
           <Upload className="text-slate-400 mb-2" size={32} />
           <span className="text-sm text-slate-500">
             {editMode ? 'Clique para alterar a foto' : 'Clique para selecionar uma foto'}

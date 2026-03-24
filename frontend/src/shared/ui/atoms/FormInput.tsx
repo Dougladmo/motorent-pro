@@ -48,7 +48,7 @@ export const FormInput: React.FC<FormInputProps> = ({
         max={max}
         step={step}
         maxLength={maxLength}
-        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-600 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
       />
     </div>
   );

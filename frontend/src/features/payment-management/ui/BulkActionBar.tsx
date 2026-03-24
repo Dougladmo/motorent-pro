@@ -41,7 +41,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
           {reminderQueue.isRunning && (
             <div className="h-1 bg-slate-100">
               <div
-                className="h-full bg-blue-600 transition-all duration-500 ease-out"
+                className="h-full bg-red-700 transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -52,8 +52,8 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
             <div className="flex items-center gap-3 min-w-0">
               {reminderQueue.isRunning ? (
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-blue-50 rounded-lg">
-                    <Loader2 size={16} className="animate-spin text-blue-600" />
+                  <div className="p-1.5 bg-red-50 rounded-lg">
+                    <Loader2 size={16} className="animate-spin text-red-700" />
                   </div>
                   <div>
                     <span className="text-sm font-medium text-slate-800">
@@ -74,7 +74,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 bg-blue-600 text-white text-xs font-bold rounded-full">
+                  <span className="flex items-center justify-center w-6 h-6 bg-red-700 text-white text-xs font-bold rounded-full">
                     {selectedCount}
                   </span>
                   <span className="text-sm font-medium text-slate-700">
@@ -90,7 +90,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 <>
                   <button
                     onClick={onBulkReminder}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-full transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-full transition-colors"
                     title="Disparar Lembretes"
                   >
                     <Send size={14} />

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import {
   Motorcycle,
   Subscriber,
@@ -18,6 +18,8 @@ import {
 } from '../services/api';
 import { SubscriberDocument } from '../shared/types/subscriber';
 import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface AppContextType {
   motorcycles: Motorcycle[];
@@ -55,12 +57,13 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const transformMotorcycle = (data: any): Motorcycle => ({
   id: data.id,
   plate: data.plate,
+  chassi: data.chassi ?? undefined,
+  renavam: data.renavam ?? undefined,
   model: data.model,
   year: data.year,
+  mileage: data.mileage || 0,
   status: data.status as MotorcycleStatus,
   imageUrl: data.image_url,
-  totalRevenue: data.total_revenue || 0,
-  revenueHistory: data.revenue_history || []
 });
 
 const transformSubscriber = (data: any): Subscriber => ({
@@ -182,6 +185,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [isAuthenticated]);
 
+  // Supabase Realtime: escuta mudanças na tabela payments
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
+  const setupRealtimeSubscription = useCallback(() => {
+    // Limpar subscription anterior se existir
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channel = supabase
+      .channel('payments-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'payments' },
+        (payload) => {
+          const newPayment = transformPayment(payload.new);
+          setPayments(prev => {
+            if (prev.some(p => p.id === newPayment.id)) return prev;
+            return [...prev, newPayment];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'payments' },
+        (payload) => {
+          const updated = transformPayment(payload.new);
+          setPayments(prev => prev.map(p => p.id === updated.id ? updated : p));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'payments' },
+        (payload) => {
+          const deletedId = (payload.old as any).id;
+          if (deletedId) {
+            setPayments(prev => prev.filter(p => p.id !== deletedId));
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Conectado à tabela payments');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Erro no canal payments:', err?.message);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[Realtime] Timeout na conexão payments, tentando reconectar...');
+        }
+      });
+
+    channelRef.current = channel;
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    setupRealtimeSubscription();
+
+    // Reconectar quando tab volta ao foco (browser throttle mata heartbeats em background)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isAuthenticated) {
+        setupRealtimeSubscription();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [isAuthenticated, setupRealtimeSubscription]);
+
   // Estatísticas derivadas
   const stats: DashboardStats = {
     totalRevenue: payments
@@ -287,7 +367,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createRental = async (rental: Omit<Rental, 'id'>) => {
     try {
       // Remover campos que não existem no schema do banco de dados
-      const { contractDurationMonths, ...rentalData } = rental as any;
+      const { contractDurationMonths, customDuration, ...rentalData } = rental as any;
 
       const created = await rentalApi.create(toSnakeCase(rentalData));
       const transformed = transformRental(created);
@@ -346,9 +426,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const result = await response.json();
       const transformed = transformPayment(result.data);
       setPayments(prev => prev.map(p => p.id === id ? transformed : p));
-
-      // Refresh para garantir sincronização
-      setTimeout(() => refreshData(), 500);
     } catch (error: any) {
       throw new Error(error.message || 'Erro ao atualizar pagamento');
     }

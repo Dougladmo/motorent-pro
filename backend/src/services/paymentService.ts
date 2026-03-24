@@ -71,17 +71,9 @@ export class PaymentService {
       is_amount_overridden: verifiedAmount !== undefined && verifiedAmount !== payment.expected_amount
     });
 
-    // Atualizar receita da moto e saldo devedor do aluguel
+    // Atualizar saldo devedor do aluguel
     const rental = await this.rentalRepo.findById(payment.rental_id);
     if (rental) {
-      await this.motorcycleRepo.incrementRevenue(rental.motorcycle_id, finalAmount, {
-        payment_id: paymentId,
-        rental_id: payment.rental_id,
-        subscriber_name: payment.subscriber_name,
-        date: new Date().toISOString().split('T')[0]
-      });
-
-      // Recalcular saldo devedor com base nos pagamentos restantes
       const allPayments = await this.paymentRepo.findByRentalId(payment.rental_id);
       const newOutstandingBalance = allPayments
         .filter(p => p.id !== paymentId && (p.status === 'Pendente' || p.status === 'Atrasado'))
@@ -119,12 +111,9 @@ export class PaymentService {
       marked_as_paid_at: null
     });
 
-    // Decrementar receita da moto e recalcular saldo devedor
+    // Recalcular saldo devedor do aluguel
     const rental = await this.rentalRepo.findById(payment.rental_id);
     if (rental) {
-      await this.motorcycleRepo.decrementRevenue(rental.motorcycle_id, payment.amount, paymentId);
-
-      // Recalcular saldo devedor incluindo o pagamento que acaba de ser revertido
       const allPayments = await this.paymentRepo.findByRentalId(payment.rental_id);
       const newOutstandingBalance = allPayments
         .filter(p => p.id !== paymentId && (p.status === 'Pendente' || p.status === 'Atrasado'))
