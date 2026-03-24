@@ -17,8 +17,8 @@ export class UploadService {
   // Tamanho máximo: 5MB
   private maxFileSize = 5 * 1024 * 1024;
 
-  // Tamanho máximo para documentos: 10MB
-  private maxDocumentFileSize = 10 * 1024 * 1024;
+  // Tamanho máximo para documentos: 50MB
+  private maxDocumentFileSize = 50 * 1024 * 1024;
 
   constructor() {
     this.motorcycleStorage = createStorage({

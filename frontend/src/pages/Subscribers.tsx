@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { subscriberApi, subscriberDocumentApi } from '../services/api';
 import { MotorcycleStatus, Subscriber, PaymentStatus } from '../shared';
-import { Plus, Check, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Image, Trash2, Upload, X, Pencil, Eye, Loader2 } from 'lucide-react';
+import { Plus, Check, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, FileText, Image, Trash2, Upload, X, Pencil, Eye, Loader2 } from 'lucide-react';
 import { WEEK_DAYS } from '../shared';
 import { validatePhone, validateCPF, validatePositiveNumber } from '../shared';
 import { formatPhone, formatCPF, formatCurrency, capitalizeName } from '../shared';
@@ -32,6 +32,25 @@ const Section: React.FC<{ title: string; children: React.ReactNode; defaultOpen?
   title, children, defaultOpen = true
 }) => {
   const [open, setOpen] = useState(defaultOpen);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [maxHeight, setMaxHeight] = useState<string>(defaultOpen ? 'none' : '0px');
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    if (open) {
+      setMaxHeight(`${el.scrollHeight}px`);
+      const timer = setTimeout(() => setMaxHeight('none'), 300);
+      return () => clearTimeout(timer);
+    } else {
+      // Set to current scrollHeight first, force reflow, then collapse to 0
+      el.style.maxHeight = `${el.scrollHeight}px`;
+      el.offsetHeight; // force reflow
+      setMaxHeight('0px');
+    }
+  }, [open]);
+
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden">
       <button
@@ -40,9 +59,17 @@ const Section: React.FC<{ title: string; children: React.ReactNode; defaultOpen?
         className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100"
       >
         {title}
-        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        <span className={`transition-transform duration-300 ${open ? 'rotate-180' : 'rotate-0'}`}>
+          <ChevronDown size={16} />
+        </span>
       </button>
-      {open && <div className="px-4 py-4 space-y-4">{children}</div>}
+      <div
+        ref={contentRef}
+        style={{ maxHeight, overflow: maxHeight === 'none' ? 'visible' : 'hidden' }}
+        className="transition-[max-height] duration-300 ease-in-out"
+      >
+        <div className="px-4 py-4 space-y-4">{children}</div>
+      </div>
     </div>
   );
 };
@@ -99,11 +126,12 @@ const DocumentRow: React.FC<{
   doc: SubscriberDocument;
   onView: () => void;
   onDelete: (id: string) => void;
-}> = ({ doc, onView, onDelete }) => {
+  deleting?: boolean;
+}> = ({ doc, onView, onDelete, deleting }) => {
   const isPdf = doc.fileName.toLowerCase().endsWith('.pdf') || doc.fileUrl.includes('.pdf');
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+    <div className={`flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 transition-opacity ${deleting ? 'opacity-50 pointer-events-none' : ''}`}>
       {isPdf
         ? <FileText size={20} className="text-red-500 shrink-0" />
         : <Image size={20} className="text-red-600 shrink-0" />
@@ -132,10 +160,11 @@ const DocumentRow: React.FC<{
       <button
         type="button"
         onClick={() => onDelete(doc.id)}
+        disabled={deleting}
         className="text-slate-400 hover:text-red-500 shrink-0"
         title="Remover documento"
       >
-        <Trash2 size={16} />
+        {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
       </button>
     </div>
   );
@@ -314,6 +343,24 @@ const ViewSection: React.FC<{ title: string; children: React.ReactNode; defaultO
   title, children, defaultOpen = true
 }) => {
   const [open, setOpen] = useState(defaultOpen);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [maxHeight, setMaxHeight] = useState<string>(defaultOpen ? 'none' : '0px');
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    if (open) {
+      setMaxHeight(`${el.scrollHeight}px`);
+      const timer = setTimeout(() => setMaxHeight('none'), 300);
+      return () => clearTimeout(timer);
+    } else {
+      el.style.maxHeight = `${el.scrollHeight}px`;
+      el.offsetHeight; // force reflow
+      setMaxHeight('0px');
+    }
+  }, [open]);
+
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden">
       <button
@@ -322,9 +369,17 @@ const ViewSection: React.FC<{ title: string; children: React.ReactNode; defaultO
         className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100"
       >
         {title}
-        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        <span className={`transition-transform duration-300 ${open ? 'rotate-180' : 'rotate-0'}`}>
+          <ChevronDown size={16} />
+        </span>
       </button>
-      {open && <div className="px-4 py-4">{children}</div>}
+      <div
+        ref={contentRef}
+        style={{ maxHeight, overflow: maxHeight === 'none' ? 'visible' : 'hidden' }}
+        className="transition-[max-height] duration-300 ease-in-out"
+      >
+        <div className="px-4 py-4">{children}</div>
+      </div>
     </div>
   );
 };
@@ -333,11 +388,12 @@ const SubscriberView: React.FC<{
   form: SubFormState;
   documents: SubscriberDocument[];
   onDocumentDelete: (docId: string) => void;
-  onDocumentUpload: (formData: FormData) => void;
+  onDocumentUpload: (formData: FormData) => Promise<void>;
   uploadLoading: boolean;
+  deletingDocId?: string | null;
   subscriberId?: string;
   onToggleReminders?: (enabled: boolean) => void;
-}> = ({ form, documents, onDocumentDelete, onDocumentUpload, uploadLoading, subscriberId, onToggleReminders }) => {
+}> = ({ form, documents, onDocumentDelete, onDocumentUpload, uploadLoading, deletingDocId, subscriberId, onToggleReminders }) => {
   const [uploadForm, setUploadForm] = useState<{ file: File | null; fileType: SubscriberDocument['fileType']; description: string }>({
     file: null, fileType: 'other', description: ''
   });
@@ -349,13 +405,13 @@ const SubscriberView: React.FC<{
     setUploadForm(u => ({ ...u, file }));
   };
 
-  const handleUploadSubmit = () => {
+  const handleUploadSubmit = async () => {
     if (!uploadForm.file) return;
     const fd = new FormData();
     fd.append('file', uploadForm.file);
     fd.append('file_type', uploadForm.fileType);
     if (uploadForm.description) fd.append('description', uploadForm.description);
-    onDocumentUpload(fd);
+    await onDocumentUpload(fd);
     setUploadForm({ file: null, fileType: 'other', description: '' });
     setShowUploadRow(false);
   };
@@ -470,7 +526,7 @@ const SubscriberView: React.FC<{
           <div className="space-y-2">
             {documents.length > 0
               ? documents.map((doc, idx) => (
-                  <DocumentRow key={doc.id} doc={doc} onView={() => setCarouselIndex(idx)} onDelete={onDocumentDelete} />
+                  <DocumentRow key={doc.id} doc={doc} onView={() => setCarouselIndex(idx)} onDelete={onDocumentDelete} deleting={deletingDocId === doc.id} />
                 ))
               : <p className="text-sm text-slate-400">Nenhum documento anexado.</p>
             }
@@ -526,8 +582,9 @@ const SubscriberView: React.FC<{
                 type="button"
                 onClick={handleUploadSubmit}
                 disabled={!uploadForm.file || uploadLoading}
-                className="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
               >
+                {uploadLoading && <Loader2 size={14} className="animate-spin" />}
                 {uploadLoading ? 'Enviando...' : 'Enviar arquivo'}
               </button>
             </div>
@@ -555,10 +612,11 @@ const SubscriberForm: React.FC<{
   isEdit?: boolean;
   subscriberId?: string;
   documents?: SubscriberDocument[];
-  onDocumentUpload?: (formData: FormData) => void;
+  onDocumentUpload?: (formData: FormData) => Promise<void>;
   onDocumentDelete?: (docId: string) => void;
   uploadLoading?: boolean;
-}> = ({ form, onChange, onCepBlur, onRealDriverCepBlur, isEdit, subscriberId, documents, onDocumentUpload, onDocumentDelete, uploadLoading }) => {
+  deletingDocId?: string | null;
+}> = ({ form, onChange, onCepBlur, onRealDriverCepBlur, isEdit, subscriberId, documents, onDocumentUpload, onDocumentDelete, uploadLoading, deletingDocId }) => {
   const [uploadForm, setUploadForm] = useState<{ file: File | null; fileType: SubscriberDocument['fileType']; description: string }>({
     file: null, fileType: 'other', description: ''
   });
@@ -572,13 +630,13 @@ const SubscriberForm: React.FC<{
     setUploadForm(u => ({ ...u, file }));
   };
 
-  const handleUploadSubmit = () => {
+  const handleUploadSubmit = async () => {
     if (!uploadForm.file || !onDocumentUpload) return;
     const fd = new FormData();
     fd.append('file', uploadForm.file);
     fd.append('file_type', uploadForm.fileType);
     if (uploadForm.description) fd.append('description', uploadForm.description);
-    onDocumentUpload(fd);
+    await onDocumentUpload(fd);
     setUploadForm({ file: null, fileType: 'other', description: '' });
     setShowUploadRow(false);
   };
@@ -775,7 +833,7 @@ const SubscriberForm: React.FC<{
           <div className="space-y-2">
             {documents && documents.length > 0
               ? documents.map((doc, idx) => (
-                  <DocumentRow key={doc.id} doc={doc} onView={() => setCarouselIndex(idx)} onDelete={id => onDocumentDelete?.(id)} />
+                  <DocumentRow key={doc.id} doc={doc} onView={() => setCarouselIndex(idx)} onDelete={id => onDocumentDelete?.(id)} deleting={deletingDocId === doc.id} />
                 ))
               : <p className="text-sm text-slate-400">Nenhum documento anexado.</p>
             }
@@ -832,8 +890,9 @@ const SubscriberForm: React.FC<{
                 type="button"
                 onClick={handleUploadSubmit}
                 disabled={!uploadForm.file || uploadLoading}
-                className="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
               >
+                {uploadLoading && <Loader2 size={14} className="animate-spin" />}
                 {uploadLoading ? 'Enviando...' : 'Enviar arquivo'}
               </button>
             </div>
@@ -879,6 +938,7 @@ export const Subscribers: React.FC = () => {
   // Documents state
   const [documents, setDocuments] = useState<SubscriberDocument[]>([]);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   // Dialogs
   const [terminatingRental, setTerminatingRental] = useState<{ rentalId: string; subscriberName: string; bikePlate: string; outstandingBalance: number } | null>(null);
@@ -1049,12 +1109,15 @@ export const Subscribers: React.FC = () => {
 
   const handleDocumentDelete = async (docId: string) => {
     if (!editingSubscriber) return;
+    setDeletingDocId(docId);
     try {
       await deleteSubscriberDocument(editingSubscriber.id, docId);
       setDocuments(prev => prev.filter(d => d.id !== docId));
       toast.success('Documento removido com sucesso!');
     } catch (error: any) {
       toast.error(`Erro ao remover documento: ${error.message}`);
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
@@ -1222,6 +1285,7 @@ export const Subscribers: React.FC = () => {
               onDocumentUpload={handleDocumentUpload}
               onDocumentDelete={handleDocumentDelete}
               uploadLoading={uploadLoading}
+              deletingDocId={deletingDocId}
             />
             <div className="flex justify-end gap-3 pt-2">
               <button
@@ -1244,6 +1308,7 @@ export const Subscribers: React.FC = () => {
               onDocumentDelete={handleDocumentDelete}
               onDocumentUpload={handleDocumentUpload}
               uploadLoading={uploadLoading}
+              deletingDocId={deletingDocId}
               subscriberId={editingSubscriber?.id}
               onToggleReminders={async (enabled) => {
                 if (!editingSubscriber) return;
