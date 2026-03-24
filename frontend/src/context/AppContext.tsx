@@ -55,8 +55,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const transformMotorcycle = (data: any): Motorcycle => ({
   id: data.id,
   plate: data.plate,
-  chassi: data.chassi,
-  renavam: data.renavam,
+  chassi: data.chassi ?? undefined,
+  renavam: data.renavam ?? undefined,
   model: data.model,
   year: data.year,
   mileage: data.mileage || 0,

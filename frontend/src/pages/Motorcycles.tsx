@@ -122,12 +122,12 @@ export const Motorcycles: React.FC = () => {
       return;
     }
 
-    if (!validateChassi(motoData.chassi)) {
+    if (motoData.chassi && !validateChassi(motoData.chassi)) {
       toast.error('Chassi inválido. Deve conter 17 caracteres alfanuméricos.');
       return;
     }
 
-    if (!validateRenavam(motoData.renavam)) {
+    if (motoData.renavam && !validateRenavam(motoData.renavam)) {
       toast.error('RENAVAM inválido. Deve conter 11 dígitos.');
       return;
     }
@@ -452,7 +452,6 @@ export const Motorcycles: React.FC = () => {
             <FormInput
               id="chassi"
               label="Chassi"
-              required
               maxLength={17}
               value={editingMoto?.chassi || newMoto.chassi}
               onChange={e => editingMoto
@@ -466,7 +465,6 @@ export const Motorcycles: React.FC = () => {
               <FormInput
                 id="renavam"
                 label="RENAVAM"
-                required
                 maxLength={11}
                 value={editingMoto?.renavam || newMoto.renavam}
                 onChange={e => editingMoto

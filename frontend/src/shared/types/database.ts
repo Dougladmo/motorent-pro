@@ -22,8 +22,8 @@ export interface Database {
         Row: {
           id: string;
           plate: string;
-          chassi: string;
-          renavam: string;
+          chassi: string | null;
+          renavam: string | null;
           model: string;
           year: number;
           mileage: number;
@@ -36,8 +36,8 @@ export interface Database {
         Insert: {
           id?: string;
           plate: string;
-          chassi: string;
-          renavam: string;
+          chassi?: string | null;
+          renavam?: string | null;
           model: string;
           year: number;
           mileage?: number;

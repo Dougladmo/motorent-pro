@@ -96,14 +96,6 @@ export class MotorcycleController {
         res.status(400).json({ success: false, error: 'Ano da moto é obrigatório.' });
         return;
       }
-      if (!chassi) {
-        res.status(400).json({ success: false, error: 'Chassi da moto é obrigatório.' });
-        return;
-      }
-      if (!renavam) {
-        res.status(400).json({ success: false, error: 'RENAVAM da moto é obrigatório.' });
-        return;
-      }
       const parsedYear = parseInt(year);
       if (isNaN(parsedYear) || parsedYear < 1900 || parsedYear > new Date().getFullYear() + 1) {
         res.status(400).json({ success: false, error: `Ano "${year}" é inválido.` });
@@ -118,16 +110,16 @@ export class MotorcycleController {
       );
 
       // Criar moto com URL da imagem
-      const motorcycleData = {
+      const motorcycleData: any = {
         plate,
-        chassi,
-        renavam,
         model,
         year: parsedYear,
         mileage: mileage ? parseInt(mileage) : 0,
         status: status || 'Disponível',
         image_url: imageUrl
       };
+      if (chassi) motorcycleData.chassi = chassi;
+      if (renavam) motorcycleData.renavam = renavam;
 
       const motorcycle = await this.service.createMotorcycle(motorcycleData);
 

@@ -20,8 +20,8 @@ export interface MotorcycleRevenue {
 export interface Motorcycle {
   id: string;
   plate: string;
-  chassi: string;
-  renavam: string;
+  chassi?: string;
+  renavam?: string;
   model: string;
   year: number;
   mileage: number;
