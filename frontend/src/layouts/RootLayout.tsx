@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
-import { Menu, AlertTriangle, RefreshCw, X } from 'lucide-react';
+import { Menu, AlertTriangle, RefreshCw, X, Sun, Moon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 
 export const RootLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [errorDismissed, setErrorDismissed] = useState(false);
   const { error, refreshData } = useApp();
+  const { theme, toggleTheme } = useTheme();
 
   const showError = !!error && !errorDismissed;
 
@@ -37,9 +39,14 @@ export const RootLayout: React.FC = () => {
           <div className="font-bold text-slate-800 flex items-center gap-2">
             Norte Motos
           </div>
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600">
-            <Menu size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={toggleTheme} className="p-2 text-slate-400 hover:text-amber-500 transition-colors" title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}>
+              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+            </button>
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600">
+              <Menu size={24} />
+            </button>
+          </div>
         </header>
 
         {/* Error Banner */}

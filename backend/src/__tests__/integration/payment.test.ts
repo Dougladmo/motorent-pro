@@ -132,17 +132,6 @@ describe('PaymentService', () => {
       expect(updated.marked_as_paid_at).toBeNull();
     });
 
-    it('does not update motorcycle revenue on partial payment', async () => {
-      await service.markAsPaid(seedData.payment2Id, 150);
-
-      const db = getDb();
-      const revenue = db.prepare('SELECT * FROM motorcycle_revenue WHERE rental_id = ?').all(seedData.rental1Id) as { amount: number }[];
-      expect(revenue).toHaveLength(0);
-
-      const moto = db.prepare('SELECT * FROM motorcycles WHERE id = ?').get(seedData.moto2Id) as { total_revenue: number };
-      expect(moto.total_revenue).toBe(0);
-    });
-
     it('throws when payment is already paid', async () => {
       await expect(service.markAsPaid(seedData.payment1Id)).rejects.toThrow('já está marcado como pago');
     });
@@ -151,16 +140,6 @@ describe('PaymentService', () => {
       await expect(service.markAsPaid('non-existent-id')).rejects.toThrow('não encontrado');
     });
 
-    it('updates motorcycle revenue on full payment', async () => {
-      await service.markAsPaid(seedData.payment2Id);
-
-      const db = getDb();
-      const revenue = db.prepare('SELECT * FROM motorcycle_revenue WHERE rental_id = ?').all(seedData.rental1Id) as { amount: number }[];
-      expect(revenue.length).toBeGreaterThanOrEqual(1);
-
-      const moto = db.prepare('SELECT * FROM motorcycles WHERE id = ?').get(seedData.moto2Id) as { total_revenue: number };
-      expect(moto.total_revenue).toBe(300);
-    });
 
     it('updates total_paid of rental on full payment', async () => {
       const db = getDb();
@@ -241,21 +220,6 @@ describe('PaymentService', () => {
       expect(rentalAfterUnpay.total_paid).toBe(0);
     });
 
-    it('decrements total_revenue of motorcycle', async () => {
-      // First mark payment2 as paid so motorcycle has revenue
-      await service.markAsPaid(seedData.payment2Id);
-
-      const db = getDb();
-      const motoAfterPay = db.prepare('SELECT total_revenue FROM motorcycles WHERE id = ?').get(seedData.moto2Id) as { total_revenue: number };
-      expect(motoAfterPay.total_revenue).toBeGreaterThan(0);
-
-      // Now revert payment1 (Pago) to test that motorcycle revenue is decremented
-      await service.markAsUnpaid(seedData.payment1Id);
-
-      const motoAfterUnpay = db.prepare('SELECT total_revenue FROM motorcycles WHERE id = ?').get(seedData.moto2Id) as { total_revenue: number };
-      // payment1 had amount 300, so after decrement from the markAsPaid(payment2) revenue, it should decrease
-      expect(motoAfterUnpay.total_revenue).toBeLessThan(motoAfterPay.total_revenue);
-    });
 
     it('recalculates outstanding_balance to include the reverted payment amount', async () => {
       // First: mark payment2 as paid so outstanding_balance = 0

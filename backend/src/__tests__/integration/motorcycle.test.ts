@@ -74,7 +74,6 @@ describe('MotorcycleService', () => {
       expect(created.id).toBeDefined();
       expect(created.plate).toBe('NEW1A11');
       expect(created.model).toBe('Honda Pop 110');
-      expect(created.total_revenue).toBe(0);
     });
 
     it('throws when plate already exists', async () => {

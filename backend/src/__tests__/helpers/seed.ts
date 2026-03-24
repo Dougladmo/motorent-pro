@@ -36,13 +36,13 @@ export function seedDb(db: Database.Database): SeedData {
 
   // Insert motorcycles
   const insertMoto = db.prepare(`
-    INSERT INTO motorcycles (id, plate, chassi, renavam, model, year, mileage, status, image_url, total_revenue, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO motorcycles (id, plate, chassi, renavam, model, year, mileage, status, image_url, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertMoto.run(moto1Id, 'ABC1D23', '9BWZZZ377VT004251', '12345678901', 'Honda CG 160', 2022, 15000, 'Disponível', null, 0, now, now);
-  insertMoto.run(moto2Id, 'XYZ9E87', '9BWZZZ377VT004252', '12345678902', 'Yamaha Factor 150', 2021, 22000, 'Alugada', null, 0, now, now);
-  insertMoto.run(moto3Id, 'QQQ3F33', '9BWZZZ377VT004253', '12345678903', 'Honda Biz 125', 2020, 30000, 'Disponível', null, 0, now, now);
+  insertMoto.run(moto1Id, 'ABC1D23', '9BWZZZ377VT004251', '12345678901', 'Honda CG 160', 2022, 15000, 'Disponível', null, now, now);
+  insertMoto.run(moto2Id, 'XYZ9E87', '9BWZZZ377VT004252', '12345678902', 'Yamaha Factor 150', 2021, 22000, 'Alugada', null, now, now);
+  insertMoto.run(moto3Id, 'QQQ3F33', '9BWZZZ377VT004253', '12345678903', 'Honda Biz 125', 2020, 30000, 'Disponível', null, now, now);
 
   // Insert subscribers (active and is_real_driver stored as 1/0)
   const insertSub = db.prepare(`

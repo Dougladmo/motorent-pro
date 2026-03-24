@@ -28,7 +28,6 @@ function initSchema(database: Database.Database): void {
       year INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'Disponível',
       image_url TEXT,
-      total_revenue REAL NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -83,16 +82,6 @@ function initSchema(database: Database.Database): void {
       updated_at TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS motorcycle_revenue (
-      id TEXT PRIMARY KEY,
-      motorcycle_id TEXT NOT NULL,
-      payment_id TEXT NOT NULL,
-      rental_id TEXT NOT NULL,
-      amount REAL NOT NULL,
-      date TEXT NOT NULL,
-      subscriber_name TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
   `);
 }
 
@@ -107,7 +96,6 @@ export function getDb(): Database.Database {
 export function resetDb(): void {
   const database = getDb();
   database.exec(`
-    DELETE FROM motorcycle_revenue;
     DELETE FROM payments;
     DELETE FROM rentals;
     DELETE FROM subscribers;
@@ -317,7 +305,7 @@ class SupabaseQueryBuilder {
         if (!item.created_at) {
           item.created_at = now;
         }
-        if (this.table !== 'motorcycle_revenue' && !item.updated_at) {
+        if (!item.updated_at) {
           item.updated_at = now;
         }
 

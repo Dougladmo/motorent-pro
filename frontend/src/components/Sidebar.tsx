@@ -48,11 +48,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
         {/* Header: logo + collapse button */}
         <div className="flex items-center py-4 border-b border-slate-200 px-4 relative">
           <div className={`flex-1 flex items-center justify-center overflow-hidden transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-            <img src="/logo.png" alt="Norte Motos" className="h-16 w-auto object-contain" />
+            <img src={theme === 'dark' ? '/logo-light.png' : '/logo.png'} alt="AutoMoto Veículos" className="h-16 w-auto object-contain" />
           </div>
           {isCollapsed && (
             <div className="flex-1 flex items-center justify-center">
-              <img src="/logo.png" alt="Norte Motos" className="h-8 w-8 object-contain" />
+              <img src={theme === 'dark' ? '/logo-light.png' : '/logo.png'} alt="AutoMoto Veículos" className="h-8 w-8 object-contain" />
             </div>
           )}
           {/* Collapse toggle — desktop only */}
@@ -67,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
 
         <nav className="flex-1 overflow-y-auto mt-6 px-3">
           {!isCollapsed && (
-            <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-widest text-black">Menu</p>
+            <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-widest text-slate-800">Menu</p>
           )}
           <ul className="space-y-1">
             {menuItems.map((item) => (

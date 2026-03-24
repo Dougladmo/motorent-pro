@@ -18,6 +18,7 @@ import {
 } from '../services/api';
 import { SubscriberDocument } from '../shared/types/subscriber';
 import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface AppContextType {
   motorcycles: Motorcycle[];
@@ -62,8 +63,6 @@ const transformMotorcycle = (data: any): Motorcycle => ({
   mileage: data.mileage || 0,
   status: data.status as MotorcycleStatus,
   imageUrl: data.image_url,
-  totalRevenue: data.total_revenue || 0,
-  revenueHistory: data.revenue_history || []
 });
 
 const transformSubscriber = (data: any): Subscriber => ({
@@ -183,6 +182,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isAuthenticated) {
       refreshData();
     }
+  }, [isAuthenticated]);
+
+  // Supabase Realtime: escuta mudanças na tabela payments
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const channel = supabase
+      .channel('payments-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'payments' },
+        (payload) => {
+          const newPayment = transformPayment(payload.new);
+          setPayments(prev => {
+            if (prev.some(p => p.id === newPayment.id)) return prev;
+            return [...prev, newPayment];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'payments' },
+        (payload) => {
+          const updated = transformPayment(payload.new);
+          setPayments(prev => prev.map(p => p.id === updated.id ? updated : p));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'payments' },
+        (payload) => {
+          const deletedId = (payload.old as any).id;
+          if (deletedId) {
+            setPayments(prev => prev.filter(p => p.id !== deletedId));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [isAuthenticated]);
 
   // Estatísticas derivadas

@@ -1008,7 +1008,8 @@ export const Subscribers: React.FC = () => {
         realDriverAddressComplement: fresh.real_driver_address_complement ?? subscriber.realDriverAddressComplement ?? '',
         realDriverAddressNeighborhood: fresh.real_driver_address_neighborhood ?? subscriber.realDriverAddressNeighborhood ?? '',
         realDriverAddressCity: fresh.real_driver_address_city ?? subscriber.realDriverAddressCity ?? '',
-        realDriverAddressState: fresh.real_driver_address_state ?? subscriber.realDriverAddressState ?? ''
+        realDriverAddressState: fresh.real_driver_address_state ?? subscriber.realDriverAddressState ?? '',
+        autoRemindersEnabled: fresh.auto_reminders_enabled ?? subscriber.autoRemindersEnabled ?? true
       });
 
       // Load documents
@@ -1016,7 +1017,7 @@ export const Subscribers: React.FC = () => {
       setDocuments(docs);
     } catch {
       setEditingSubscriber(subscriber);
-      setSubForm({ ...emptySubForm(), name: subscriber.name, phone: subscriber.phone, document: subscriber.document, email: subscriber.email ?? '', isRealDriver: subscriber.isRealDriver ?? true });
+      setSubForm({ ...emptySubForm(), name: subscriber.name, phone: subscriber.phone, document: subscriber.document, email: subscriber.email ?? '', isRealDriver: subscriber.isRealDriver ?? true, autoRemindersEnabled: subscriber.autoRemindersEnabled ?? true });
       setDocuments([]);
     }
     setIsViewModalOpen(true);
@@ -1242,6 +1243,16 @@ export const Subscribers: React.FC = () => {
               onDocumentUpload={handleDocumentUpload}
               uploadLoading={uploadLoading}
               subscriberId={editingSubscriber?.id}
+              onToggleReminders={async (enabled) => {
+                if (!editingSubscriber) return;
+                try {
+                  await subscriberApi.update(editingSubscriber.id, { auto_reminders_enabled: enabled } as any);
+                  setSubForm(f => ({ ...f, autoRemindersEnabled: enabled }));
+                  toast.success(enabled ? 'Lembretes automáticos ativados' : 'Lembretes automáticos desativados');
+                } catch {
+                  toast.error('Erro ao atualizar configuração de lembretes');
+                }
+              }}
             />
             <div className="flex justify-end pt-2">
               <button

@@ -214,9 +214,7 @@ export const Motorcycles: React.FC = () => {
             plate: formatPlate(newMoto.plate),
             chassi: newMoto.chassi.toUpperCase(),
             renavam: newMoto.renavam.replace(/\D/g, ''),
-            status: MotorcycleStatus.AVAILABLE,
-            totalRevenue: 0,
-            revenueHistory: []
+            status: MotorcycleStatus.AVAILABLE
           });
         }
         toast.success('Moto cadastrada com sucesso!');

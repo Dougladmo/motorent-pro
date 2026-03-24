@@ -27,7 +27,6 @@ export interface Database {
           mileage: number;
           status: MotorcycleStatus;
           image_url: string | null;
-          total_revenue: number;
           created_at: string;
           updated_at: string;
         };
@@ -41,7 +40,6 @@ export interface Database {
           mileage?: number;
           status?: MotorcycleStatus;
           image_url?: string | null;
-          total_revenue?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -55,7 +53,6 @@ export interface Database {
           mileage?: number;
           status?: MotorcycleStatus;
           image_url?: string | null;
-          total_revenue?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -328,38 +325,6 @@ export interface Database {
           from_status?: PaymentStatus;
           to_status?: PaymentStatus;
           reason?: string | null;
-          created_at?: string;
-        };
-      };
-      motorcycle_revenue: {
-        Row: {
-          id: string;
-          motorcycle_id: string;
-          payment_id: string;
-          rental_id: string;
-          amount: number;
-          date: string;
-          subscriber_name: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          motorcycle_id: string;
-          payment_id: string;
-          rental_id: string;
-          amount: number;
-          date: string;
-          subscriber_name: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          motorcycle_id?: string;
-          payment_id?: string;
-          rental_id?: string;
-          amount?: number;
-          date?: string;
-          subscriber_name?: string;
           created_at?: string;
         };
       };

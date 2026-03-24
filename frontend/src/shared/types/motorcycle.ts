@@ -9,14 +9,6 @@ export enum MotorcycleStatus {
   INACTIVE = 'Inativa'
 }
 
-export interface MotorcycleRevenue {
-  paymentId: string;
-  rentalId: string;
-  amount: number;
-  date: string;
-  subscriberName: string;
-}
-
 export interface Motorcycle {
   id: string;
   plate: string;
@@ -27,8 +19,4 @@ export interface Motorcycle {
   mileage: number;
   status: MotorcycleStatus;
   imageUrl?: string;
-
-  // Revenue tracking
-  totalRevenue: number;
-  revenueHistory?: MotorcycleRevenue[];
 }
