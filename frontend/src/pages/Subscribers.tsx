@@ -109,17 +109,17 @@ const DocumentRow: React.FC<{
         : <Image size={20} className="text-red-600 shrink-0" />
       }
       <div className="flex-1 min-w-0">
-        <button
-          type="button"
-          onClick={onView}
-          className="text-sm font-medium text-red-700 hover:underline truncate block text-left w-full"
-        >
-          {doc.fileName}
-        </button>
-        <p className="text-xs text-slate-500">
+        <p className="text-sm font-medium text-slate-700">
           {FILE_TYPE_LABELS[doc.fileType]}
           {doc.description && ` · ${doc.description}`}
         </p>
+        <button
+          type="button"
+          onClick={onView}
+          className="text-xs text-red-600 hover:underline truncate block text-left w-full"
+        >
+          {doc.fileName}
+        </button>
       </div>
       <button
         type="button"
@@ -1052,6 +1052,7 @@ export const Subscribers: React.FC = () => {
     try {
       await deleteSubscriberDocument(editingSubscriber.id, docId);
       setDocuments(prev => prev.filter(d => d.id !== docId));
+      toast.success('Documento removido com sucesso!');
     } catch (error: any) {
       toast.error(`Erro ao remover documento: ${error.message}`);
     }

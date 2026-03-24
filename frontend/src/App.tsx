@@ -11,6 +11,7 @@ const App: React.FC = () => {
       <AppProvider>
         <Toaster
           position="top-right"
+          containerStyle={{ zIndex: 99999 }}
           toastOptions={{
             duration: 3000,
             success: { duration: 3000 },
