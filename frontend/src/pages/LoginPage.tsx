@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 
 export const LoginPage: React.FC = () => {
   const { login, isLoading, error } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,16 +20,9 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 relative">
-      <button
-        onClick={toggleTheme}
-        className="absolute top-4 right-4 p-2 text-slate-400 hover:text-amber-500 transition-colors rounded-lg hover:bg-slate-100"
-        title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}
-      >
-        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-      </button>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src={theme === 'dark' ? '/logo-light.png' : '/logo.png'} alt="AutoMoto Veículos" className="h-20 w-auto object-contain mx-auto mb-4" />
+          <img src="/logo.png" alt="AutoMoto Veículos" className="h-20 w-auto object-contain mx-auto mb-4" />
           <p className="text-slate-500 text-sm">Faça login para continuar</p>
         </div>
 
