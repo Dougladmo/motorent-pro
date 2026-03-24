@@ -112,7 +112,7 @@ export const MotorcycleCard: React.FC<MotorcycleCardProps> = ({
           <div className="flex gap-2">
             <button
               onClick={() => onEdit(motorcycle)}
-              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors text-sm flex items-center gap-1"
+              className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors text-sm flex items-center gap-1"
               title="Editar moto"
             >
               <Edit2 size={16} />

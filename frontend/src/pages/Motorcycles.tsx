@@ -261,7 +261,7 @@ export const Motorcycles: React.FC = () => {
         </div>
         <button 
             onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-lg shadow-blue-900/20"
+            className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-lg shadow-red-950/20"
         >
           <Plus size={20} />
           Nova Moto
@@ -287,7 +287,7 @@ export const Motorcycles: React.FC = () => {
               required
               value={rentalForm.subscriberId}
               onChange={e => setRentalForm(f => ({ ...f, subscriberId: e.target.value }))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600"
             >
               <option value="">Selecione um cliente</option>
               {subscribers.filter(s => s.active).map(s => (
@@ -322,7 +322,7 @@ export const Motorcycles: React.FC = () => {
             <select
               value={rentalForm.dueDayOfWeek}
               onChange={e => setRentalForm(f => ({ ...f, dueDayOfWeek: parseInt(e.target.value) }))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600"
             >
               {WEEK_DAYS.map((day, i) => (
                 <option key={i} value={i + 1}>{day}</option>
@@ -343,7 +343,7 @@ export const Motorcycles: React.FC = () => {
                     setRentalForm(f => ({ ...f, contractDurationMonths: parseInt(val) }));
                   }
                 }}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600"
               >
                 <option value={6}>6 meses</option>
                 <option value={12}>1 ano (12 meses)</option>
@@ -360,7 +360,7 @@ export const Motorcycles: React.FC = () => {
                   max={120}
                   value={rentalForm.contractDurationMonths}
                   onChange={e => setRentalForm(f => ({ ...f, contractDurationMonths: parseInt(e.target.value) || 1 }))}
-                  className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600"
                   placeholder="Ex: 8 meses"
                 />
                 <button
@@ -497,7 +497,7 @@ export const Motorcycles: React.FC = () => {
                 </button>
                 <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-red-700 text-white rounded-lg font-medium hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     disabled={isUploading}
                 >
                     {isUploading ? (

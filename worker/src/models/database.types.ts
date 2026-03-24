@@ -60,6 +60,7 @@ export interface Database {
           document: string;
           active: boolean;
           notes: string | null;
+          auto_reminders_enabled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -71,6 +72,7 @@ export interface Database {
           document: string;
           active?: boolean;
           notes?: string | null;
+          auto_reminders_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -82,6 +84,7 @@ export interface Database {
           document?: string;
           active?: boolean;
           notes?: string | null;
+          auto_reminders_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -228,6 +231,35 @@ export interface Database {
           to_status?: PaymentStatus;
           reason?: string | null;
           created_at?: string;
+        };
+      };
+      notification_log: {
+        Row: {
+          id: string;
+          payment_id: string;
+          subscriber_id: string;
+          subscriber_name: string;
+          notification_type: 'payment_created' | 'reminder' | 'consolidated';
+          week_key: string;
+          sent_at: string;
+        };
+        Insert: {
+          id?: string;
+          payment_id: string;
+          subscriber_id: string;
+          subscriber_name: string;
+          notification_type: 'payment_created' | 'reminder' | 'consolidated';
+          week_key: string;
+          sent_at?: string;
+        };
+        Update: {
+          id?: string;
+          payment_id?: string;
+          subscriber_id?: string;
+          subscriber_name?: string;
+          notification_type?: 'payment_created' | 'reminder' | 'consolidated';
+          week_key?: string;
+          sent_at?: string;
         };
       };
       motorcycle_revenue: {

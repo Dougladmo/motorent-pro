@@ -16,9 +16,9 @@ export const KPICard: React.FC<KPICardProps> = ({
   className = ''
 }) => {
   const variantStyles = {
-    default: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-600' },
+    default: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-700' },
     success: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-500' },
-    warning: { bg: 'bg-orange-50', text: 'text-orange-500', border: 'border-orange-500' },
+    warning: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-500' },
     danger: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-500' }
   };
 

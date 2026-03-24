@@ -37,11 +37,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   if (!isOpen) return null;
 
   const Icon = variant === 'danger' ? AlertTriangle : HelpCircle;
-  const iconBg = variant === 'danger' ? 'bg-red-100' : 'bg-blue-100';
-  const iconColor = variant === 'danger' ? 'text-red-600' : 'text-blue-600';
+  const iconBg = variant === 'danger' ? 'bg-red-100' : 'bg-amber-100';
+  const iconColor = variant === 'danger' ? 'text-red-600' : 'text-amber-600';
   const confirmBtn = variant === 'danger'
     ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-300'
-    : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300';
+    : 'bg-red-700 hover:bg-red-800 disabled:bg-red-300';
 
   return (
     <div

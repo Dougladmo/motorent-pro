@@ -89,6 +89,7 @@ export interface Database {
           real_driver_address_neighborhood: string | null;
           real_driver_address_city: string | null;
           real_driver_address_state: string | null;
+          auto_reminders_enabled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -120,6 +121,7 @@ export interface Database {
           real_driver_address_neighborhood?: string | null;
           real_driver_address_city?: string | null;
           real_driver_address_state?: string | null;
+          auto_reminders_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -151,6 +153,7 @@ export interface Database {
           real_driver_address_neighborhood?: string | null;
           real_driver_address_city?: string | null;
           real_driver_address_state?: string | null;
+          auto_reminders_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };

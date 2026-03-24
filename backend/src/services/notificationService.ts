@@ -190,8 +190,8 @@ export class NotificationService {
 
     const pixSection = params.pixBrCode
       ? `
-        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0;">
-          <p style="margin: 0 0 12px 0; font-weight: bold; color: #1d4ed8;">Pague via PIX:</p>
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0;">
+          <p style="margin: 0 0 12px 0; font-weight: bold; color: #B91C1C;">Pague via PIX:</p>
           ${qrBuffer ? `<img src="cid:qr-code" alt="QR Code PIX" style="display: block; width: 200px; height: 200px; margin: 0 auto 16px auto;" />` : ''}
           <p style="margin: 0 0 4px 0; font-size: 13px; color: #64748b;">Código PIX copia-e-cola:</p>
           <p style="margin: 0; font-size: 13px; color: #1e293b; font-family: monospace; word-break: break-all; background: #f1f5f9; padding: 8px; border-radius: 4px;">${params.pixBrCode}</p>
@@ -374,8 +374,8 @@ export class NotificationService {
         : '<p style="margin: 0; font-size: 13px; color: #94a3b8;">Aguardando geração do PIX.</p>';
 
       return `
-        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0;">
-          <p style="margin: 0 0 12px 0; font-weight: bold; color: #1d4ed8;">Cobrança ${i + 1} — R$ ${p.amount.toFixed(2)} — Venc. ${weekDay}, ${dateBr}</p>
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0;">
+          <p style="margin: 0 0 12px 0; font-weight: bold; color: #B91C1C;">Cobrança ${i + 1} — R$ ${p.amount.toFixed(2)} — Venc. ${weekDay}, ${dateBr}</p>
           ${qrImg}
           ${pixCode}
         </div>`;

@@ -3,10 +3,12 @@ import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { router } from './app/router';
 
 const App: React.FC = () => {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <AppProvider>
         <Toaster
@@ -25,6 +27,7 @@ const App: React.FC = () => {
         <RouterProvider router={router} />
       </AppProvider>
     </AuthProvider>
+    </ThemeProvider>
   );
 };
 

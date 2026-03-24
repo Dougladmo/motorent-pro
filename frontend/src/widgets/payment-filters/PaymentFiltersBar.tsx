@@ -35,7 +35,7 @@ export const PaymentFiltersBar: React.FC<PaymentFiltersBarProps> = ({
         <input
           type="text"
           placeholder="Buscar assinante..."
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -85,7 +85,7 @@ export const PaymentFiltersBar: React.FC<PaymentFiltersBarProps> = ({
             }}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               filter === status
-                ? 'bg-blue-600 text-white'
+                ? 'bg-red-700 text-white'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >

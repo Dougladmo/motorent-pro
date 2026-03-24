@@ -16,7 +16,7 @@ export const DashboardActivity: React.FC<DashboardActivityProps> = ({ recentActi
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
       <div className="flex items-center gap-3 mb-4">
         <h3 className="text-lg font-bold text-slate-800">Atividade Recente</h3>
-        <span className="text-xs bg-orange-50 text-orange-500 px-2 py-0.5 rounded-full font-medium">Recente</span>
+        <span className="text-xs bg-amber-50 text-amber-500 px-2 py-0.5 rounded-full font-medium">Recente</span>
       </div>
       <div className="space-y-4">
         {loading && Array.from({ length: 5 }).map((_, i) => (
@@ -40,7 +40,7 @@ export const DashboardActivity: React.FC<DashboardActivityProps> = ({ recentActi
                   ? 'bg-emerald-500'
                   : activity.status === PaymentStatus.OVERDUE
                   ? 'bg-red-500'
-                  : 'bg-orange-500'
+                  : 'bg-amber-500'
               }`}
             />
             <div>

@@ -1,0 +1,130 @@
+/* ── Dark Mode Overrides ──────────────────────────────────────────────── */
+
+.dark {
+  color-scheme: dark;
+}
+
+/* Body & page backgrounds */
+.dark body,
+html.dark body {
+  background-color: #0f172a; /* slate-900 */
+}
+
+/* White cards → dark */
+.dark .bg-white {
+  background-color: #1e293b; /* slate-800 */
+}
+
+/* Light backgrounds → darker */
+.dark .bg-slate-50 {
+  background-color: #0f172a; /* slate-900 */
+}
+.dark .bg-slate-100 {
+  background-color: #1e293b; /* slate-800 */
+}
+
+/* Text colors → inverted */
+.dark .text-slate-800 {
+  color: #e2e8f0; /* slate-200 */
+}
+.dark .text-slate-700 {
+  color: #cbd5e1; /* slate-300 */
+}
+.dark .text-slate-600 {
+  color: #94a3b8; /* slate-400 */
+}
+.dark .text-slate-500 {
+  color: #94a3b8; /* slate-400 */
+}
+.dark .text-slate-400 {
+  color: #64748b; /* slate-500 */
+}
+
+/* Borders → darker */
+.dark .border-slate-200 {
+  border-color: #334155; /* slate-700 */
+}
+.dark .border-slate-100 {
+  border-color: #1e293b; /* slate-800 */
+}
+.dark .border-slate-300 {
+  border-color: #475569; /* slate-600 */
+}
+.dark .border-slate-50 {
+  border-color: #1e293b;
+}
+
+/* Hover states */
+.dark .hover\:bg-slate-100:hover {
+  background-color: #334155; /* slate-700 */
+}
+.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b; /* slate-800 */
+}
+.dark .hover\:bg-slate-200:hover {
+  background-color: #475569;
+}
+
+/* Divide colors */
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b;
+}
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155;
+}
+
+/* Input/form backgrounds */
+.dark .bg-slate-50 input,
+.dark .bg-slate-50 select,
+.dark input.bg-slate-50,
+.dark select.bg-slate-50 {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+/* Shadow adjustments */
+.dark .shadow-sm {
+  --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+}
+.dark .shadow-lg {
+  --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.4);
+}
+.dark .shadow-xl {
+  --tw-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.4);
+}
+
+/* Modal overlay */
+.dark .bg-black.bg-opacity-50 {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* Scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Gradient cards */
+.dark .bg-gradient-to-br {
+  opacity: 0.9;
+}
+
+/* Placeholder text */
+.dark .placeholder-slate-400::placeholder {
+  color: #64748b;
+}
+
+/* Chart grid */
+.dark .recharts-cartesian-grid line {
+  stroke: #334155;
+}
+
+/* Tooltip */
+.dark .bg-slate-800 {
+  background-color: #0f172a;
+}

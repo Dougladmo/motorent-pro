@@ -59,7 +59,7 @@ const Field: React.FC<{ label: string; optional?: boolean; children: React.React
   </div>
 );
 
-const inputCls = "w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+const inputCls = "w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-600";
 
 // ─── Initial form states ──────────────────────────────────────────────────────
 const emptySubForm = () => ({
@@ -71,7 +71,8 @@ const emptySubForm = () => ({
   realDriverName: '', realDriverDocument: '', realDriverPhone: '', realDriverRelationship: '',
   realDriverAddressZip: '', realDriverAddressStreet: '', realDriverAddressNumber: '',
   realDriverAddressComplement: '', realDriverAddressNeighborhood: '',
-  realDriverAddressCity: '', realDriverAddressState: ''
+  realDriverAddressCity: '', realDriverAddressState: '',
+  autoRemindersEnabled: true
 });
 
 type SubFormState = ReturnType<typeof emptySubForm>;
@@ -105,13 +106,13 @@ const DocumentRow: React.FC<{
     <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
       {isPdf
         ? <FileText size={20} className="text-red-500 shrink-0" />
-        : <Image size={20} className="text-blue-500 shrink-0" />
+        : <Image size={20} className="text-red-600 shrink-0" />
       }
       <div className="flex-1 min-w-0">
         <button
           type="button"
           onClick={onView}
-          className="text-sm font-medium text-blue-600 hover:underline truncate block text-left w-full"
+          className="text-sm font-medium text-red-700 hover:underline truncate block text-left w-full"
         >
           {doc.fileName}
         </button>
@@ -123,7 +124,7 @@ const DocumentRow: React.FC<{
       <button
         type="button"
         onClick={onView}
-        className="text-slate-400 hover:text-blue-500 shrink-0"
+        className="text-slate-400 hover:text-red-600 shrink-0"
         title="Visualizar documento"
       >
         <Eye size={16} />
@@ -230,7 +231,7 @@ const DocumentCarouselModal: React.FC<{
         <div className="flex items-center gap-2 min-w-0 flex-1 justify-center px-4">
           {/\.pdf$/i.test(doc.fileName)
             ? <FileText size={16} className="text-red-400 shrink-0" />
-            : <Image size={16} className="text-blue-400 shrink-0" />
+            : <Image size={16} className="text-red-500 shrink-0" />
           }
           <span className="text-sm font-medium text-white truncate">{doc.fileName}</span>
           <span className="text-xs text-slate-400 shrink-0">{FILE_TYPE_LABELS[doc.fileType]}</span>
@@ -335,7 +336,8 @@ const SubscriberView: React.FC<{
   onDocumentUpload: (formData: FormData) => void;
   uploadLoading: boolean;
   subscriberId?: string;
-}> = ({ form, documents, onDocumentDelete, onDocumentUpload, uploadLoading, subscriberId }) => {
+  onToggleReminders?: (enabled: boolean) => void;
+}> = ({ form, documents, onDocumentDelete, onDocumentUpload, uploadLoading, subscriberId, onToggleReminders }) => {
   const [uploadForm, setUploadForm] = useState<{ file: File | null; fileType: SubscriberDocument['fileType']; description: string }>({
     file: null, fileType: 'other', description: ''
   });
@@ -376,6 +378,39 @@ const SubscriberView: React.FC<{
             </div>
           )}
         </div>
+      </ViewSection>
+
+      <ViewSection title="Notificações" defaultOpen={true}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-700">Lembretes automáticos de pagamento</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {form.autoRemindersEnabled !== false
+                ? 'O sistema envia lembretes automáticos via WhatsApp e email.'
+                : 'Lembretes automáticos estão desativados para este assinante.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onToggleReminders?.(!form.autoRemindersEnabled)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              form.autoRemindersEnabled !== false ? 'bg-green-500' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                form.autoRemindersEnabled !== false ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        {form.autoRemindersEnabled === false && (
+          <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs text-amber-700">
+              <strong>Atenção:</strong> Com os lembretes desativados, este assinante não receberá notificações automáticas de cobrança por WhatsApp ou email. Cobranças continuarão sendo geradas normalmente.
+            </p>
+          </div>
+        )}
       </ViewSection>
 
       {hasAddress && (
@@ -444,7 +479,7 @@ const SubscriberView: React.FC<{
             <button
               type="button"
               onClick={() => setShowUploadRow(true)}
-              className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:underline"
+              className="mt-3 flex items-center gap-2 text-sm text-red-700 hover:underline"
             >
               <Upload size={16} /> Adicionar documento
             </button>
@@ -460,7 +495,7 @@ const SubscriberView: React.FC<{
                 type="file"
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
-                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-red-50 file:text-red-800 hover:file:bg-red-100"
               />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -491,7 +526,7 @@ const SubscriberView: React.FC<{
                 type="button"
                 onClick={handleUploadSubmit}
                 disabled={!uploadForm.file || uploadLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {uploadLoading ? 'Enviando...' : 'Enviar arquivo'}
               </button>
@@ -647,7 +682,7 @@ const SubscriberForm: React.FC<{
               type="checkbox"
               checked={form.isRealDriver}
               onChange={e => set({ isRealDriver: e.target.checked })}
-              className="w-4 h-4 accent-blue-600"
+              className="w-4 h-4 accent-red-700"
             />
             <span className="text-sm font-medium text-slate-700">O assinante é o condutor real da moto</span>
           </label>
@@ -750,7 +785,7 @@ const SubscriberForm: React.FC<{
             <button
               type="button"
               onClick={() => setShowUploadRow(true)}
-              className="mt-3 flex items-center gap-2 text-sm text-blue-600 hover:underline"
+              className="mt-3 flex items-center gap-2 text-sm text-red-700 hover:underline"
             >
               <Upload size={16} /> Adicionar documento
             </button>
@@ -766,7 +801,7 @@ const SubscriberForm: React.FC<{
                 type="file"
                 accept="image/*,.pdf"
                 onChange={handleFileChange}
-                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-red-50 file:text-red-800 hover:file:bg-red-100"
               />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -797,7 +832,7 @@ const SubscriberForm: React.FC<{
                 type="button"
                 onClick={handleUploadSubmit}
                 disabled={!uploadForm.file || uploadLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
               >
                 {uploadLoading ? 'Enviando...' : 'Enviar arquivo'}
               </button>
@@ -1116,7 +1151,7 @@ export const Subscribers: React.FC = () => {
         </div>
         <button
           onClick={() => setIsNewSubModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-blue-900/20"
+          className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-red-950/20"
         >
           <Plus size={18} /> Novo Assinante
         </button>
@@ -1147,7 +1182,7 @@ export const Subscribers: React.FC = () => {
             <button type="button" onClick={() => { setIsNewSubModalOpen(false); setSubForm(emptySubForm()); }} className="px-6 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">
               Cancelar
             </button>
-            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+            <button type="submit" className="px-6 py-2 bg-red-700 text-white rounded-lg font-medium hover:bg-red-800">
               Salvar
             </button>
           </div>
@@ -1164,7 +1199,7 @@ export const Subscribers: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
             >
               <Pencil size={14} /> Editar
             </button>
@@ -1193,7 +1228,7 @@ export const Subscribers: React.FC = () => {
               >
                 Cancelar
               </button>
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+              <button type="submit" className="px-4 py-2 bg-red-700 text-white rounded-lg font-medium hover:bg-red-800">
                 Atualizar
               </button>
             </div>
@@ -1291,7 +1326,7 @@ export const Subscribers: React.FC = () => {
               )}
             </div>
             <div className="space-y-3">
-              <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-sm text-blue-800">
+              <div className="bg-red-50 p-4 rounded-lg flex gap-3 text-sm text-red-900">
                 <Check className="shrink-0" size={20} />
                 <p>Ao salvar, uma cobrança inicial será gerada automaticamente e o status da moto mudará para "Alugada".</p>
               </div>
@@ -1309,7 +1344,7 @@ export const Subscribers: React.FC = () => {
             </div>
             <div className="flex justify-end gap-3 pt-4">
               <button type="button" onClick={() => setView('LIST')} className="px-6 py-2 text-slate-600 font-medium">Cancelar</button>
-              <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium">Criar Aluguel</button>
+              <button type="submit" className="px-6 py-2 bg-red-700 text-white rounded-lg font-medium">Criar Aluguel</button>
             </div>
           </form>
         </div>

@@ -62,7 +62,7 @@ export const Dashboard: React.FC = () => {
 
   const chartData = [
     { name: 'Recebido', value: filteredStats.totalRevenue, color: '#10b981' },
-    { name: 'Pendente', value: filteredStats.totalPending, color: '#f97316' },
+    { name: 'Pendente', value: filteredStats.totalPending, color: '#F59E0B' },
     { name: 'Atrasado', value: globalOverdue, color: '#ef4444' },
   ];
 
@@ -91,7 +91,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
-            <Calendar size={18} className="text-orange-500 ml-2" />
+            <Calendar size={18} className="text-amber-500 ml-2" />
             <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value as TimeRange)}

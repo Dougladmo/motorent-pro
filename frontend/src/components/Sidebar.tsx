@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Bike, Users, Banknote, HelpCircle, UserCog, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Bike, Users, Banknote, HelpCircle, UserCog, LogOut, ChevronLeft, ChevronRight, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -56,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
           {/* Collapse toggle — desktop only */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white hover:bg-blue-600 border border-slate-200 rounded-full items-center justify-center text-slate-500 hover:text-white transition-colors z-10 shadow-sm"
+            className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white hover:bg-red-700 border border-slate-200 rounded-full items-center justify-center text-slate-500 hover:text-white transition-colors z-10 shadow-sm"
             title={isCollapsed ? 'Expandir menu' : 'Contrair menu'}
           >
             {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
@@ -65,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
 
         <nav className="flex-1 overflow-y-auto mt-6 px-3">
           {!isCollapsed && (
-            <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-widest text-orange-500">Menu</p>
+            <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-widest text-black">Menu</p>
           )}
           <ul className="space-y-1">
             {menuItems.map((item) => (
@@ -79,8 +81,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
                     w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
                     ${isCollapsed ? 'justify-center' : ''}
                     ${isActive
-                      ? 'bg-blue-500 text-white border-l-4 border-orange-500 shadow-sm'
-                      : 'text-slate-500 hover:bg-slate-100 hover:text-orange-500'}
+                      ? 'bg-red-700 text-white border-l-4 border-amber-400 shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-amber-500'}
                   `}
                 >
                   <span className="flex-shrink-0">{item.icon}</span>
@@ -93,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
 
         <div className="p-4 border-t border-slate-200 flex-shrink-0">
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-red-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               {emailInitial}
             </div>
             {!isCollapsed && (
@@ -101,6 +103,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700 truncate">{user?.email ?? 'Admin'}</p>
                 </div>
+                <button
+                  onClick={toggleTheme}
+                  title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}
+                  className="text-slate-400 hover:text-amber-500 transition-colors p-1 rounded flex-shrink-0"
+                >
+                  {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                </button>
                 <button
                   onClick={logout}
                   title="Sair"
@@ -112,13 +121,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed
             )}
           </div>
           {isCollapsed && (
-            <button
-              onClick={logout}
-              title="Sair"
-              className="mt-3 w-full flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors p-1 rounded"
-            >
-              <LogOut size={16} />
-            </button>
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <button
+                onClick={toggleTheme}
+                title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}
+                className="w-full flex items-center justify-center text-slate-400 hover:text-amber-500 transition-colors p-1 rounded"
+              >
+                {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              </button>
+              <button
+                onClick={logout}
+                title="Sair"
+                className="w-full flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors p-1 rounded"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
           )}
         </div>
       </aside>

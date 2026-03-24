@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { PaymentRepository } from '../repositories/paymentRepository';
 import { RentalRepository } from '../repositories/rentalRepository';
 import { SubscriberRepository } from '../repositories/subscriberRepository';
+import { NotificationLogRepository } from '../repositories/notificationLogRepository';
 import { NotificationService } from '../services/notificationService';
 import { AbacatePayService } from '../services/abacatePayService';
 import { createStorage } from 'formdata-io/storage';
@@ -48,14 +49,17 @@ function buildQrCodeUrl(brCode: string): string {
 
 export class PaymentCronService {
   private abacatePayService: AbacatePayService;
+  private notificationLog: NotificationLogRepository;
 
   constructor(
     private paymentRepo: PaymentRepository,
     private rentalRepo: RentalRepository,
     private subscriberRepo: SubscriberRepository,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    notificationLog?: NotificationLogRepository
   ) {
     this.abacatePayService = new AbacatePayService();
+    this.notificationLog = notificationLog ?? new NotificationLogRepository();
   }
 
   async runPaymentGeneration(): Promise<void> {
@@ -352,21 +356,33 @@ export class PaymentCronService {
               });
 
               if (status === 'Pendente') {
-                try {
-                  await this.notificationService.sendPaymentNotification({
-                    subscriberName: subscriber.name,
-                    subscriberPhone: subscriber.phone,
-                    subscriberEmail: subscriber.email,
-                    paymentAmount: rental.weekly_value,
-                    paymentDueDate: dateStr,
-                    totalDebt: rental.weekly_value,
-                    pixBrCode: pixResult.pixBrCode,
-                    pixQrCodeUrl: finalQrUrl,
-                    pixQrCodeBase64: pixResult.pixQrCodeBase64,
-                    pixPaymentUrl: finalQrUrl
-                  });
-                } catch (err) {
-                  console.error(`[CRON] Erro ao notificar pagamento ${created.id}:`, err);
+                if (subscriber.auto_reminders_enabled === false) {
+                  console.log(`[CRON] Lembretes automáticos desativados para ${subscriber.name}, pulando notificação`);
+                } else if (await this.notificationLog.wasAlreadySent(created.id, 'payment_created')) {
+                  console.log(`[CRON] Notificação de criação já enviada para pagamento ${created.id}, pulando`);
+                } else {
+                  try {
+                    await this.notificationService.sendPaymentNotification({
+                      subscriberName: subscriber.name,
+                      subscriberPhone: subscriber.phone,
+                      subscriberEmail: subscriber.email,
+                      paymentAmount: rental.weekly_value,
+                      paymentDueDate: dateStr,
+                      totalDebt: rental.weekly_value,
+                      pixBrCode: pixResult.pixBrCode,
+                      pixQrCodeUrl: finalQrUrl,
+                      pixQrCodeBase64: pixResult.pixQrCodeBase64,
+                      pixPaymentUrl: finalQrUrl
+                    });
+                    await this.notificationLog.log({
+                      payment_id: created.id,
+                      subscriber_id: rental.subscriber_id,
+                      subscriber_name: subscriber.name,
+                      notification_type: 'payment_created'
+                    });
+                  } catch (err) {
+                    console.error(`[CRON] Erro ao notificar pagamento ${created.id}:`, err);
+                  }
                 }
               }
             }
@@ -602,6 +618,12 @@ export class PaymentCronService {
 
     for (const payment of payments) {
       try {
+        const alreadySent = await this.notificationLog.wasAlreadySent(payment.id, 'reminder');
+        if (alreadySent) {
+          console.log(`[CRON] Lembrete já enviado esta semana para pagamento ${payment.id}, pulando`);
+          continue;
+        }
+
         const rental = await this.rentalRepo.findById(payment.rental_id);
         if (!rental) {
           console.warn(`[CRON] Rental ${payment.rental_id} não encontrado para pagamento ${payment.id}`);
@@ -611,6 +633,11 @@ export class PaymentCronService {
         const subscriber = await this.subscriberRepo.findById(rental.subscriber_id);
         if (!subscriber) {
           console.warn(`[CRON] Assinante ${rental.subscriber_id} não encontrado para pagamento ${payment.id}`);
+          continue;
+        }
+
+        if (subscriber.auto_reminders_enabled === false) {
+          console.log(`[CRON] Lembretes automáticos desativados para ${subscriber.name}, pulando lembrete`);
           continue;
         }
 
@@ -641,6 +668,13 @@ export class PaymentCronService {
 
         await this.paymentRepo.update(payment.id, {
           reminder_sent_count: (payment.reminder_sent_count ?? 0) + 1
+        });
+
+        await this.notificationLog.log({
+          payment_id: payment.id,
+          subscriber_id: rental.subscriber_id,
+          subscriber_name: subscriber.name,
+          notification_type: 'reminder'
         });
 
         console.log(`[CRON] Lembrete enviado para ${subscriber.name} (pagamento ${payment.id})`);

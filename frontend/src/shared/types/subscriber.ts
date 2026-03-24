@@ -30,6 +30,7 @@ export interface Subscriber {
   realDriverAddressNeighborhood?: string;
   realDriverAddressCity?: string;
   realDriverAddressState?: string;
+  autoRemindersEnabled?: boolean;
 }
 
 export interface SubscriberDocument {
