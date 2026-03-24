@@ -1039,6 +1039,7 @@ export const Subscribers: React.FC = () => {
     try {
       const doc = await addSubscriberDocument(editingSubscriber.id, formData);
       setDocuments(prev => [doc, ...prev]);
+      toast.success('Documento adicionado com sucesso!');
     } catch (error: any) {
       toast.error(`Erro ao enviar documento: ${error.message}`);
     } finally {
