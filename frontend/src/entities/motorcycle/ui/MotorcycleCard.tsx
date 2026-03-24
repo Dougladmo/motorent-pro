@@ -79,7 +79,22 @@ export const MotorcycleCard: React.FC<MotorcycleCardProps> = ({
           <span className="font-mono font-semibold">Placa: {formatPlate(motorcycle.plate)}</span>
           <span>Ano: {motorcycle.year}</span>
         </div>
-
+        <div className="mt-2 space-y-1 text-xs text-slate-400">
+          <div className="flex gap-1">
+            <span className="font-medium text-slate-500">Chassi:</span>
+            <span className="font-mono">{motorcycle.chassi}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1">
+              <span className="font-medium text-slate-500">RENAVAM:</span>
+              <span className="font-mono">{motorcycle.renavam}</span>
+            </div>
+            <div className="flex gap-1">
+              <span className="font-medium text-slate-500">KM:</span>
+              <span className="font-mono">{motorcycle.mileage?.toLocaleString('pt-BR') ?? 0}</span>
+            </div>
+          </div>
+        </div>
 
         <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between items-center gap-2">
           {motorcycle.status === MotorcycleStatus.AVAILABLE && onNewRental ? (

@@ -28,6 +28,8 @@ export class MotorcycleService {
   async createMotorcycle(data: MotorcycleInsert): Promise<Motorcycle> {
     if (!data.plate) throw new Error('Placa da moto é obrigatória.');
     if (!data.model) throw new Error('Modelo da moto é obrigatório.');
+    if (!data.chassi) throw new Error('Chassi da moto é obrigatório.');
+    if (!data.renavam) throw new Error('RENAVAM da moto é obrigatório.');
 
     const existing = await this.motorcycleRepo.findByPlate(data.plate);
     if (existing) {

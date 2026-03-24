@@ -55,8 +55,11 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const transformMotorcycle = (data: any): Motorcycle => ({
   id: data.id,
   plate: data.plate,
+  chassi: data.chassi,
+  renavam: data.renavam,
   model: data.model,
   year: data.year,
+  mileage: data.mileage || 0,
   status: data.status as MotorcycleStatus,
   imageUrl: data.image_url,
   totalRevenue: data.total_revenue || 0,
@@ -287,7 +290,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createRental = async (rental: Omit<Rental, 'id'>) => {
     try {
       // Remover campos que não existem no schema do banco de dados
-      const { contractDurationMonths, ...rentalData } = rental as any;
+      const { contractDurationMonths, customDuration, ...rentalData } = rental as any;
 
       const created = await rentalApi.create(toSnakeCase(rentalData));
       const transformed = transformRental(created);

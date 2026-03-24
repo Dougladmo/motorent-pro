@@ -8,7 +8,7 @@ import { WEEK_DAYS } from '../shared';
 import { validatePhone, validateCPF, validatePositiveNumber } from '../shared';
 import { formatPhone, formatCPF, formatCurrency, capitalizeName } from '../shared';
 import { SubscriberGrid } from '../entities/subscriber/ui/SubscriberGrid';
-import { AlertDialog } from '../components/AlertDialog';
+import toast from 'react-hot-toast';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Modal } from '../components/Modal';
 import { SubscriberDocument } from '../shared/types/subscriber';
@@ -837,7 +837,8 @@ export const Subscribers: React.FC = () => {
     motorcycleId: '',
     weeklyValue: 250,
     dueDayOfWeek: 1,
-    contractDurationMonths: 12
+    contractDurationMonths: 12,
+    customDuration: false
   });
 
   // Documents state
@@ -845,7 +846,6 @@ export const Subscribers: React.FC = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
 
   // Dialogs
-  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' | 'warning' | 'info'; title?: string } | null>(null);
   const [terminatingRental, setTerminatingRental] = useState<{ rentalId: string; subscriberName: string; bikePlate: string; outstandingBalance: number } | null>(null);
   const [terminateReason, setTerminateReason] = useState('');
   const [isTerminating, setIsTerminating] = useState(false);
@@ -914,15 +914,15 @@ export const Subscribers: React.FC = () => {
     e.preventDefault();
 
     if (!subForm.name.trim()) {
-      setAlertDialog({ message: 'Nome é obrigatório.', variant: 'warning' });
+      toast.error('Nome é obrigatório.');
       return;
     }
     if (!validatePhone(subForm.phone)) {
-      setAlertDialog({ message: 'Telefone inválido. Use o formato (00) 00000-0000.', variant: 'warning' });
+      toast.error('Telefone inválido. Use o formato (00) 00000-0000.');
       return;
     }
     if (subForm.document && !validateCPF(subForm.document)) {
-      setAlertDialog({ message: 'CPF inválido.', variant: 'warning' });
+      toast.error('CPF inválido.');
       return;
     }
 
@@ -931,13 +931,15 @@ export const Subscribers: React.FC = () => {
       if (editingSubscriber) {
         await updateSubscriber(editingSubscriber.id, payload as any);
         handleCloseModal();
+        toast.success('Assinante atualizado com sucesso!');
       } else {
         await addSubscriber(payload as any);
         setIsNewSubModalOpen(false);
         setSubForm(emptySubForm());
+        toast.success('Assinante cadastrado com sucesso!');
       }
     } catch (error: any) {
-      setAlertDialog({ message: error.message ?? 'Erro ao salvar assinante. Tente novamente.', variant: 'error' });
+      toast.error(error.message ?? 'Erro ao salvar assinante. Tente novamente.');
     }
   };
 
@@ -1002,7 +1004,7 @@ export const Subscribers: React.FC = () => {
       const doc = await addSubscriberDocument(editingSubscriber.id, formData);
       setDocuments(prev => [doc, ...prev]);
     } catch (error: any) {
-      setAlertDialog({ message: `Erro ao enviar documento: ${error.message}`, variant: 'error' });
+      toast.error(`Erro ao enviar documento: ${error.message}`);
     } finally {
       setUploadLoading(false);
     }
@@ -1014,27 +1016,28 @@ export const Subscribers: React.FC = () => {
       await deleteSubscriberDocument(editingSubscriber.id, docId);
       setDocuments(prev => prev.filter(d => d.id !== docId));
     } catch (error: any) {
-      setAlertDialog({ message: `Erro ao remover documento: ${error.message}`, variant: 'error' });
+      toast.error(`Erro ao remover documento: ${error.message}`);
     }
   };
 
   // ─── Rental ────────────────────────────────────────────────────────────────
   const handleCreateRental = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rentalForm.subscriberId) { setAlertDialog({ message: 'Selecione um assinante.', variant: 'warning' }); return; }
-    if (!rentalForm.motorcycleId) { setAlertDialog({ message: 'Selecione uma moto.', variant: 'warning' }); return; }
-    if (!validatePositiveNumber(rentalForm.weeklyValue)) { setAlertDialog({ message: 'Valor semanal deve ser maior que zero.', variant: 'warning' }); return; }
+    if (!rentalForm.subscriberId) { toast.error('Selecione um assinante.'); return; }
+    if (!rentalForm.motorcycleId) { toast.error('Selecione uma moto.'); return; }
+    if (!validatePositiveNumber(rentalForm.weeklyValue)) { toast.error('Valor semanal deve ser maior que zero.'); return; }
 
     try {
       const startDate = new Date();
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + rentalForm.contractDurationMonths);
-      const { contractDurationMonths, ...rentalData } = rentalForm;
-      await createRental({ ...rentalData, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], isActive: true, outstandingBalance: 0, totalContractValue: 0, totalPaid: 0 });
+      const { contractDurationMonths, customDuration, ...rentalData } = rentalForm;
+      await createRental({ ...rentalData, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], isActive: true, outstandingBalance: 0 });
       setView('LIST');
-      setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1, contractDurationMonths: 12 });
+      setRentalForm({ subscriberId: '', motorcycleId: '', weeklyValue: 250, dueDayOfWeek: 1, contractDurationMonths: 12, customDuration: false });
+      toast.success('Aluguel criado com sucesso!');
     } catch (error: any) {
-      setAlertDialog({ message: error.message ?? 'Erro ao criar aluguel. Tente novamente.', variant: 'error' });
+      toast.error(error.message ?? 'Erro ao criar aluguel. Tente novamente.');
     }
   };
 
@@ -1044,7 +1047,7 @@ export const Subscribers: React.FC = () => {
     try {
       await deleteSubscriber(id);
     } catch (error: any) {
-      setAlertDialog({ message: `Erro ao excluir assinante: ${error.message}`, variant: 'error', title: 'Erro ao excluir' });
+      toast.error(`Erro ao excluir assinante: ${error.message}`);
     }
   };
 
@@ -1062,10 +1065,10 @@ export const Subscribers: React.FC = () => {
     try {
       await terminateRental(terminatingRental.rentalId, terminateReason.trim() || 'Rescisão de contrato');
       setTerminatingRental(null);
-      setAlertDialog({ message: 'Contrato rescindido com sucesso! A moto foi liberada e os pagamentos futuros foram cancelados.', variant: 'success', title: 'Contrato Rescindido' });
+      toast.success('Contrato rescindido com sucesso! A moto foi liberada e os pagamentos futuros foram cancelados.');
     } catch (error: any) {
       setTerminatingRental(null);
-      setAlertDialog({ message: `Erro ao rescindir contrato: ${error.message}`, variant: 'error' });
+      toast.error(`Erro ao rescindir contrato: ${error.message}`);
     } finally {
       setIsTerminating(false);
     }
@@ -1073,8 +1076,6 @@ export const Subscribers: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <AlertDialog isOpen={!!alertDialog} message={alertDialog?.message ?? ''} variant={alertDialog?.variant} title={alertDialog?.title} onClose={() => setAlertDialog(null)} />
-
       <ConfirmDialog
         isOpen={!!terminatingRental}
         title="Rescindir Contrato"
@@ -1251,14 +1252,43 @@ export const Subscribers: React.FC = () => {
               </div>
             </div>
             <div>
-              <label htmlFor="duration" className="block text-sm font-medium text-slate-700 mb-1">Duração do Contrato</label>
-              <select id="duration" required value={rentalForm.contractDurationMonths} onChange={e => setRentalForm({ ...rentalForm, contractDurationMonths: Number(e.target.value) })} className="w-full border border-slate-300 rounded-lg p-3 bg-white">
-                <option value={6}>6 meses</option>
-                <option value={12}>1 ano (12 meses)</option>
-                <option value={18}>18 meses</option>
-                <option value={24}>2 anos (24 meses)</option>
-                <option value={36}>3 anos (36 meses)</option>
-              </select>
+              <label htmlFor="duration" className="block text-sm font-medium text-slate-700 mb-1">Duração do Contrato (em meses)</label>
+              {!rentalForm.customDuration ? (
+                <select id="duration" required value={rentalForm.contractDurationMonths} onChange={e => {
+                  const val = e.target.value;
+                  if (val === 'custom') {
+                    setRentalForm({ ...rentalForm, customDuration: true, contractDurationMonths: 1 });
+                  } else {
+                    setRentalForm({ ...rentalForm, contractDurationMonths: Number(val) });
+                  }
+                }} className="w-full border border-slate-300 rounded-lg p-3 bg-white">
+                  <option value={6}>6 meses</option>
+                  <option value={12}>1 ano (12 meses)</option>
+                  <option value={18}>18 meses</option>
+                  <option value={24}>2 anos (24 meses)</option>
+                  <option value={36}>3 anos (36 meses)</option>
+                  <option value="custom">Personalizado...</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={rentalForm.contractDurationMonths}
+                    onChange={e => setRentalForm({ ...rentalForm, contractDurationMonths: parseInt(e.target.value) || 1 })}
+                    className="flex-1 border border-slate-300 rounded-lg p-3 bg-white text-sm"
+                    placeholder="Ex: 8 meses"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRentalForm({ ...rentalForm, customDuration: false, contractDurationMonths: 12 })}
+                    className="px-3 py-2 text-xs text-slate-500 hover:bg-slate-100 rounded-lg border border-slate-300"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              )}
             </div>
             <div className="space-y-3">
               <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-sm text-blue-800">

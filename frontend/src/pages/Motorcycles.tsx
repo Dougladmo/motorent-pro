@@ -3,9 +3,9 @@ import { useApp } from '../context/AppContext';
 import { MotorcycleStatus, Motorcycle } from '../shared';
 import { supabase } from '../lib/supabase';
 import { Plus } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Modal } from '../components/Modal';
-import { AlertDialog } from '../components/AlertDialog';
-import { validatePlate, validateYear, formatPlate } from '../shared';
+import { validatePlate, validateYear, validateChassi, validateRenavam, formatPlate } from '../shared';
 import { MotorcycleGrid } from '../entities/motorcycle/ui/MotorcycleGrid';
 import { ImageUploadField } from '../shared/ui/molecules/ImageUploadField';
 import { ImageViewer } from '../shared/ui/molecules/ImageViewer';
@@ -17,7 +17,7 @@ export const Motorcycles: React.FC = () => {
   const { motorcycles, subscribers, loading, addMotorcycle, updateMotorcycle, deleteMotorcycle, createRental } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMoto, setEditingMoto] = useState<Motorcycle | null>(null);
-  const [newMoto, setNewMoto] = useState({ plate: '', model: '', year: 2024 });
+  const [newMoto, setNewMoto] = useState({ plate: '', chassi: '', renavam: '', model: '', year: 2024, mileage: 0 });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -31,10 +31,10 @@ export const Motorcycles: React.FC = () => {
     startDate: new Date().toISOString().split('T')[0],
     weeklyValue: '',
     dueDayOfWeek: new Date().getDay() || 7,
-    contractDurationMonths: 12
+    contractDurationMonths: 12,
+    customDuration: false
   });
   const [isCreatingRental, setIsCreatingRental] = useState(false);
-  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' | 'warning' | 'info' } | null>(null);
 
   const handleOpenRentalModal = (moto: Motorcycle) => {
     setRentalMoto(moto);
@@ -42,7 +42,9 @@ export const Motorcycles: React.FC = () => {
       subscriberId: '',
       startDate: new Date().toISOString().split('T')[0],
       weeklyValue: '',
-      dueDayOfWeek: new Date().getDay() || 7
+      dueDayOfWeek: new Date().getDay() || 7,
+      contractDurationMonths: 12,
+      customDuration: false
     });
   };
 
@@ -72,8 +74,9 @@ export const Motorcycles: React.FC = () => {
         outstandingBalance: 0
       });
       handleCloseRentalModal();
+      toast.success('Aluguel criado com sucesso!');
     } catch (error) {
-      setAlertDialog({ message: `Erro ao criar aluguel: ${error instanceof Error ? error.message : 'Erro desconhecido'}`, variant: 'error' });
+      toast.error(`Erro ao criar aluguel: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsCreatingRental(false);
     }
@@ -105,17 +108,27 @@ export const Motorcycles: React.FC = () => {
 
     // Validate inputs
     if (!validatePlate(motoData.plate)) {
-      setAlertDialog({ message: 'Placa inválida. Use o formato ABC-1234 ou ABC1D23.', variant: 'warning' });
+      toast.error('Placa inválida. Use o formato ABC-1234 ou ABC1D23.');
       return;
     }
 
     if (!validateYear(motoData.year)) {
-      setAlertDialog({ message: 'Ano inválido.', variant: 'warning' });
+      toast.error('Ano inválido.');
       return;
     }
 
     if (!motoData.model.trim()) {
-      setAlertDialog({ message: 'Modelo é obrigatório.', variant: 'warning' });
+      toast.error('Modelo é obrigatório.');
+      return;
+    }
+
+    if (!validateChassi(motoData.chassi)) {
+      toast.error('Chassi inválido. Deve conter 17 caracteres alfanuméricos.');
+      return;
+    }
+
+    if (!validateRenavam(motoData.renavam)) {
+      toast.error('RENAVAM inválido. Deve conter 11 dígitos.');
       return;
     }
 
@@ -129,8 +142,11 @@ export const Motorcycles: React.FC = () => {
           const formData = new FormData();
           formData.append('image', selectedImage);
           formData.append('plate', formatPlate(motoData.plate));
+          formData.append('chassi', motoData.chassi.toUpperCase());
+          formData.append('renavam', motoData.renavam.replace(/\D/g, ''));
           formData.append('model', motoData.model);
           formData.append('year', motoData.year.toString());
+          formData.append('mileage', motoData.mileage.toString());
           formData.append('status', editingMoto.status);
 
           const { data: { session } } = await supabase.auth.getSession();
@@ -151,11 +167,15 @@ export const Motorcycles: React.FC = () => {
           // Atualizar sem mudar imagem
           await updateMotorcycle(editingMoto.id, {
             plate: formatPlate(motoData.plate),
+            chassi: motoData.chassi.toUpperCase(),
+            renavam: motoData.renavam.replace(/\D/g, ''),
             model: motoData.model,
             year: motoData.year,
+            mileage: motoData.mileage,
             status: editingMoto.status
           });
         }
+        toast.success('Moto atualizada com sucesso!');
       } else {
         // Modo criação
         if (selectedImage) {
@@ -163,8 +183,11 @@ export const Motorcycles: React.FC = () => {
           const formData = new FormData();
           formData.append('image', selectedImage);
           formData.append('plate', formatPlate(newMoto.plate));
+          formData.append('chassi', newMoto.chassi.toUpperCase());
+          formData.append('renavam', newMoto.renavam.replace(/\D/g, ''));
           formData.append('model', newMoto.model);
           formData.append('year', newMoto.year.toString());
+          formData.append('mileage', newMoto.mileage.toString());
           formData.append('status', MotorcycleStatus.AVAILABLE);
 
           // Enviar para API
@@ -186,25 +209,28 @@ export const Motorcycles: React.FC = () => {
           addMotorcycle(result.data);
         } else {
           // Criar sem imagem (comportamento original)
-          addMotorcycle({
+          await addMotorcycle({
             ...newMoto,
             plate: formatPlate(newMoto.plate),
+            chassi: newMoto.chassi.toUpperCase(),
+            renavam: newMoto.renavam.replace(/\D/g, ''),
             status: MotorcycleStatus.AVAILABLE,
             totalRevenue: 0,
             revenueHistory: []
           });
         }
+        toast.success('Moto cadastrada com sucesso!');
       }
 
       // Reset form
       setIsModalOpen(false);
       setEditingMoto(null);
-      setNewMoto({ plate: '', model: '', year: new Date().getFullYear() });
+      setNewMoto({ plate: '', chassi: '', renavam: '', model: '', year: new Date().getFullYear(), mileage: 0 });
       setSelectedImage(null);
       setImagePreview(null);
     } catch (error) {
       console.error('Erro ao salvar moto:', error);
-      setAlertDialog({ message: `Erro ao salvar moto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`, variant: 'error' });
+      toast.error(`Erro ao salvar moto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsUploading(false);
     }
@@ -220,7 +246,7 @@ export const Motorcycles: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingMoto(null);
-    setNewMoto({ plate: '', model: '', year: new Date().getFullYear() });
+    setNewMoto({ plate: '', chassi: '', renavam: '', model: '', year: new Date().getFullYear(), mileage: 0 });
     setSelectedImage(null);
     setImagePreview(null);
     setKeepCurrentImage(true);
@@ -228,12 +254,6 @@ export const Motorcycles: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <AlertDialog
-        isOpen={!!alertDialog}
-        message={alertDialog?.message ?? ''}
-        variant={alertDialog?.variant}
-        onClose={() => setAlertDialog(null)}
-      />
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Motos</h2>
@@ -311,18 +331,47 @@ export const Motorcycles: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Duração do Contrato</label>
-            <select
-              value={rentalForm.contractDurationMonths}
-              onChange={e => setRentalForm(f => ({ ...f, contractDurationMonths: parseInt(e.target.value) }))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value={6}>6 meses</option>
-              <option value={12}>1 ano (12 meses)</option>
-              <option value={18}>18 meses</option>
-              <option value={24}>2 anos (24 meses)</option>
-              <option value={36}>3 anos (36 meses)</option>
-            </select>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Duração do Contrato (em meses)</label>
+            {!rentalForm.customDuration ? (
+              <select
+                value={rentalForm.contractDurationMonths}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === 'custom') {
+                    setRentalForm(f => ({ ...f, customDuration: true, contractDurationMonths: 1 }));
+                  } else {
+                    setRentalForm(f => ({ ...f, contractDurationMonths: parseInt(val) }));
+                  }
+                }}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={6}>6 meses</option>
+                <option value={12}>1 ano (12 meses)</option>
+                <option value={18}>18 meses</option>
+                <option value={24}>2 anos (24 meses)</option>
+                <option value={36}>3 anos (36 meses)</option>
+                <option value="custom">Personalizado...</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={rentalForm.contractDurationMonths}
+                  onChange={e => setRentalForm(f => ({ ...f, contractDurationMonths: parseInt(e.target.value) || 1 }))}
+                  className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ex: 8 meses"
+                />
+                <button
+                  type="button"
+                  onClick={() => setRentalForm(f => ({ ...f, customDuration: false, contractDurationMonths: 12 }))}
+                  className="px-3 py-2 text-xs text-slate-500 hover:bg-slate-100 rounded-lg border border-slate-200"
+                >
+                  Voltar
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 mt-6">
@@ -368,7 +417,7 @@ export const Motorcycles: React.FC = () => {
               imagePreview={imagePreview}
               onImageSelect={handleImageSelect}
               onImageRemove={handleRemoveImage}
-              onError={(msg) => setAlertDialog({ message: msg, variant: 'warning' })}
+              onError={(msg) => toast.error(msg)}
               editMode={!!editingMoto}
               hasNewImage={!!selectedImage}
             />
@@ -398,6 +447,46 @@ export const Motorcycles: React.FC = () => {
                     ? setEditingMoto({...editingMoto, year: parseInt(e.target.value) || new Date().getFullYear()})
                     : setNewMoto({...newMoto, year: parseInt(e.target.value) || new Date().getFullYear()})}
                 />
+            </div>
+
+            <FormInput
+              id="chassi"
+              label="Chassi"
+              required
+              maxLength={17}
+              value={editingMoto?.chassi || newMoto.chassi}
+              onChange={e => editingMoto
+                ? setEditingMoto({...editingMoto, chassi: e.target.value.toUpperCase()})
+                : setNewMoto({...newMoto, chassi: e.target.value.toUpperCase()})}
+              placeholder="9BWZZZ377VT004251"
+              className="uppercase font-mono"
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormInput
+                id="renavam"
+                label="RENAVAM"
+                required
+                maxLength={11}
+                value={editingMoto?.renavam || newMoto.renavam}
+                onChange={e => editingMoto
+                  ? setEditingMoto({...editingMoto, renavam: e.target.value.replace(/\D/g, '')})
+                  : setNewMoto({...newMoto, renavam: e.target.value.replace(/\D/g, '')})}
+                placeholder="00000000000"
+                className="font-mono"
+              />
+              <FormInput
+                id="mileage"
+                label="Quilometragem (km)"
+                type="number"
+                required
+                min={0}
+                value={editingMoto?.mileage ?? newMoto.mileage}
+                onChange={e => editingMoto
+                  ? setEditingMoto({...editingMoto, mileage: parseInt(e.target.value) || 0})
+                  : setNewMoto({...newMoto, mileage: parseInt(e.target.value) || 0})}
+                placeholder="0"
+              />
             </div>
             <div className="flex justify-end gap-3 mt-6">
                 <button

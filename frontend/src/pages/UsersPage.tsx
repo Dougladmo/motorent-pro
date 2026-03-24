@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserPlus, Trash2, Shield, User } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { userApi, AdminUser } from '../services/api';
-import { AlertDialog } from '../components/AlertDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export const UsersPage: React.FC = () => {
@@ -12,7 +12,6 @@ export const UsersPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [alertDialog, setAlertDialog] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const loadUsers = async () => {
@@ -55,18 +54,12 @@ export const UsersPage: React.FC = () => {
       setUsers((prev) => prev.filter((u) => u.id !== id));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao remover usuário';
-      setAlertDialog({ message: msg, variant: 'error' });
+      toast.error(msg);
     }
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <AlertDialog
-        isOpen={!!alertDialog}
-        message={alertDialog?.message ?? ''}
-        variant={alertDialog?.variant}
-        onClose={() => setAlertDialog(null)}
-      />
       <ConfirmDialog
         isOpen={!!deletingUserId}
         title="Remover Usuário"

@@ -82,7 +82,7 @@ export class MotorcycleController {
         return;
       }
 
-      const { plate, model, year, status } = req.body;
+      const { plate, model, year, status, chassi, renavam, mileage } = req.body;
 
       if (!plate) {
         res.status(400).json({ success: false, error: 'Placa da moto é obrigatória.' });
@@ -94,6 +94,14 @@ export class MotorcycleController {
       }
       if (!year) {
         res.status(400).json({ success: false, error: 'Ano da moto é obrigatório.' });
+        return;
+      }
+      if (!chassi) {
+        res.status(400).json({ success: false, error: 'Chassi da moto é obrigatório.' });
+        return;
+      }
+      if (!renavam) {
+        res.status(400).json({ success: false, error: 'RENAVAM da moto é obrigatório.' });
         return;
       }
       const parsedYear = parseInt(year);
@@ -112,8 +120,11 @@ export class MotorcycleController {
       // Criar moto com URL da imagem
       const motorcycleData = {
         plate,
+        chassi,
+        renavam,
         model,
         year: parsedYear,
+        mileage: mileage ? parseInt(mileage) : 0,
         status: status || 'Disponível',
         image_url: imageUrl
       };
@@ -153,15 +164,18 @@ export class MotorcycleController {
       );
 
       // 3. Preparar dados para atualização (incluir dados da moto se fornecidos)
-      const { plate, model, year, status } = req.body;
+      const { plate, model, year, status, chassi, renavam, mileage } = req.body;
       const updateData: any = {
         image_url: imageUrl
       };
 
       // Adicionar outros campos se foram fornecidos
       if (plate) updateData.plate = plate;
+      if (chassi) updateData.chassi = chassi;
+      if (renavam) updateData.renavam = renavam;
       if (model) updateData.model = model;
       if (year) updateData.year = parseInt(year);
+      if (mileage !== undefined) updateData.mileage = parseInt(mileage);
       if (status) updateData.status = status;
 
       // 4. Atualizar registro com nova imagem e outros dados

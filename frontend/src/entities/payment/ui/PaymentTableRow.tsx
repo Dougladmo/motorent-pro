@@ -113,7 +113,6 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     lock(payment.reminderSentCount); // bloqueia com base no envio atual
   }
   const { totalDebt, totalOverdue, overdueCount, hasOverdue, subscriberId } = subscriberInfo;
-  const showTotalDebt = hasOverdue && effectiveStatus !== PaymentStatus.PAID;
 
   // Pagamento acumulado: amount > expectedAmount (ex: R$500 com semanal R$250 = 2 semanas)
   const isAccumulated = payment.amount > payment.expectedAmount && !payment.isAmountOverridden;
@@ -130,6 +129,7 @@ export const PaymentTableRow: React.FC<PaymentTableRowProps> = ({
     return earliest < today ? PaymentStatus.OVERDUE : payment.status;
   })();
 
+  const showTotalDebt = hasOverdue && effectiveStatus !== PaymentStatus.PAID;
   const hasPix = !!payment.pixBrCode && (effectiveStatus === PaymentStatus.PENDING || effectiveStatus === PaymentStatus.OVERDUE);
 
   function handleCopyPix() {

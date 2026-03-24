@@ -22,8 +22,11 @@ export interface Database {
         Row: {
           id: string;
           plate: string;
+          chassi: string;
+          renavam: string;
           model: string;
           year: number;
+          mileage: number;
           status: DbMotorcycleStatus;
           image_url: string | null;
           total_revenue: number;
@@ -33,8 +36,11 @@ export interface Database {
         Insert: {
           id?: string;
           plate: string;
+          chassi: string;
+          renavam: string;
           model: string;
           year: number;
+          mileage?: number;
           status?: DbMotorcycleStatus;
           image_url?: string | null;
           total_revenue?: number;
@@ -44,8 +50,11 @@ export interface Database {
         Update: {
           id?: string;
           plate?: string;
+          chassi?: string;
+          renavam?: string;
           model?: string;
           year?: number;
+          mileage?: number;
           status?: DbMotorcycleStatus;
           image_url?: string | null;
           total_revenue?: number;

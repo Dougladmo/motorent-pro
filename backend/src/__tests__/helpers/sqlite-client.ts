@@ -24,8 +24,11 @@ function initSchema(database: Database.Database): void {
     CREATE TABLE IF NOT EXISTS motorcycles (
       id TEXT PRIMARY KEY,
       plate TEXT NOT NULL UNIQUE,
+      chassi TEXT NOT NULL DEFAULT '',
+      renavam TEXT NOT NULL DEFAULT '',
       model TEXT NOT NULL,
       year INTEGER NOT NULL,
+      mileage INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'Disponível',
       image_url TEXT,
       total_revenue REAL NOT NULL DEFAULT 0,

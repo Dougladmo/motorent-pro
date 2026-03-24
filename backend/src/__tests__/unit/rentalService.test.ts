@@ -66,8 +66,11 @@ function makeMotorcycle(overrides: Partial<Motorcycle> = {}): Motorcycle {
   return {
     id: 'moto-1',
     plate: 'ABC1234',
+    chassi: '9BWZZZ377VT004251',
+    renavam: '12345678901',
     model: 'Honda CG 160',
     year: 2022,
+    mileage: 15000,
     status: 'Disponível',
     image_url: null,
     total_revenue: 0,

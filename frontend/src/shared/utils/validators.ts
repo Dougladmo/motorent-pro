@@ -73,3 +73,20 @@ export const validateYear = (year: number): boolean => {
 export const validatePositiveNumber = (value: number): boolean => {
   return !isNaN(value) && value > 0;
 };
+
+/**
+ * Validate Brazilian vehicle chassis number (VIN)
+ * Must be exactly 17 alphanumeric characters (no I, O, Q)
+ */
+export const validateChassi = (chassi: string): boolean => {
+  const cleaned = chassi.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  return /^[A-HJ-NPR-Z0-9]{17}$/.test(cleaned);
+};
+
+/**
+ * Validate Brazilian RENAVAM number (11 digits)
+ */
+export const validateRenavam = (renavam: string): boolean => {
+  const cleaned = renavam.replace(/\D/g, '');
+  return cleaned.length === 11;
+};
