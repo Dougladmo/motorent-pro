@@ -77,6 +77,9 @@ beforeEach(() => {
   // Set rental outstanding_balance to 500 (simulates 2 unpaid payments)
   db.prepare('UPDATE rentals SET outstanding_balance = 500, total_paid = 0 WHERE id = ?')
     .run(seedData.rental1Id);
+
+  // Reset NODE_ENV to test (não production) para os testes normais
+  process.env.NODE_ENV = 'test';
 });
 
 afterAll(() => {
@@ -87,7 +90,7 @@ afterAll(() => {
 function billingPaidPayload(paymentId: string, amountCents: number, pixId = 'pix_char_TEST123') {
   return {
     event: 'billing.paid',
-    devMode: true,
+    devMode: false,
     id: 'log_test',
     data: {
       payment: { amount: amountCents, fee: 80, method: 'PIX' },
@@ -103,8 +106,8 @@ function billingPaidPayload(paymentId: string, amountCents: number, pixId = 'pix
 }
 
 describe('handleAbacateWebhook', () => {
-  describe('autenticação', () => {
-    it('rejeita requisição sem webhookSecret', async () => {
+  describe('autenticacao', () => {
+    it('rejeita requisicao sem webhookSecret', async () => {
       const req = makeReq({ body: { event: 'billing.paid' }, query: {} });
       const res = makeRes();
 
@@ -114,7 +117,7 @@ describe('handleAbacateWebhook', () => {
       expect(res.json).toHaveBeenCalledWith({ error: 'Unauthorized' });
     });
 
-    it('rejeita requisição com webhookSecret incorreto', async () => {
+    it('rejeita requisicao com webhookSecret incorreto', async () => {
       const req = makeReq({ body: { event: 'billing.paid' }, query: { webhookSecret: 'wrong-secret' } });
       const res = makeRes();
 
@@ -123,7 +126,7 @@ describe('handleAbacateWebhook', () => {
       expect(res.status).toHaveBeenCalledWith(401);
     });
 
-    it('aceita requisição com webhookSecret correto', async () => {
+    it('aceita requisicao com webhookSecret correto', async () => {
       const req = makeReq({
         body: billingPaidPayload(seedData.payment2Id, 300_00),
         query: { webhookSecret: WEBHOOK_SECRET }
@@ -171,8 +174,8 @@ describe('handleAbacateWebhook', () => {
       expect(payment.pix_payment_url).toBe(`https://app.abacatepay.com/receipt/${pixId}`);
     });
 
-    it('é idempotente: ignora evento duplicado para pagamento já Pago', async () => {
-      // payment1Id já está Pago no seed
+    it('e idempotente: ignora evento duplicado para pagamento ja Pago', async () => {
+      // payment1Id ja esta Pago no seed
       const req = makeReq({
         body: billingPaidPayload(seedData.payment1Id, 300_00),
         query: { webhookSecret: WEBHOOK_SECRET }
@@ -181,7 +184,7 @@ describe('handleAbacateWebhook', () => {
 
       await handleAbacateWebhook(req, res as never);
 
-      // Deve continuar Pago sem lançar erro
+      // Deve continuar Pago sem lancar erro
       const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment1Id) as { status: string };
       expect(payment.status).toBe('Pago');
     });
@@ -190,6 +193,7 @@ describe('handleAbacateWebhook', () => {
       const req = makeReq({
         body: {
           event: 'billing.paid',
+          devMode: false,
           data: {
             payment: { amount: 300_00 },
             pixQrCode: { id: 'pix_NOMETADATA', amount: 300_00, metadata: {} }
@@ -213,13 +217,303 @@ describe('handleAbacateWebhook', () => {
       });
       const res = makeRes();
 
-      // Não deve lançar exceção
+      // Nao deve lancar excecao
       await expect(handleAbacateWebhook(req, res as never)).resolves.not.toThrow();
     });
   });
 
-  describe('billing.paid - pagamento parcial (prevenção de golpe)', () => {
-    it('NÃO marca como Pago quando valor pago é menor que o esperado', async () => {
+  // =========================================================================
+  // SEGURANCA: Testes criticos para prevenir marcacao falsa como Pago
+  // Bug corrigido: webhook aceitava pixData.amount como fallback quando
+  // data.payment.amount estava ausente, permitindo marcar como pago sem
+  // confirmacao real do gateway.
+  // =========================================================================
+  describe('billing.paid - SEGURANCA: rejeitar payload sem data.payment.amount', () => {
+    it('REJEITA billing.paid quando data.payment esta ausente (campo obrigatorio)', async () => {
+      const req = makeReq({
+        body: {
+          event: 'billing.paid',
+          devMode: false,
+          data: {
+            // SEM data.payment — apenas pixQrCode com amount (valor solicitado, NAO pago)
+            pixQrCode: {
+              id: 'pix_char_FAKE',
+              amount: 300_00,
+              kind: 'PIX',
+              status: 'PAID',
+              metadata: { paymentId: seedData.payment2Id }
+            }
+          }
+        },
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      // Pagamento DEVE permanecer Pendente — NAO pode virar Pago
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+    });
+
+    it('REJEITA billing.paid quando data.payment.amount e undefined', async () => {
+      const req = makeReq({
+        body: {
+          event: 'billing.paid',
+          devMode: false,
+          data: {
+            payment: { fee: 80, method: 'PIX' }, // amount ausente/undefined
+            pixQrCode: {
+              id: 'pix_char_NOVAL',
+              amount: 300_00,
+              metadata: { paymentId: seedData.payment2Id }
+            }
+          }
+        },
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+    });
+
+    it('REJEITA billing.paid quando data.payment.amount e null', async () => {
+      const req = makeReq({
+        body: {
+          event: 'billing.paid',
+          devMode: false,
+          data: {
+            payment: { amount: null, fee: 80, method: 'PIX' },
+            pixQrCode: {
+              id: 'pix_char_NULL',
+              amount: 300_00,
+              metadata: { paymentId: seedData.payment2Id }
+            }
+          }
+        },
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+    });
+
+    it('REJEITA billing.paid quando data.payment.amount e zero', async () => {
+      const req = makeReq({
+        body: {
+          event: 'billing.paid',
+          devMode: false,
+          data: {
+            payment: { amount: 0, fee: 0, method: 'PIX' },
+            pixQrCode: {
+              id: 'pix_char_ZERO',
+              amount: 300_00,
+              metadata: { paymentId: seedData.payment2Id }
+            }
+          }
+        },
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+    });
+
+    it('REJEITA billing.paid quando data.payment.amount e negativo', async () => {
+      const req = makeReq({
+        body: {
+          event: 'billing.paid',
+          devMode: false,
+          data: {
+            payment: { amount: -300_00, fee: 0, method: 'PIX' },
+            pixQrCode: {
+              id: 'pix_char_NEG',
+              amount: 300_00,
+              metadata: { paymentId: seedData.payment2Id }
+            }
+          }
+        },
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+    });
+
+    it('REJEITA billing.paid quando data.payment.amount e string (tipo invalido)', async () => {
+      const req = makeReq({
+        body: {
+          event: 'billing.paid',
+          devMode: false,
+          data: {
+            payment: { amount: '30000' as unknown, fee: 80, method: 'PIX' },
+            pixQrCode: {
+              id: 'pix_char_STR',
+              amount: 300_00,
+              metadata: { paymentId: seedData.payment2Id }
+            }
+          }
+        },
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+    });
+
+    it('REJEITA formato legado pix.paid sem data.payment (apenas data no nivel raiz)', async () => {
+      const req = makeReq({
+        body: {
+          event: 'pix.paid',
+          devMode: false,
+          data: {
+            // Formato legado: campos diretamente em data, sem data.payment
+            id: 'pix_LEGACY',
+            amount: 300_00,
+            status: 'PAID',
+            metadata: { paymentId: seedData.payment2Id }
+          }
+        },
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+    });
+  });
+
+  describe('billing.paid - SEGURANCA: validacao de PIX ID (cross-reference)', () => {
+    it('REJEITA quando pixId do webhook nao bate com abacate_pix_id do pagamento', async () => {
+      // Configurar pagamento com um abacate_pix_id especifico
+      db.prepare('UPDATE payments SET abacate_pix_id = ? WHERE id = ?')
+        .run('pix_char_ORIGINAL', seedData.payment2Id);
+
+      const req = makeReq({
+        body: billingPaidPayload(seedData.payment2Id, 300_00, 'pix_char_DIFERENTE'),
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+    });
+
+    it('ACEITA quando pixId do webhook bate com abacate_pix_id do pagamento', async () => {
+      const pixId = 'pix_char_MATCH';
+      db.prepare('UPDATE payments SET abacate_pix_id = ? WHERE id = ?')
+        .run(pixId, seedData.payment2Id);
+
+      const req = makeReq({
+        body: billingPaidPayload(seedData.payment2Id, 300_00, pixId),
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pago');
+    });
+
+    it('ACEITA quando pagamento nao tem abacate_pix_id (PIX novo/regenerado)', async () => {
+      // Pagamento sem abacate_pix_id (null) — aceita qualquer pixId
+      db.prepare('UPDATE payments SET abacate_pix_id = NULL WHERE id = ?')
+        .run(seedData.payment2Id);
+
+      const req = makeReq({
+        body: billingPaidPayload(seedData.payment2Id, 300_00, 'pix_char_QUALQUER'),
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pago');
+    });
+  });
+
+  describe('billing.paid - SEGURANCA: rejeitar devMode em producao', () => {
+    it('REJEITA evento devMode=true quando NODE_ENV=production', async () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      const payload = billingPaidPayload(seedData.payment2Id, 300_00);
+      payload.devMode = true;
+
+      const req = makeReq({
+        body: payload,
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pendente');
+
+      process.env.NODE_ENV = originalEnv;
+    });
+
+    it('ACEITA evento devMode=true quando NODE_ENV != production (ambiente de teste)', async () => {
+      process.env.NODE_ENV = 'test';
+
+      const payload = billingPaidPayload(seedData.payment2Id, 300_00);
+      payload.devMode = true;
+
+      const req = makeReq({
+        body: payload,
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pago');
+    });
+
+    it('ACEITA evento devMode=false em producao normalmente', async () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      const req = makeReq({
+        body: billingPaidPayload(seedData.payment2Id, 300_00),
+        query: { webhookSecret: WEBHOOK_SECRET }
+      });
+      const res = makeRes();
+
+      await handleAbacateWebhook(req, res as never);
+
+      const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
+      expect(payment.status).toBe('Pago');
+
+      process.env.NODE_ENV = originalEnv;
+    });
+  });
+
+  describe('billing.paid - pagamento parcial (prevencao de golpe)', () => {
+    it('NAO marca como Pago quando valor pago e menor que o esperado', async () => {
       // payment2 espera R$ 300,00; pagamento parcial de R$ 150,00
       const req = makeReq({
         body: billingPaidPayload(seedData.payment2Id, 150_00),
@@ -234,8 +528,8 @@ describe('handleAbacateWebhook', () => {
       expect(payment.status).not.toBe('Pago');
     });
 
-    it('NÃO marca como Pago quando valor pago é maior que o esperado', async () => {
-      // Proteção contra overpay que poderia ser fraude
+    it('NAO marca como Pago quando valor pago e maior que o esperado', async () => {
+      // Protecao contra overpay que poderia ser fraude
       const req = makeReq({
         body: billingPaidPayload(seedData.payment2Id, 999_00),
         query: { webhookSecret: WEBHOOK_SECRET }
@@ -266,12 +560,12 @@ describe('handleAbacateWebhook', () => {
       expect(rental.total_paid).toBe(150);
     });
 
-    it('cenário: deve R$ 750, paga R$ 250 num PIX antigo → deve R$ 500', async () => {
+    it('cenario: deve R$ 750, paga R$ 250 num PIX antigo -> deve R$ 500', async () => {
       // Configurar outstanding_balance = 750
       db.prepare('UPDATE rentals SET outstanding_balance = 750, total_paid = 0 WHERE id = ?')
         .run(seedData.rental1Id);
 
-      // Pagamento parcial de R$ 250 num pagamento de R$ 300 (valor diferente → parcial)
+      // Pagamento parcial de R$ 250 num pagamento de R$ 300 (valor diferente -> parcial)
       const req = makeReq({
         body: billingPaidPayload(seedData.payment2Id, 250_00),
         query: { webhookSecret: WEBHOOK_SECRET }
@@ -280,7 +574,7 @@ describe('handleAbacateWebhook', () => {
 
       await handleAbacateWebhook(req, res as never);
 
-      // Status da cobrança permanece inalterado
+      // Status da cobranca permanece inalterado
       const payment = db.prepare('SELECT status FROM payments WHERE id = ?').get(seedData.payment2Id) as { status: string };
       expect(payment.status).toBe('Pendente');
 
@@ -291,7 +585,7 @@ describe('handleAbacateWebhook', () => {
       expect(rental.outstanding_balance).toBe(500);
     });
 
-    it('não permite outstanding_balance ficar negativo em pagamento parcial excessivo', async () => {
+    it('nao permite outstanding_balance ficar negativo em pagamento parcial excessivo', async () => {
       // outstanding_balance = 100, pagamento parcial de R$ 200
       db.prepare('UPDATE rentals SET outstanding_balance = 100, total_paid = 0 WHERE id = ?')
         .run(seedData.rental1Id);

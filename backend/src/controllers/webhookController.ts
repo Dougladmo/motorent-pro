@@ -53,17 +53,43 @@ export async function handleAbacateWebhook(req: Request, res: Response): Promise
 
   // Processar evento de forma assíncrona
   try {
-    const { event, data } = req.body as { event: string; devMode?: boolean; data: BillingPaidData };
+    const { event, devMode, data } = req.body as { event: string; devMode?: boolean; data: BillingPaidData };
+
+    // SEGURANÇA: Rejeitar eventos de teste/devMode em produção
+    if (devMode && process.env.NODE_ENV === 'production') {
+      console.warn(`[Webhook] REJEITADO: evento devMode=true em produção. Evento: ${event}`);
+      return;
+    }
 
     // Normalizar estrutura entre billing.paid (data.pixQrCode) e pix.paid legado (data diretamente)
     const pixData = data?.pixQrCode ?? data;
     const pixId = pixData?.id;
-    const paidAmountCents = data?.payment?.amount ?? pixData?.amount;
     const metadata = data?.pixQrCode?.metadata ?? data?.metadata;
 
-    console.log(`[Webhook] Evento recebido: ${event} | PIX ID: ${pixId}`);
+    console.log(`[Webhook] Evento recebido: ${event} | PIX ID: ${pixId} | devMode: ${devMode ?? false}`);
 
     if (event === 'billing.paid' || event === 'pix.paid') {
+      // SEGURANÇA: Exigir data.payment.amount (valor REAL confirmado pelo gateway).
+      // NUNCA usar pixData.amount como fallback — ele contém o valor SOLICITADO na cobrança,
+      // não o valor efetivamente pago. Usar como fallback permite marcar como pago sem pagamento real.
+      const paidAmountCents = data?.payment?.amount;
+
+      if (paidAmountCents === undefined || paidAmountCents === null) {
+        console.error(
+          `[Webhook] REJEITADO: billing.paid sem data.payment.amount. ` +
+          `PIX ID: ${pixId}. Payload data.payment: ${JSON.stringify(data?.payment)}. ` +
+          `Este campo é OBRIGATÓRIO para confirmar que o pagamento foi realmente processado.`
+        );
+        return;
+      }
+
+      if (typeof paidAmountCents !== 'number' || paidAmountCents <= 0) {
+        console.error(
+          `[Webhook] REJEITADO: data.payment.amount inválido: ${paidAmountCents} (tipo: ${typeof paidAmountCents}). PIX ID: ${pixId}`
+        );
+        return;
+      }
+
       const paymentId = metadata?.paymentId;
       if (!paymentId) {
         console.warn(`[Webhook] ${event} sem paymentId no metadata, ignorando`);
@@ -82,8 +108,19 @@ export async function handleAbacateWebhook(req: Request, res: Response): Promise
         return;
       }
 
-      const paidAmountBRL = (paidAmountCents ?? 0) / 100;
+      const paidAmountBRL = paidAmountCents / 100;
       const expectedAmount = payment.amount;
+
+      // SEGURANÇA: Validar que o abacate_pix_id do pagamento bate com o pixId do webhook
+      // Isso previne que um PIX de outra cobrança marque este pagamento como pago
+      if (payment.abacate_pix_id && pixId && payment.abacate_pix_id !== pixId) {
+        console.error(
+          `[Webhook] REJEITADO: PIX ID mismatch para pagamento ${paymentId}. ` +
+          `Esperado: ${payment.abacate_pix_id}, Recebido: ${pixId}. ` +
+          `Possível tentativa de fraude ou evento de cobrança desatualizada.`
+        );
+        return;
+      }
 
       // Validação de valor: pago deve ser igual ao esperado (tolerância de R$ 0,01)
       if (Math.abs(paidAmountBRL - expectedAmount) > 0.01) {
